@@ -20,14 +20,6 @@ END;
 $$ LANGUAGE plpgsql;
 
 -- ============================================
--- Helper function for RLS role checks
--- ============================================
-CREATE OR REPLACE FUNCTION get_user_role()
-RETURNS user_role AS $$
-  SELECT role FROM public.profiles WHERE id = auth.uid()
-$$ LANGUAGE sql STABLE SECURITY DEFINER;
-
--- ============================================
 -- 1. profiles
 -- ============================================
 CREATE TABLE profiles (
@@ -38,6 +30,15 @@ CREATE TABLE profiles (
   created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
+
+-- ============================================
+-- Helper function for RLS role checks
+-- (must be after profiles table creation)
+-- ============================================
+CREATE OR REPLACE FUNCTION get_user_role()
+RETURNS user_role AS $$
+  SELECT role FROM public.profiles WHERE id = auth.uid()
+$$ LANGUAGE sql STABLE SECURITY DEFINER;
 
 CREATE TRIGGER set_profiles_updated_at
   BEFORE UPDATE ON profiles
