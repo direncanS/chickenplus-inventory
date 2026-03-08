@@ -6,7 +6,6 @@ import { getActiveProfile } from '@/lib/supabase/auth-helpers';
 import { logAudit } from '@/lib/utils/audit';
 import { logger } from '@/lib/utils/logger';
 import { createOrderSchema, updateOrderStatusSchema } from '@/lib/validations/order';
-import { suggestedOrderQuantity } from '@/lib/utils/calculations';
 import { de } from '@/i18n/de';
 import { z } from 'zod';
 import { OPEN_ORDER_STATUSES } from '@/lib/constants';
@@ -20,17 +19,17 @@ export async function generateOrderSuggestions(checklistId: string) {
   if (!profile) return { error: de.auth.accountDeactivated };
 
   try {
-    // Get checklist items with missing amounts
+    // Get checklist items marked as missing
     const { data: items } = await supabase
       .from('checklist_items')
       .select(`
         id, product_id, product_name,
-        current_stock, min_stock_snapshot, min_stock_max_snapshot,
-        missing_amount_final,
+        min_stock_snapshot, min_stock_max_snapshot,
+        is_missing,
         products!inner(unit, is_active)
       `)
       .eq('checklist_id', checklistId)
-      .gt('missing_amount_final', 0);
+      .eq('is_missing', true);
 
     if (!items || items.length === 0) {
       return { success: true, data: [] };
@@ -91,11 +90,7 @@ export async function generateOrderSuggestions(checklistId: string) {
         });
       }
 
-      const quantity = suggestedOrderQuantity(
-        item.current_stock,
-        item.min_stock_snapshot,
-        item.min_stock_max_snapshot
-      );
+      const quantity = item.min_stock_max_snapshot ?? item.min_stock_snapshot ?? 1;
 
       supplierMap.get(supplierId)!.items.push({
         productId: item.product_id,

@@ -3,7 +3,7 @@
 import { useState, useRef, useCallback } from 'react';
 import { Input } from '@/components/ui/input';
 import { Checkbox } from '@/components/ui/checkbox';
-import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 import { updateChecklistItem } from '@/app/(app)/checklist/actions';
 import { toast } from 'sonner';
 import { de } from '@/i18n/de';
@@ -17,10 +17,8 @@ interface ChecklistItemRowProps {
     product_name: string;
     min_stock_snapshot: number | null;
     min_stock_max_snapshot: number | null;
-    current_stock: number | null;
-    missing_amount_calculated: number | null;
-    missing_amount_final: number | null;
-    is_missing_overridden: boolean;
+    current_stock: string | null;
+    is_missing: boolean;
     is_checked: boolean;
     products: {
       unit: string | null;
@@ -31,14 +29,9 @@ interface ChecklistItemRowProps {
 }
 
 export function ChecklistItemRow({ item, isReadOnly, onCheckChange }: ChecklistItemRowProps) {
-  const [currentStock, setCurrentStock] = useState<string>(
-    item.current_stock !== null ? String(item.current_stock) : ''
-  );
-  const [missingFinal, setMissingFinal] = useState<string>(
-    item.missing_amount_final !== null ? String(item.missing_amount_final) : ''
-  );
+  const [currentStock, setCurrentStock] = useState<string>(item.current_stock ?? '');
+  const [isMissing, setIsMissing] = useState(item.is_missing);
   const [isChecked, setIsChecked] = useState(item.is_checked);
-  const [isOverridden, setIsOverridden] = useState(item.is_missing_overridden);
   const [saving, setSaving] = useState(false);
 
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -56,20 +49,18 @@ export function ChecklistItemRow({ item, isReadOnly, onCheckChange }: ChecklistI
   const unitLabel = item.products.unit ? unitLabels[item.products.unit as keyof typeof unitLabels] ?? item.products.unit : '';
 
   const saveItem = useCallback(
-    async (stock: string, fehlt: string | undefined, checked: boolean, overridden: boolean) => {
+    async (stock: string, missing: boolean, checked: boolean) => {
       const version = ++requestVersionRef.current;
-      const stockNum = stock === '' ? null : parseFloat(stock);
 
       // Double-submit prevention
-      const valueKey = `${stock}|${fehlt}|${checked}|${overridden}`;
+      const valueKey = `${stock}|${missing}|${checked}`;
       if (valueKey === lastSavedValueRef.current) return;
 
       setSaving(true);
       const result = await updateChecklistItem({
         checklistItemId: item.id,
-        currentStock: stockNum,
-        missingAmountFinal: fehlt !== undefined && fehlt !== '' ? parseFloat(fehlt) : undefined,
-        isMissingOverridden: overridden,
+        currentStock: stock === '' ? null : stock,
+        isMissing: missing,
         isChecked: checked,
       });
 
@@ -81,58 +72,32 @@ export function ChecklistItemRow({ item, isReadOnly, onCheckChange }: ChecklistI
 
       if (result.error) {
         toast.error(de.checklist.saveFailed);
-      } else if (result.data) {
+      } else {
         lastSavedValueRef.current = valueKey;
-        // Update local state from server response
-        if (result.data.missing_amount_final !== null && !overridden) {
-          setMissingFinal(String(result.data.missing_amount_final));
-        }
       }
       setSaving(false);
     },
     [item.id]
   );
 
-  function debouncedSave(stock: string, fehlt: string | undefined, checked: boolean, overridden: boolean) {
+  function debouncedSave(stock: string, missing: boolean, checked: boolean) {
     if (debounceRef.current) clearTimeout(debounceRef.current);
     debounceRef.current = setTimeout(() => {
-      saveItem(stock, fehlt, checked, overridden);
+      saveItem(stock, missing, checked);
     }, AUTOSAVE_DEBOUNCE_MS);
   }
 
   function handleStockChange(value: string) {
     setCurrentStock(value);
-    if (!isOverridden) {
-      // Auto-calculate missing
-      const stock = value === '' ? null : parseFloat(value);
-      if (stock !== null && item.min_stock_snapshot !== null) {
-        const calc = Math.max(0, item.min_stock_snapshot - stock);
-        setMissingFinal(calc > 0 ? String(calc) : '0');
-      } else {
-        setMissingFinal('');
-      }
-    }
-    debouncedSave(value, isOverridden ? missingFinal : undefined, isChecked, isOverridden);
+    debouncedSave(value, isMissing, isChecked);
   }
 
-  function handleMissingChange(value: string) {
-    setMissingFinal(value);
-    const newOverridden = value !== '';
-    setIsOverridden(newOverridden);
-    debouncedSave(currentStock, value || undefined, isChecked, newOverridden);
-  }
-
-  function handleMissingClear() {
-    // Clear override: recalculate
-    setIsOverridden(false);
-    const stock = currentStock === '' ? null : parseFloat(currentStock);
-    if (stock !== null && item.min_stock_snapshot !== null) {
-      const calc = Math.max(0, item.min_stock_snapshot - stock);
-      setMissingFinal(calc > 0 ? String(calc) : '0');
-    } else {
-      setMissingFinal('');
-    }
-    saveItem(currentStock, undefined, isChecked, false);
+  function handleMissingToggle() {
+    const newMissing = !isMissing;
+    setIsMissing(newMissing);
+    // Save immediately on toggle
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    saveItem(currentStock, newMissing, isChecked);
   }
 
   function handleCheckToggle(checked: boolean) {
@@ -140,23 +105,21 @@ export function ChecklistItemRow({ item, isReadOnly, onCheckChange }: ChecklistI
     onCheckChange(item.id, checked);
     // Save immediately on check toggle
     if (debounceRef.current) clearTimeout(debounceRef.current);
-    saveItem(currentStock, isOverridden ? missingFinal : undefined, checked, isOverridden);
+    saveItem(currentStock, isMissing, checked);
   }
 
   function handleBlur() {
     // Immediate save on blur
     if (debounceRef.current) clearTimeout(debounceRef.current);
-    saveItem(currentStock, isOverridden ? missingFinal : undefined, isChecked, isOverridden);
+    saveItem(currentStock, isMissing, isChecked);
   }
-
-  const hasMissing = missingFinal !== '' && parseFloat(missingFinal) > 0;
 
   return (
     <div
       className={cn(
-        'grid grid-cols-[1fr_auto_60px_60px_32px] sm:grid-cols-[1fr_auto_80px_80px_32px] items-center gap-2 px-2 py-1.5 rounded-md',
+        'grid grid-cols-[1fr_80px_40px_40px] sm:grid-cols-[1fr_100px_48px_48px] items-center gap-2 px-2 py-1.5 rounded-md',
         isChecked && 'bg-muted/50',
-        hasMissing && !isChecked && 'bg-destructive/5'
+        isMissing && !isChecked && 'bg-destructive/5'
       )}
     >
       {/* Product name + unit */}
@@ -167,26 +130,9 @@ export function ChecklistItemRow({ item, isReadOnly, onCheckChange }: ChecklistI
         </span>
       </div>
 
-      {/* Override indicator */}
-      <div className="w-4">
-        {isOverridden && (
-          <Badge
-            variant="outline"
-            className="text-[10px] px-1 cursor-pointer"
-            onClick={isReadOnly ? undefined : handleMissingClear}
-            title={de.checklist.overrideActive}
-          >
-            !
-          </Badge>
-        )}
-      </div>
-
-      {/* Bestand input */}
+      {/* Bestand input (free text) */}
       <Input
-        type="number"
-        inputMode="decimal"
-        step="0.01"
-        min="0"
+        type="text"
         value={currentStock}
         onChange={(e) => handleStockChange(e.target.value)}
         onBlur={handleBlur}
@@ -195,24 +141,24 @@ export function ChecklistItemRow({ item, isReadOnly, onCheckChange }: ChecklistI
         disabled={isReadOnly}
       />
 
-      {/* Fehlt input */}
-      <Input
-        type="number"
-        inputMode="decimal"
-        step="0.01"
-        min="0"
-        value={missingFinal}
-        onChange={(e) => handleMissingChange(e.target.value)}
-        onBlur={handleBlur}
-        placeholder={de.checklist.missing}
-        className={cn(
-          'h-8 text-center text-sm',
-          hasMissing && 'text-destructive font-medium'
-        )}
-        disabled={isReadOnly}
-      />
+      {/* Fehlt toggle button */}
+      <div className="flex justify-center">
+        <Button
+          variant={isMissing ? 'default' : 'outline'}
+          size="icon-sm"
+          onClick={handleMissingToggle}
+          disabled={isReadOnly}
+          className={cn(
+            isMissing && 'bg-green-600 hover:bg-green-700 text-white border-green-600',
+            saving && 'opacity-50'
+          )}
+          title={de.checklist.missing}
+        >
+          F
+        </Button>
+      </div>
 
-      {/* Checkbox */}
+      {/* Geprüft checkbox */}
       <div className="flex justify-center">
         <Checkbox
           checked={isChecked}

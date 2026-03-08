@@ -1,18 +1,76 @@
 import { describe, it, expect } from 'vitest';
-import { updateChecklistItemSchema, completeChecklistSchema, reopenChecklistSchema } from '@/lib/validations/checklist';
+import { createChecklistSchema, updateChecklistItemSchema, completeChecklistSchema, reopenChecklistSchema } from '@/lib/validations/checklist';
 import { createSupplierSchema, updateSupplierSchema, productSupplierSchema } from '@/lib/validations/supplier';
 import { createOrderSchema, updateOrderStatusSchema } from '@/lib/validations/order';
 
 const validUUID = '550e8400-e29b-41d4-a716-446655440000';
 const validUUID2 = '660e8400-e29b-41d4-a716-446655440001';
 
+// ── createChecklistSchema ──
+
+describe('createChecklistSchema', () => {
+  it('accepts valid date string', () => {
+    const result = createChecklistSchema.safeParse({
+      checklistDate: '2026-04-04',
+    });
+    expect(result.success).toBe(true);
+  });
+
+  it('accepts first day of month', () => {
+    const result = createChecklistSchema.safeParse({
+      checklistDate: '2026-01-01',
+    });
+    expect(result.success).toBe(true);
+  });
+
+  it('accepts last day of month', () => {
+    const result = createChecklistSchema.safeParse({
+      checklistDate: '2026-12-31',
+    });
+    expect(result.success).toBe(true);
+  });
+
+  it('rejects invalid format (DD.MM.YYYY)', () => {
+    const result = createChecklistSchema.safeParse({
+      checklistDate: '04.04.2026',
+    });
+    expect(result.success).toBe(false);
+  });
+
+  it('rejects invalid format (no dashes)', () => {
+    const result = createChecklistSchema.safeParse({
+      checklistDate: '20260404',
+    });
+    expect(result.success).toBe(false);
+  });
+
+  it('rejects empty string', () => {
+    const result = createChecklistSchema.safeParse({
+      checklistDate: '',
+    });
+    expect(result.success).toBe(false);
+  });
+
+  it('rejects missing checklistDate', () => {
+    const result = createChecklistSchema.safeParse({});
+    expect(result.success).toBe(false);
+  });
+
+  it('rejects non-string value', () => {
+    const result = createChecklistSchema.safeParse({
+      checklistDate: 20260404,
+    });
+    expect(result.success).toBe(false);
+  });
+});
+
 // ── updateChecklistItemSchema ──
 
 describe('updateChecklistItemSchema', () => {
-  it('accepts valid input', () => {
+  it('accepts valid input with string stock', () => {
     const result = updateChecklistItemSchema.safeParse({
       checklistItemId: validUUID,
-      currentStock: 5,
+      currentStock: 'voll',
       isChecked: true,
     });
     expect(result.success).toBe(true);
@@ -26,10 +84,18 @@ describe('updateChecklistItemSchema', () => {
     expect(result.success).toBe(true);
   });
 
-  it('rejects negative currentStock', () => {
+  it('accepts numeric string currentStock', () => {
     const result = updateChecklistItemSchema.safeParse({
       checklistItemId: validUUID,
-      currentStock: -1,
+      currentStock: '3 koli',
+    });
+    expect(result.success).toBe(true);
+  });
+
+  it('rejects currentStock over 100 chars', () => {
+    const result = updateChecklistItemSchema.safeParse({
+      checklistItemId: validUUID,
+      currentStock: 'a'.repeat(101),
     });
     expect(result.success).toBe(false);
   });
@@ -37,15 +103,23 @@ describe('updateChecklistItemSchema', () => {
   it('rejects invalid UUID', () => {
     const result = updateChecklistItemSchema.safeParse({
       checklistItemId: 'not-a-uuid',
-      currentStock: 5,
+      currentStock: '5',
     });
     expect(result.success).toBe(false);
   });
 
-  it('accepts zero currentStock', () => {
+  it('accepts isMissing boolean', () => {
     const result = updateChecklistItemSchema.safeParse({
       checklistItemId: validUUID,
-      currentStock: 0,
+      isMissing: true,
+    });
+    expect(result.success).toBe(true);
+  });
+
+  it('accepts empty string currentStock', () => {
+    const result = updateChecklistItemSchema.safeParse({
+      checklistItemId: validUUID,
+      currentStock: '',
     });
     expect(result.success).toBe(true);
   });
