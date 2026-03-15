@@ -177,6 +177,10 @@ export async function getSupplierProducts(supplierId: string) {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return { error: de.auth.notLoggedIn };
 
+  const profile = await getActiveProfile(supabase, user.id);
+  if (!profile) return { error: de.auth.accountDeactivated };
+  if (profile.role !== 'admin') return { error: de.errors.unauthorized };
+
   const { data, error } = await supabase
     .from('product_suppliers')
     .select('id, product_id, is_preferred, products!inner(id, name, is_active)')
@@ -205,6 +209,10 @@ export async function getAvailableProducts(supplierId: string) {
   const supabase = await createServerClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return { error: de.auth.notLoggedIn };
+
+  const profile = await getActiveProfile(supabase, user.id);
+  if (!profile) return { error: de.auth.accountDeactivated };
+  if (profile.role !== 'admin') return { error: de.errors.unauthorized };
 
   // Get all active products
   const { data: allProducts } = await supabase

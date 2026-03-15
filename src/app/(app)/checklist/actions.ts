@@ -65,26 +65,6 @@ export async function createChecklist(input: { checklistDate: string }) {
 
     logger.info('Checklist created', { checklistId: result.checklist_id, week: `${isoYear}-W${isoWeek}`, date });
 
-    // After successful checklist creation, cleanup previous months (best-effort, non-blocking)
-    supabase.rpc('rpc_cleanup_previous_months', { p_current_date: date }).then(({ data: cleanupData, error: cleanupError }) => {
-      if (cleanupError) {
-        logger.error('Cleanup previous months failed', { error: cleanupError.message });
-      } else if (cleanupData) {
-        const cleanupResult = cleanupData as { deleted_checklists: number; deleted_orders: number };
-        if (cleanupResult.deleted_checklists > 0 || cleanupResult.deleted_orders > 0) {
-          logger.info('Previous months cleaned up', cleanupResult);
-          logAudit({
-            userId: user.id,
-            action: 'data_cleanup',
-            entityType: 'system',
-            entityId: 'cleanup',
-            details: cleanupResult,
-          });
-          revalidatePath('/archive');
-        }
-      }
-    });
-
     revalidatePath('/checklist');
     revalidatePath('/dashboard');
     return { success: true, checklistId: result.checklist_id };
@@ -326,7 +306,7 @@ export async function completeChecklist(input: z.infer<typeof completeChecklistS
     // Server-side validation: fresh read of all items
     const { data: items } = await supabase
       .from('checklist_items')
-      .select('is_checked')
+      .select('is_checked, current_stock')
       .eq('checklist_id', validated.checklistId);
 
     if (!items || items.length === 0) {
@@ -338,15 +318,29 @@ export async function completeChecklist(input: z.infer<typeof completeChecklistS
       return { error: de.checklist.allCheckedRequired };
     }
 
+    const allStockProvided = items.every(
+      (i) => typeof i.current_stock === 'string' && i.current_stock.trim() !== ''
+    );
+    if (!allStockProvided) {
+      return { error: de.checklist.allStockRequired };
+    }
+
     // Complete
-    const { error } = await supabase
+    const { data: completedChecklist, error } = await supabase
       .from('checklists')
       .update({ status: 'completed', completed_by: user.id })
       .eq('id', validated.checklistId)
-      .in('status', ['draft', 'in_progress']);
+      .in('status', ['draft', 'in_progress'])
+      .select('id')
+      .maybeSingle();
 
     if (error) {
       logger.error('Complete checklist failed', { userId: user.id, checklistId: validated.checklistId, error: error.message });
+      return { error: de.errors.generic };
+    }
+
+    if (!completedChecklist) {
+      logger.error('Complete checklist affected no rows', { userId: user.id, checklistId: validated.checklistId });
       return { error: de.errors.generic };
     }
 

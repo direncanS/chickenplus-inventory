@@ -183,7 +183,7 @@ On Kosul: A-P03b tamamlanmis olmali (supplier ve mapping verisi hazir).
 | A3-27 | `[NON-BLOCKER]` | Product mapping silme | Var olan mapping > kaldir | Mapping silinir | `NOT RUN` | |
 | A3-28 | `[NON-BLOCKER]` | Inactive supplier mapping UI gizler | Supplier inactive | Mapping bolumu render edilmez | `NOT RUN` | |
 | A3-29 | `[BLOCKER]` | Staff supplier CRUD ve mapping yazma yapamaz | Staff > Suppliers; direct Server Action cagrisi | UI aksiyonlari yok; direct istek yetki hatasi doner | `NOT RUN` | |
-| A3-30 | `[NON-BLOCKER]` | Staff supplier mapping verisini okuyabilir | Staff session ile `getSupplierProducts` cagrisi | Read access vardir (RLS `USING(true)`, Server Action role check yok). UI mapping bolumunu gizler. Bu davranis yalnizca A-P04d PASS ise (public signup OFF) kabul edilebilir. Internal tool assumption: yalnizca guvenilir kullanicilar erisir | `NOT RUN` | A-P04d bagimli |
+| A3-30 | `[BLOCKER]` | Staff supplier mapping verisini dogrudan okuyamaz | Staff session ile `getSupplierProducts` / `getAvailableProducts` cagrisi | Server Action yetki hatasi doner; mapping verisi staff'a acilmaz | `NOT RUN` | |
 
 ### Session A4: Export + Responsive + Loading/Error/Empty States + Dashboard/Settings (22 test)
 
@@ -236,8 +236,8 @@ On Kosul: A-P03b tamamlanmis olmali (supplier ve mapping verisi hazir).
 | A5-17 | `[BLOCKER]` | ISO week sinir durumu dogru | Aralik sonu / Ocak basi tarihinde checklist olustur (ornek: 29 Aralik 2025 = ISO 2026-W01) | `iso_year` ve `iso_week` beklenen ISO 8601 degerleri alir | `NOT RUN` | |
 | A5-18 | `[NON-BLOCKER]` | Performance sanity | 126 item checklist ile normal kullanim | Sayfa yukleme kabul edilebilir; autosave debounce (800ms) calisir; duplicate write gorunmez | `NOT RUN` | |
 | A5-19 | `[BLOCKER]` | Deaktive kullanici mutation testi | 1) Aktif kullanici ile login yap. 2) Supabase SQL ile `profiles` tablosunda `is_active = false` yap. 3) Server Action cagir (checklist item update, order create, vb.) | `getActiveProfile()` null doner, istek reddedilir; deaktive kullanici mutation yapamaz | `NOT RUN` | |
-| A5-19b | `[NON-BLOCKER]` | Deaktive kullanici sayfa erisim testi | Deaktive kullanici (A5-19 devami) dashboard, checklist, orders, suppliers sayfalarini ac | Sayfalar render edilir, veri gorunur (sayfa katmaninda is_active gate'i yok). Bilinen sinir: internal tool icin kabul edilebilir (A-P04d PASS ise) | `NOT RUN` | |
-| A5-20 | `[NON-BLOCKER]` | Deaktive kullanici sonrasi yeniden login denemesi | Deaktive kullanici logout edip tekrar login yapar | Login olabilir ama uygulama icinde islem yapamaz (profile is_active=false) | `NOT RUN` | |
+| A5-19b | `[BLOCKER]` | Deaktive kullanici sayfa erisim testi | Deaktive kullanici (A5-19 devami) dashboard, checklist, orders, suppliers sayfalarini ac | Kullanici `/deactivated` sayfasina yonlenir; uygulama sayfalari ve veri render edilmez | `NOT RUN` | |
+| A5-20 | `[NON-BLOCKER]` | Deaktive kullanici sonrasi yeniden login denemesi | Deaktive kullanici logout edip tekrar login yapar | Login olabilir ama uygulamaya girince `/deactivated` sayfasina yonlenir; mutation ve veri erisimi yapamaz | `NOT RUN` | |
 
 ---
 
@@ -391,8 +391,8 @@ Bu maddeler tek basina go-live bloklamaz; ancak owner tarafindan bilincli olarak
 6. **PWA / offline destek yok**: Internet baglantisi gerekli.
 7. **E2E test otomasyonu yok**: Faz A manual testlerle kapsamli dogrulama yapilacak.
 8. **Down migration yok**: Supabase migration geri alinamaz; duzeltme yeni migration ile yapilir.
-9. **Supplier read erisiml staff'a acik**: `getSupplierProducts` / `getAvailableProducts` Server Action'larinda role check yok; RLS `USING(true)`. UI mapping bolumunu staff'a gizler. Bu davranis yalnizca production public signup OFF ise (A-P04d) kabul edilebilir; internal tool assumption ile guvenilir kullanicilar erisir.
-10. **Deaktive kullanici sayfa goruntuleyebilir**: Sayfa katmaninda `is_active` kontrolu yok; deaktive kullanici sayfayi gorebilir ama Server Action'lar tum mutation'lari bloklar. Internal tool + public signup OFF ile kabul edilebilir.
+9. **Staff supplier mapping read erisimi server tarafinda kapali**: `getSupplierProducts` / `getAvailableProducts` Server Action'larinda admin role check vardir; UI gizleme ek savunma hattidir.
+10. **Deaktive kullanici app erisimi bloklu**: App layout ve export route aktif profile zorlar; deaktive kullanici `/deactivated` sayfasina yonlenir.
 
 ## Go-Live Oncesi ZORUNLU Duzeltmeler
 

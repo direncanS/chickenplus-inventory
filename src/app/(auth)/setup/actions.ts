@@ -1,6 +1,7 @@
 'use server';
 
 import { createServerClient } from '@/lib/supabase/server';
+import { getActiveProfile } from '@/lib/supabase/auth-helpers';
 import { logAudit } from '@/lib/utils/audit';
 import { logger } from '@/lib/utils/logger';
 import { de } from '@/i18n/de';
@@ -14,6 +15,11 @@ export async function bootstrapAdmin() {
   }
 
   try {
+    const profile = await getActiveProfile(supabase, user.id);
+    if (!profile) {
+      return { error: de.auth.accountDeactivated };
+    }
+
     const { data, error } = await supabase.rpc('rpc_bootstrap_admin', {
       p_user_id: user.id,
     });
