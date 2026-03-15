@@ -43,11 +43,12 @@ Tum Server Action'lar ayni pattern'i izler:
 
 ### completeChecklist(input)
 - **Input:** `{ checklistId: UUID }`
-- **Output:** `{ success: true }` | `{ error }`
+- **Output:** `{ success: true, orderGenerationStatus: 'pending' }` | `{ error }`
 - **Yetki:** Tum roller
 - **Kisitlar:**
   - Tum item'lar checked olmali
-  - Tum item'larin current_stock degeri olmali (null olmamali)
+  - `current_stock` tamamlamada zorunlu degildir
+- **Arkaplan isleri:** Tamamlama sonrasi otomatik siparis olusturma `after()` ile arkaplanda baslatilir; completion response'u bunu beklemez
 - **Revalidation:** `/checklist`, `/dashboard`
 
 ### reopenChecklist(input)
@@ -93,7 +94,7 @@ Tum Server Action'lar ayni pattern'i izler:
 - **Revalidation:** `/orders`, `/dashboard`
 
 ### updateOrderStatus(input)
-- **Input:** `{ orderId: UUID, status?: 'ordered'|'cancelled', itemDeliveries?: [{ orderItemId: UUID, isDelivered: boolean }], notes?: string }`
+- **Input:** `{ orderId: UUID, status?: 'ordered'|'cancelled', orderedItems?: [{ orderItemId: UUID, isOrdered: boolean, orderedQuantity: number|null }], itemDeliveries?: [{ orderItemId: UUID, isDelivered: boolean }], notes?: string }`
 - **Output:** `{ success: true, status? }` | `{ error }`
 - **Yetki:**
   - Cancel: sadece admin
@@ -102,7 +103,19 @@ Tum Server Action'lar ayni pattern'i izler:
 - **Kisitlar:**
   - Cancel: delivered/cancelled siparisler iptal edilemez
   - Mark ordered: sadece draft siparisler
+  - `orderedItems` verilirse draft order item metadata'si kaydedilip ayni istekte status `ordered` yapilir
+- **RPC (ordered items):** `rpc_update_order_items_ordered(p_order_id, p_ordered_items, p_mark_ordered)`
 - **RPC (deliveries):** `rpc_update_order_delivery(p_order_id, p_item_deliveries)`
+- **Revalidation:** `/orders`
+
+### updateOrderItems(input)
+- **Input:** `{ orderId: UUID, orderedItems: [{ orderItemId: UUID, isOrdered: boolean, orderedQuantity: number|null }] }`
+- **Output:** `{ success: true }` | `{ error }`
+- **Yetki:** Tum roller
+- **Kisitlar:**
+  - Sadece draft siparisler
+  - `orderedQuantity` sadece `isOrdered = true` iken ve `> 0` oldugunda gecerli
+- **RPC:** `rpc_update_order_items_ordered(p_order_id, p_ordered_items, false)`
 - **Revalidation:** `/orders`
 
 ---

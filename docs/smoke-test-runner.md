@@ -245,24 +245,24 @@ ORDER BY s.name, p.name;
 
 **Yontem**: `[UI]`
 
-> **ONEMLI**: A2-17b icin tum 126 item'in checked + stock dolu olmasi gerekir. Elle doldurmak uzun surer; **once A2-01~A2-16 testlerini manuel tamamlayin**, sonra kalan item'lari Ek A'daki bulk-fill SQL ile doldurun.
+> **ONEMLI**: A2-17b icin tum 126 item'in checked olmasi gerekir; stock alanlari bos kalabilir. Elle isaretlemek uzun surer; **once A2-01~A2-16 testlerini manuel tamamlayin**, sonra kalan item'lari Ek A'daki bulk-fill SQL ile checked yapin.
 
 1. **A2-15**: Birkac item unchecked birak, "Abschliessen" tikla → reddedilir
-2. **A2-16**: Birkac item stock bos birak, "Abschliessen" tikla → reddedilir
-3. **A2-17**: Tum 126 item checked + stock dolu → "Abschliessen" → status `completed`
-4. **A2-17b (HYPOTHESIS)**: Staff session ile aktif checklist'i tamamla.
+2. **A2-16**: Birkac item stock bos birak ama hepsini checked yap → "Abschliessen" → status `completed`
+3. **A2-17**: Tum 126 item checked → "Abschliessen" → status `completed`
+4. **A2-17b**: Staff session ile aktif checklist'i tamamla; response hizli donmeli, siparis hazirligi arkaplanda devam etmeli
 
-   **Arka plan**: `completeChecklist` user client (RLS'e tabi) ile `SET status='completed'` yapar. `checklists_update` policy'nin WITH CHECK'i (`status != 'completed' OR get_user_role() = 'admin'`) yeni satir degerini kontrol eder; staff icin `status='completed'` AND `role!='admin'` → her iki kosul FALSE.
+   **Arka plan**: `completeChecklist` user client (RLS'e tabi) ile `SET status='completed'` yapar; completion sonrasi siparis olusturma ayni request'te beklenmez, `after()` ile arkaplanda calisir.
 
    **Test adimi**:
    - Admin ile checklist'i reopen et (veya yeni checklist olustur)
-   - Tum item'lari doldur (bulk-fill SQL kullanilabilir — Ek A)
+   - Tum item'lari checked yap (bulk-fill SQL kullanilabilir — Ek A); stock alanlari bos kalabilir
    - Staff profiline gec
    - "Abschliessen" tikla
 
    **Sonuc**:
-   - **PASS**: Staff basariyla tamamlayabiliyor → RLS policy beklendigi gibi calisiyor (WITH CHECK new row'u kontrol eder; `status='completed'` set ediliyor ama policy buna izin veriyor cunku USING old row'da `status != 'completed'` TRUE)
-   - **FAIL**: Staff tamamlayamiyor → RLS policy `completed` statüsüne gecisi blokluyor. Duzeltme: ya RLS policy ayarlanmali ya da `completeChecklist` admin client kullanmali
+   - **PASS**: Staff basariyla tamamlayabiliyor; checklist hizli sekilde `completed` oluyor ve siparis hazirligi arkaplanda devam ediyor
+   - **FAIL**: Staff tamamlayamiyor veya completion hissedilir sekilde gecikiyor → tamamlama, RLS veya background order generation akisi yeniden incelenmeli
 
    > **UYARI**: Bulk-fill SQL yalnizca A2-01~A2-16 testleri manuel olarak tamamlandiktan sonra calistirilmali. Erken kullanim onceki testlerin verisini kirletir.
 
@@ -315,7 +315,7 @@ ORDER BY s.name, p.name;
 2. **A3-08b**: Farkli supplier grubundan ikinci siparis olustur → ikinci draft order; birinci etkilenmez
 3. **A3-09**: Order number → `ORD-YYYY-WXX-SEQ` formati (ornek: `ORD-2026-W14-1`)
 4. **A3-10**: Orders sayfasi → open orders altinda listelenir
-5. **A3-11**: Draft order > "Als bestellt markieren" → status `ordered`
+5. **A3-11**: Draft order > opsiyonel `Bestellt` checkbox + `Bestellte Menge` gir > "Als bestellt markieren" → status `ordered`, girilen actual miktarlar read-only kalir
 6. **A3-12**: En az 2 itemli order, 1 item delivered isaretle → status `partially_delivered`
 7. **A3-13**: Tum itemlari delivered isaretle → status `delivered`
 8. **A3-14**: Fully delivered order → delivery tarihi gorunur
@@ -916,20 +916,17 @@ ORDER BY s.name, p.name;
 > **UYARI**: Yalnizca A2-01~A2-16 testleri manuel olarak tamamlandiktan sonra calistirilmali. Erken kullanim manuel test verisini kirletir.
 
 ```sql
--- Kalan bos item'lari doldur
+-- Kalan item'lari checked yap (stock opsiyoneldir)
 UPDATE checklist_items SET
-  current_stock = COALESCE(min_stock_snapshot, 0) + 5,
-  missing_amount_calculated = 0,
-  missing_amount_final = 0,
   is_checked = true
 WHERE checklist_id = (SELECT id FROM checklists WHERE status IN ('draft', 'in_progress') ORDER BY created_at DESC LIMIT 1)
-  AND (current_stock IS NULL OR is_checked = false);
+  AND is_checked = false;
 
--- Dogrulama: bos item kalmamis olmali
+-- Dogrulama: unchecked item kalmamis olmali
 SELECT COUNT(*) AS remaining
 FROM checklist_items
 WHERE checklist_id = (SELECT id FROM checklists WHERE status IN ('draft', 'in_progress') ORDER BY created_at DESC LIMIT 1)
-  AND (current_stock IS NULL OR is_checked = false);
+  AND is_checked = false;
 -- Beklenen: 0
 ```
 
