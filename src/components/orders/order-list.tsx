@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -115,6 +115,7 @@ export function OrderList({
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [loadingSuggestions, setLoadingSuggestions] = useState(false);
   const [creatingOrder, setCreatingOrder] = useState<string | null>(null);
+  const autoLoadedChecklistIdRef = useRef<string | null>(null);
 
   const openOrders = orders.filter((o) => OPEN_ORDER_STATUSES.includes(o.status as never));
   const closedOrders = orders.filter((o) => !OPEN_ORDER_STATUSES.includes(o.status as never));
@@ -122,21 +123,64 @@ export function OrderList({
     activeChecklist?.order_generation_status === 'pending' ||
     activeChecklist?.order_generation_status === 'running';
 
-  async function handleGenerateSuggestions() {
+  async function loadSuggestions(options?: { silentIfEmpty?: boolean }) {
     if (!activeChecklist) return;
+
     setLoadingSuggestions(true);
     const result = await generateOrderSuggestions(activeChecklist.id);
+
     if (result.error) {
       toast.error(result.error);
     } else if (result.data) {
       setSuggestions(result.data);
-      setShowSuggestions(true);
-      if (result.data.length === 0) {
+      setShowSuggestions(result.data.length > 0);
+
+      if (result.data.length === 0 && !options?.silentIfEmpty) {
         toast.info(de.orders.noSuggestions);
       }
     }
+
     setLoadingSuggestions(false);
   }
+
+  async function handleGenerateSuggestions() {
+    await loadSuggestions();
+  }
+
+  useEffect(() => {
+    const checklistId = activeChecklist?.id;
+    if (!checklistId || autoLoadedChecklistIdRef.current === checklistId) {
+      return;
+    }
+
+    const resolvedChecklistId = checklistId;
+    let isCancelled = false;
+    autoLoadedChecklistIdRef.current = resolvedChecklistId;
+
+    async function autoLoadSuggestions() {
+      setLoadingSuggestions(true);
+      const result = await generateOrderSuggestions(resolvedChecklistId);
+
+      if (isCancelled) {
+        return;
+      }
+
+      if (result.error) {
+        toast.error(result.error);
+      } else if (result.data) {
+        setSuggestions(result.data);
+        setShowSuggestions(result.data.length > 0);
+      }
+
+      setLoadingSuggestions(false);
+    }
+
+    void autoLoadSuggestions();
+
+    return () => {
+      isCancelled = true;
+    };
+  }, [activeChecklist?.id]);
 
   async function handleCreateOrder(suggestion: Suggestion) {
     if (!activeChecklist || suggestion.supplierId === 'unassigned') return;
