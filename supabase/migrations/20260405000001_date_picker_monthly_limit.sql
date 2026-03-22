@@ -134,15 +134,24 @@ $$;
 UPDATE products SET is_active = false WHERE name = 'FritzApfelkirsch';
 UPDATE products SET is_active = false WHERE name = 'SariyerCola';
 
+-- Idempotent + safe on empty storage_locations (local reset before seed.sql).
+-- On production this ran with data already present; here the SELECT form
+-- simply inserts zero rows when storage_locations is empty, and seed.sql
+-- will add the product during local reset.
 INSERT INTO products (name, storage_location_id, category_id, unit, min_stock, sort_order)
-VALUES (
+SELECT
   'Fritz Ananas Limette',
-  (SELECT id FROM storage_locations WHERE code = 'D'),
-  (SELECT c.id FROM categories c JOIN storage_locations sl ON c.storage_location_id = sl.id WHERE sl.code = 'D' AND c.name = 'Getränke'),
+  sl.id,
+  c.id,
   'kiste',
   1,
   17
-);
+FROM storage_locations sl
+JOIN categories c
+  ON c.storage_location_id = sl.id
+ AND c.name = 'Getränke'
+WHERE sl.code = 'D'
+ON CONFLICT (storage_location_id, category_id, name) DO NOTHING;
 
 -- ============================================
 -- 5. Drop the unique constraint on (iso_year, iso_week)

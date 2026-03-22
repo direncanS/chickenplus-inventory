@@ -67,7 +67,8 @@ INSERT INTO products (name, storage_location_id, category_id, unit, min_stock, m
   ('FritzMischmarsch', (SELECT id FROM storage_locations WHERE code = 'D'), (SELECT c.id FROM categories c JOIN storage_locations sl ON c.storage_location_id = sl.id WHERE sl.code = 'D' AND c.name = 'Getränke'), 'kiste', 1, NULL, 16),
   ('FritzApfelkirsch', (SELECT id FROM storage_locations WHERE code = 'D'), (SELECT c.id FROM categories c JOIN storage_locations sl ON c.storage_location_id = sl.id WHERE sl.code = 'D' AND c.name = 'Getränke'), 'kiste', 1, NULL, 17),
   ('FritzTraubeschorle', (SELECT id FROM storage_locations WHERE code = 'D'), (SELECT c.id FROM categories c JOIN storage_locations sl ON c.storage_location_id = sl.id WHERE sl.code = 'D' AND c.name = 'Getränke'), 'kiste', 1, NULL, 18),
-  ('Caprisonne', (SELECT id FROM storage_locations WHERE code = 'D'), (SELECT c.id FROM categories c JOIN storage_locations sl ON c.storage_location_id = sl.id WHERE sl.code = 'D' AND c.name = 'Getränke'), 'karton', 3, NULL, 19)
+  ('Caprisonne', (SELECT id FROM storage_locations WHERE code = 'D'), (SELECT c.id FROM categories c JOIN storage_locations sl ON c.storage_location_id = sl.id WHERE sl.code = 'D' AND c.name = 'Getränke'), 'karton', 3, NULL, 19),
+  ('Fritz Ananas Limette', (SELECT id FROM storage_locations WHERE code = 'D'), (SELECT c.id FROM categories c JOIN storage_locations sl ON c.storage_location_id = sl.id WHERE sl.code = 'D' AND c.name = 'Getränke'), 'kiste', 1, NULL, 20)
 ON CONFLICT (storage_location_id, category_id, name) DO NOTHING;
 
 -- D / Verpackung (19 products)
@@ -235,3 +236,70 @@ INSERT INTO products (name, storage_location_id, category_id, unit, min_stock, m
   ('Kaffee', (SELECT id FROM storage_locations WHERE code = 'K'), (SELECT c.id FROM categories c JOIN storage_locations sl ON c.storage_location_id = sl.id WHERE sl.code = 'K' AND c.name = 'Allgemein'), 'pack', 3, NULL, 1),
   ('Kakaopulver', (SELECT id FROM storage_locations WHERE code = 'K'), (SELECT c.id FROM categories c JOIN storage_locations sl ON c.storage_location_id = sl.id WHERE sl.code = 'K' AND c.name = 'Allgemein'), 'pack', 1, NULL, 2)
 ON CONFLICT (storage_location_id, category_id, name) DO NOTHING;
+
+-- ============================================
+-- Suppliers & Preferred Mappings
+-- Mirrors migration 20260419000001_seed_product_suppliers.sql, which no-ops
+-- on local reset because products don't exist yet when migrations run.
+-- ============================================
+
+INSERT INTO suppliers (name, is_active) VALUES
+  ('Spar', true), ('Metro', true), ('Metropol', true), ('Gmz', true),
+  ('Icerex', true), ('Intergast', true), ('KLS', true), ('Macro', true),
+  ('Etci Adem', true), ('Frostmed', true), ('Orient', true),
+  ('Orderking', true), ('Swan', true)
+ON CONFLICT (name) DO UPDATE SET is_active = EXCLUDED.is_active;
+
+INSERT INTO product_suppliers (product_id, supplier_id, is_preferred)
+SELECT p.id, s.id, true
+FROM products p
+JOIN (VALUES
+  ('Kaffee', 'Spar'),
+  ('Kakaopulver', 'Metro'), ('Zucker', 'Metro'), ('Espressobecher', 'Metro'),
+  ('Kaffeestäbchen', 'Metro'), ('Dessert Löffel', 'Metro'), ('Strohhalm', 'Metro'),
+  ('Bucket takeaway', 'Metro'), ('Käsesaucebecher 230ml', 'Metro'),
+  ('Deckel f Käsesauce', 'Metro'), ('Haarnetz', 'Metro'), ('Mozarellakäse', 'Metro'),
+  ('Parmesan', 'Metro'), ('Pustzasalat', 'Metro'), ('Oliven', 'Metro'),
+  ('Rucola', 'Metro'), ('Trüffelpaste', 'Metro'), ('Trüffelöl', 'Metro'),
+  ('Senf Yellow Mustard', 'Metro'), ('Cremesahne', 'Metro'), ('Tomatensauce', 'Metro'),
+  ('Buttermilch', 'Metro'), ('Veggie noChicken', 'Metro'), ('Avocado', 'Metro'),
+  ('Maisstärke', 'Metro'),
+  ('Cola', 'Metropol'), ('Colazero', 'Metropol'), ('Fanta', 'Metropol'),
+  ('Sprite', 'Metropol'), ('EisteeZitrone', 'Metropol'), ('EisteePfirsich', 'Metropol'),
+  ('SariyerCola', 'Metropol'), ('Redbull', 'Metropol'), ('Uludag', 'Metropol'),
+  ('VöslauerStill', 'Metropol'), ('VöslauerPrickelnd', 'Metropol'),
+  ('Fritzkola Original', 'Metropol'), ('FritzkolaSuperzero', 'Metropol'),
+  ('FritzLimo', 'Metropol'), ('Fritzorange', 'Metropol'),
+  ('FritzMischmarsch', 'Metropol'), ('FritzTraubeschorle', 'Metropol'),
+  ('Caprisonne', 'Metropol'), ('Bowl500', 'Metropol'), ('Bowl1100', 'Metropol'),
+  ('Jalapenos', 'Metropol'), ('Mais', 'Metropol'), ('Sirache', 'Metropol'),
+  ('Sweetchili', 'Metropol'), ('Wrap', 'Metropol'),
+  ('Kaffeebecher', 'Gmz'), ('Limonade Becher', 'Gmz'), ('Kassarolle', 'Gmz'),
+  ('Gabel', 'Gmz'), ('Zahnstocher', 'Gmz'), ('Pommesbox', 'Gmz'),
+  ('4Eck bowl500', 'Gmz'),
+  ('Limonade', 'Icerex'),
+  ('Cheddarsauce', 'Intergast'), ('Cheddarkäsescheiben', 'Intergast'),
+  ('Speck', 'Intergast'), ('Sourcream', 'Intergast'),
+  ('BBQ Honigsauce', 'Intergast'), ('Süßsauersauce', 'Intergast'),
+  ('Essiggurke', 'KLS'), ('Röstzwiebel', 'KLS'), ('Ketchup 10kg', 'KLS'),
+  ('Mayo 10kg', 'KLS'), ('Ketchup Portion', 'KLS'), ('Mayo Portion', 'KLS'),
+  ('Pommes', 'KLS'), ('Chilicheese Nuggets', 'KLS'), ('Mozarellasticks', 'KLS'),
+  ('Onionrings', 'KLS'), ('Profiteroles Cup', 'KLS'), ('Tiramisu Cup', 'KLS'),
+  ('Paprikapulver', 'KLS'), ('Knoblauchpulver', 'KLS'), ('Zwiebelpulver', 'KLS'),
+  ('Kurkuma', 'KLS'), ('Oregano', 'KLS'),
+  ('Eisbergsalat', 'Macro'), ('Tomaten', 'Macro'), ('Rotezwiebel', 'Macro'),
+  ('Hühner-Innenfilet', 'Macro'), ('Hühnerflügel', 'Macro'),
+  ('Sonnenblumenöl', 'Macro'),
+  ('Rindfleisch', 'Etci Adem'),
+  ('Brownie Cheesecake', 'Frostmed'), ('Himbeere Cheesecake', 'Frostmed'),
+  ('Caramell Cheesecake', 'Frostmed'),
+  ('Martins Burger Brot', 'Orient'), ('Mehl Özbasak', 'Orient'),
+  ('Salz', 'Orient'), ('Schwarzer Pfeffer', 'Orient'),
+  ('Drucker Etiketten', 'Orderking'),
+  ('Handtuchrolle', 'Swan'), ('Wcpapier', 'Swan'), ('Serviette', 'Swan'),
+  ('Papiertücher Z wcspender', 'Swan'), ('Mistsackel160lt', 'Swan'),
+  ('Geschirrspülmittel Hand', 'Swan'), ('Grillreiniger', 'Swan'),
+  ('Glasreiniger', 'Swan')
+) AS m(product_name, supplier_name) ON p.name = m.product_name
+JOIN suppliers s ON s.name = m.supplier_name
+ON CONFLICT (product_id, supplier_id) DO UPDATE SET is_preferred = true;
