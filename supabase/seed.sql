@@ -91,7 +91,10 @@ INSERT INTO products (name, storage_location_id, category_id, unit, min_stock, m
   ('Papiertüte', (SELECT id FROM storage_locations WHERE code = 'D'), (SELECT c.id FROM categories c JOIN storage_locations sl ON c.storage_location_id = sl.id WHERE sl.code = 'D' AND c.name = 'Verpackung'), 'karton', 1, NULL, 16),
   ('Burgerpapier', (SELECT id FROM storage_locations WHERE code = 'D'), (SELECT c.id FROM categories c JOIN storage_locations sl ON c.storage_location_id = sl.id WHERE sl.code = 'D' AND c.name = 'Verpackung'), 'pack', 3, NULL, 17),
   ('Papier f Serviertablette', (SELECT id FROM storage_locations WHERE code = 'D'), (SELECT c.id FROM categories c JOIN storage_locations sl ON c.storage_location_id = sl.id WHERE sl.code = 'D' AND c.name = 'Verpackung'), 'pack', 3, NULL, 18),
-  ('Deckel f Käsesauce', (SELECT id FROM storage_locations WHERE code = 'D'), (SELECT c.id FROM categories c JOIN storage_locations sl ON c.storage_location_id = sl.id WHERE sl.code = 'D' AND c.name = 'Verpackung'), 'pack', 3, NULL, 19)
+  ('Deckel f Käsesauce', (SELECT id FROM storage_locations WHERE code = 'D'), (SELECT c.id FROM categories c JOIN storage_locations sl ON c.storage_location_id = sl.id WHERE sl.code = 'D' AND c.name = 'Verpackung'), 'pack', 3, NULL, 19),
+  ('Bowl500 Deckel', (SELECT id FROM storage_locations WHERE code = 'D'), (SELECT c.id FROM categories c JOIN storage_locations sl ON c.storage_location_id = sl.id WHERE sl.code = 'D' AND c.name = 'Verpackung'), 'karton', 1, NULL, 20),
+  ('Bowl1100 Deckel', (SELECT id FROM storage_locations WHERE code = 'D'), (SELECT c.id FROM categories c JOIN storage_locations sl ON c.storage_location_id = sl.id WHERE sl.code = 'D' AND c.name = 'Verpackung'), 'karton', 1, NULL, 21),
+  ('Limonade Becher Deckel', (SELECT id FROM storage_locations WHERE code = 'D'), (SELECT c.id FROM categories c JOIN storage_locations sl ON c.storage_location_id = sl.id WHERE sl.code = 'D' AND c.name = 'Verpackung'), 'stueck', 1, NULL, 22)
 ON CONFLICT (storage_location_id, category_id, name) DO NOTHING;
 
 -- D / Besteck & Zubehör (5 products)
@@ -274,9 +277,10 @@ JOIN (VALUES
   ('Caprisonne', 'Metropol'), ('Bowl500', 'Metropol'), ('Bowl1100', 'Metropol'),
   ('Jalapenos', 'Metropol'), ('Mais', 'Metropol'), ('Sirache', 'Metropol'),
   ('Sweetchili', 'Metropol'), ('Wrap', 'Metropol'),
+  ('Bowl500 Deckel', 'Metropol'), ('Bowl1100 Deckel', 'Metropol'),
   ('Kaffeebecher', 'Gmz'), ('Limonade Becher', 'Gmz'), ('Kassarolle', 'Gmz'),
   ('Gabel', 'Gmz'), ('Zahnstocher', 'Gmz'), ('Pommesbox', 'Gmz'),
-  ('4Eck bowl500', 'Gmz'),
+  ('4Eck bowl500', 'Gmz'), ('Limonade Becher Deckel', 'Gmz'),
   ('Limonade', 'Icerex'),
   ('Cheddarsauce', 'Intergast'), ('Cheddarkäsescheiben', 'Intergast'),
   ('Speck', 'Intergast'), ('Sourcream', 'Intergast'),
