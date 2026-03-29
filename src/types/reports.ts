@@ -42,12 +42,26 @@ export interface MissingProduct {
   count: number;
 }
 
+export interface OrderedProductRecord {
+  recordId: string;
+  source: 'supplier_order' | 'unassigned_capture';
+  orderedAt: string;
+  checklistDate: string;
+  isoYear: number;
+  isoWeek: number;
+  supplierName: string;
+  productName: string;
+  orderedQuantity: number | null;
+  unit: string | null;
+}
+
 export interface ReportData {
   kpis: ReportKPIs;
   stockTrend: StockTrendPoint[];
   orderSummary: OrderSummaryPoint[];
   supplierPerformance: SupplierPerformance[];
   topMissingProducts: MissingProduct[];
+  orderedProducts: OrderedProductRecord[];
 }
 
 // Raw data types from Supabase queries (before aggregation)
@@ -56,6 +70,7 @@ export interface RawChecklist {
   iso_year: number;
   iso_week: number;
   status: string;
+  checklist_date: string;
   created_at: string;
 }
 
@@ -74,6 +89,9 @@ export interface RawOrder {
   ordered_at: string | null;
   delivered_at: string | null;
   created_at: string;
+  checklist_date: string;
+  iso_year: number;
+  iso_week: number;
   supplier_name: string;
 }
 
@@ -81,4 +99,17 @@ export interface RawOrderItem {
   id: string;
   order_id: string;
   is_delivered: boolean;
+}
+
+export interface RawOrderedProduct {
+  record_id: string;
+  source: 'supplier_order' | 'unassigned_capture';
+  ordered_at: string;
+  checklist_date: string;
+  iso_year: number;
+  iso_week: number;
+  supplier_name: string;
+  product_name: string;
+  ordered_quantity: number | null;
+  unit: string | null;
 }

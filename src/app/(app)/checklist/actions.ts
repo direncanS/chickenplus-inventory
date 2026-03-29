@@ -8,7 +8,13 @@ import { getActiveProfile } from '@/lib/supabase/auth-helpers';
 import { logAudit } from '@/lib/utils/audit';
 import { logger } from '@/lib/utils/logger';
 import { getISOWeekAndYear, isInCurrentMonth } from '@/lib/utils/date';
-import { createChecklistSchema, updateChecklistItemSchema, completeChecklistSchema, reopenChecklistSchema } from '@/lib/validations/checklist';
+import {
+  createChecklistSchema,
+  updateChecklistItemSchema,
+  updateChecklistItemsBatchSchema,
+  completeChecklistSchema,
+  reopenChecklistSchema,
+} from '@/lib/validations/checklist';
 import { de } from '@/i18n/de';
 import { z } from 'zod';
 import { OPEN_ORDER_STATUSES } from '@/lib/constants';
@@ -38,6 +44,14 @@ type MissingChecklistItemRow = {
   products:
     | { unit: string | null }
     | Array<{ unit: string | null }>;
+};
+
+type ChecklistBatchRpcResult = {
+  success: boolean;
+  error?: 'checklist_not_found' | 'checklist_completed' | 'item_mismatch' | 'invalid_input';
+  updated_item_ids?: string[];
+  failed_item_ids?: string[];
+  checklist_status?: 'draft' | 'in_progress' | 'completed';
 };
 
 function unwrapRelation<T>(value: T | T[] | null | undefined): T | undefined {
@@ -183,6 +197,87 @@ export async function updateChecklistItem(input: z.infer<typeof updateChecklistI
       return { error: de.errors.invalidInput, fieldErrors: err.flatten().fieldErrors };
     }
     logger.error('Update checklist item exception', { userId: user.id, error: err instanceof Error ? err.message : 'Unknown' });
+    return { error: de.checklist.saveFailed };
+  }
+}
+
+export async function updateChecklistItemsBatch(
+  input: z.infer<typeof updateChecklistItemsBatchSchema>
+) {
+  const supabase = await createServerClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { error: de.auth.notLoggedIn };
+
+  const profile = await getActiveProfile(supabase, user.id);
+  if (!profile) return { error: de.auth.accountDeactivated };
+
+  try {
+    const validated = updateChecklistItemsBatchSchema.parse(input);
+
+    const { data, error } = await supabase.rpc('rpc_update_checklist_items_batch', {
+      p_checklist_id: validated.checklistId,
+      p_items: validated.items.map((item) => ({
+        checklist_item_id: item.checklistItemId,
+        current_stock: item.currentStock,
+        is_missing: item.isMissing,
+        is_checked: item.isChecked,
+      })),
+    });
+
+    if (error) {
+      logger.error('Batch update checklist items RPC error', {
+        userId: user.id,
+        checklistId: validated.checklistId,
+        error: error.message,
+      });
+      return { error: de.checklist.saveFailed };
+    }
+
+    const result = data as ChecklistBatchRpcResult;
+    if (!result.success) {
+      switch (result.error) {
+        case 'checklist_not_found':
+        case 'item_mismatch':
+          return {
+            error: de.errors.notFound,
+            failedItemIds: result.failed_item_ids ?? [],
+            errorCode: result.error,
+          };
+        case 'checklist_completed':
+          return {
+            error: de.errors.unauthorized,
+            failedItemIds: result.failed_item_ids ?? [],
+            errorCode: result.error,
+          };
+        case 'invalid_input':
+          return {
+            error: de.errors.invalidInput,
+            failedItemIds: result.failed_item_ids ?? [],
+            errorCode: result.error,
+          };
+        default:
+          return {
+            error: de.checklist.saveFailed,
+            failedItemIds: result.failed_item_ids ?? [],
+          };
+      }
+    }
+
+    return {
+      success: true,
+      updatedItemIds: result.updated_item_ids ?? [],
+      checklistStatus: result.checklist_status ?? 'in_progress',
+    };
+  } catch (err) {
+    if (err instanceof z.ZodError) {
+      return { error: de.errors.invalidInput, fieldErrors: err.flatten().fieldErrors };
+    }
+    logger.error('Batch update checklist items exception', {
+      userId: user.id,
+      error: err instanceof Error ? err.message : 'Unknown',
+    });
     return { error: de.checklist.saveFailed };
   }
 }

@@ -1,20 +1,46 @@
 'use server';
 
 import { revalidatePath } from 'next/cache';
+import { createAdminClient } from '@/lib/supabase/admin';
 import { createServerClient } from '@/lib/supabase/server';
 import { getActiveProfile } from '@/lib/supabase/auth-helpers';
+import { getOrderSuggestions } from '@/lib/server/order-suggestions';
 import { logAudit } from '@/lib/utils/audit';
 import { logger } from '@/lib/utils/logger';
-import { createOrderSchema, updateOrderItemsSchema, updateOrderStatusSchema } from '@/lib/validations/order';
+import { normalizeSuggestedOrderCount } from '@/lib/utils/order-items';
+import {
+  createOrderSchema,
+  finalizeSuggestionGroupSchema,
+  updateOrderItemsSchema,
+  updateOrderStatusSchema,
+} from '@/lib/validations/order';
 import { de } from '@/i18n/de';
 import { z } from 'zod';
-import { OPEN_ORDER_STATUSES } from '@/lib/constants';
 
 type OrderedItemsRpcResult = {
   success: boolean;
   error?: 'order_not_found' | 'order_not_editable' | 'order_item_not_found' | 'invalid_ordered_quantity';
   status?: string;
   updated_items?: number;
+};
+
+type CreateOrderRpcResult = {
+  success: boolean;
+  error?: 'order_number_conflict' | 'invalid_ordered_quantity' | 'checklist_not_found' | 'invalid_initial_status';
+  order_id?: string;
+  order_number?: string;
+};
+
+type FinalizeSuggestionGroupRpcResult = {
+  success: boolean;
+  error?:
+    | 'order_number_conflict'
+    | 'invalid_ordered_quantity'
+    | 'checklist_not_found'
+    | 'inactive_supplier'
+    | 'checklist_item_not_found';
+  order_id?: string | null;
+  order_number?: string | null;
 };
 
 function mapOrderedItemsRpcError(
@@ -74,6 +100,87 @@ async function persistOrderedItems(
   return { success: true, status: result.status };
 }
 
+async function createOrderRecord(
+  supabase: Awaited<ReturnType<typeof createServerClient>> | ReturnType<typeof createAdminClient>,
+  userId: string,
+  input: z.infer<typeof createOrderSchema>
+) {
+  const { data: supplier } = await supabase
+    .from('suppliers')
+    .select('is_active')
+    .eq('id', input.supplierId)
+    .single();
+
+  if (!supplier?.is_active) {
+    return { error: de.orders.inactiveSupplier };
+  }
+
+  const { data, error } = await supabase.rpc('rpc_create_order_with_items', {
+    p_supplier_id: input.supplierId,
+    p_checklist_id: input.checklistId,
+    p_created_by: userId,
+    p_initial_status: input.initialStatus ?? 'draft',
+    p_items: input.items.map((item) => ({
+      product_id: item.productId,
+      quantity: item.quantity,
+      unit: item.unit,
+      is_ordered: item.isOrdered ?? false,
+      ordered_quantity: item.orderedQuantity ?? null,
+    })),
+  });
+
+  if (error) {
+    logger.error('Create order RPC error', {
+      userId,
+      supplierId: input.supplierId,
+      error: error.message,
+    });
+    return { error: de.errors.generic };
+  }
+
+  const result = data as CreateOrderRpcResult;
+
+  if (!result.success) {
+    if (result.error === 'order_number_conflict') {
+      return { error: de.orders.orderNumberConflict };
+    }
+    if (result.error === 'invalid_ordered_quantity') {
+      return { error: de.orders.orderedQuantityInvalid };
+    }
+    return { error: de.errors.generic };
+  }
+
+  await logAudit({
+    userId,
+    action: 'order_created',
+    entityType: 'order',
+    entityId: result.order_id!,
+    details: {
+      orderNumber: result.order_number,
+      supplierId: input.supplierId,
+      initialStatus: input.initialStatus ?? 'draft',
+    },
+  });
+
+  return { success: true, orderId: result.order_id!, orderNumber: result.order_number! };
+}
+
+function mapFinalizeSuggestionGroupRpcError(errorCode: FinalizeSuggestionGroupRpcResult['error']) {
+  switch (errorCode) {
+    case 'inactive_supplier':
+      return de.orders.inactiveSupplier;
+    case 'order_number_conflict':
+      return de.orders.orderNumberConflict;
+    case 'invalid_ordered_quantity':
+      return de.orders.orderedQuantityInvalid;
+    case 'checklist_item_not_found':
+    case 'checklist_not_found':
+      return de.errors.notFound;
+    default:
+      return de.errors.generic;
+  }
+}
+
 export async function generateOrderSuggestions(checklistId: string) {
   const supabase = await createServerClient();
   const { data: { user } } = await supabase.auth.getUser();
@@ -83,89 +190,8 @@ export async function generateOrderSuggestions(checklistId: string) {
   if (!profile) return { error: de.auth.accountDeactivated };
 
   try {
-    // Get checklist items marked as missing
-    const { data: items } = await supabase
-      .from('checklist_items')
-      .select(`
-        id, product_id, product_name,
-        min_stock_snapshot, min_stock_max_snapshot,
-        is_missing,
-        products!inner(unit, is_active)
-      `)
-      .eq('checklist_id', checklistId)
-      .eq('is_missing', true);
-
-    if (!items || items.length === 0) {
-      return { success: true, data: [] };
-    }
-
-    // Get preferred suppliers for these products
-    const productIds = items.map((i) => i.product_id);
-    const { data: productSuppliers } = await supabase
-      .from('product_suppliers')
-      .select('product_id, supplier_id, suppliers!inner(id, name, is_active)')
-      .in('product_id', productIds)
-      .eq('is_preferred', true);
-
-    // Check existing open orders for these products in this checklist
-    const { data: existingOrders } = await supabase
-      .from('order_items')
-      .select('product_id, orders!inner(checklist_id, status)')
-      .in('product_id', productIds);
-
-    const productsWithOpenOrders = new Set(
-      (existingOrders ?? [])
-        .filter((o) => {
-          const order = o.orders as unknown as { checklist_id: string; status: string };
-          return order.checklist_id === checklistId &&
-            OPEN_ORDER_STATUSES.includes(order.status as never);
-        })
-        .map((o) => o.product_id)
-    );
-
-    // Build suggestions grouped by supplier
-    const supplierMap = new Map<string, {
-      supplierId: string;
-      supplierName: string;
-      items: Array<{
-        productId: string;
-        productName: string;
-        quantity: number;
-        unit: string;
-        hasOpenOrder: boolean;
-      }>;
-    }>();
-
-    for (const item of items) {
-      const product = item.products as unknown as { unit: string | null; is_active: boolean };
-      const preferredSupplier = (productSuppliers ?? []).find(
-        (ps) => ps.product_id === item.product_id
-      );
-
-      const supplier = preferredSupplier?.suppliers as unknown as { id: string; name: string; is_active: boolean } | undefined;
-      const supplierId = supplier?.is_active ? supplier.id : 'unassigned';
-      const supplierName = supplier?.is_active ? supplier.name : de.orders.notAssigned;
-
-      if (!supplierMap.has(supplierId)) {
-        supplierMap.set(supplierId, {
-          supplierId,
-          supplierName,
-          items: [],
-        });
-      }
-
-      const quantity = item.min_stock_max_snapshot ?? item.min_stock_snapshot ?? 1;
-
-      supplierMap.get(supplierId)!.items.push({
-        productId: item.product_id,
-        productName: item.product_name,
-        quantity,
-        unit: product.unit ?? 'stueck',
-        hasOpenOrder: productsWithOpenOrders.has(item.product_id),
-      });
-    }
-
-    return { success: true, data: Array.from(supplierMap.values()) };
+    const data = await getOrderSuggestions(supabase, checklistId);
+    return { success: true, data };
   } catch (err) {
     logger.error('Generate order suggestions failed', { userId: user.id, error: err instanceof Error ? err.message : 'Unknown' });
     return { error: de.errors.generic };
@@ -182,59 +208,158 @@ export async function createOrder(input: z.infer<typeof createOrderSchema>) {
 
   try {
     const validated = createOrderSchema.parse(input);
+    const result = await createOrderRecord(supabase, user.id, validated);
 
-    // Verify supplier is active
-    const { data: supplier } = await supabase
-      .from('suppliers')
-      .select('is_active')
-      .eq('id', validated.supplierId)
-      .single();
-
-    if (!supplier?.is_active) {
-      return { error: de.orders.inactiveSupplier };
+    if (result.error) {
+      return { error: result.error };
     }
-
-    const { data, error } = await supabase.rpc('rpc_create_order_with_items', {
-      p_supplier_id: validated.supplierId,
-      p_checklist_id: validated.checklistId,
-      p_created_by: user.id,
-      p_items: validated.items.map((i) => ({
-        product_id: i.productId,
-        quantity: i.quantity,
-        unit: i.unit,
-      })),
-    });
-
-    if (error) {
-      logger.error('Create order RPC error', { userId: user.id, error: error.message });
-      return { error: de.errors.generic };
-    }
-
-    const result = data as { success: boolean; error?: string; order_id?: string; order_number?: string };
-
-    if (!result.success) {
-      if (result.error === 'order_number_conflict') {
-        return { error: de.orders.orderNumberConflict };
-      }
-      return { error: de.errors.generic };
-    }
-
-    await logAudit({
-      userId: user.id,
-      action: 'order_created',
-      entityType: 'order',
-      entityId: result.order_id!,
-      details: { orderNumber: result.order_number, supplierId: validated.supplierId },
-    });
 
     revalidatePath('/orders');
     revalidatePath('/dashboard');
-    return { success: true, orderNumber: result.order_number };
+    return { success: true, orderNumber: result.orderNumber };
   } catch (err) {
     if (err instanceof z.ZodError) {
       return { error: de.errors.invalidInput };
     }
     logger.error('Create order exception', { userId: user.id, error: err instanceof Error ? err.message : 'Unknown' });
+    return { error: de.errors.generic };
+  }
+}
+
+export async function finalizeSuggestionGroup(input: z.infer<typeof finalizeSuggestionGroupSchema>) {
+  const supabase = await createServerClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return { error: de.auth.notLoggedIn };
+
+  const profile = await getActiveProfile(supabase, user.id);
+  if (!profile) return { error: de.auth.accountDeactivated };
+
+  try {
+    const validated = finalizeSuggestionGroupSchema.parse(input);
+    const admin = createAdminClient();
+
+    const { data: checklistItems, error: checklistItemsError } = await admin
+      .from('checklist_items')
+      .select(`
+        id, checklist_id, product_id, product_name,
+        min_stock_snapshot, min_stock_max_snapshot,
+        is_missing,
+        products!inner(unit, is_active)
+      `)
+      .in('id', validated.items.map((item) => item.checklistItemId));
+
+    if (checklistItemsError) {
+      logger.error('Finalize suggestion group item load failed', {
+        userId: user.id,
+        checklistId: validated.checklistId,
+        error: checklistItemsError.message,
+      });
+      return { error: de.errors.generic };
+    }
+
+    if (!checklistItems || checklistItems.length !== validated.items.length) {
+      return { error: de.errors.notFound };
+    }
+
+    const itemMap = new Map(checklistItems.map((item) => [item.id, item]));
+    for (const item of checklistItems) {
+      if (item.checklist_id !== validated.checklistId || !item.is_missing) {
+        return { error: de.errors.unauthorized };
+      }
+    }
+
+    const productIds = checklistItems.map((item) => item.product_id);
+    const { data: productSuppliers, error: productSuppliersError } = await admin
+      .from('product_suppliers')
+      .select('product_id, supplier_id, suppliers!inner(id, name, is_active)')
+      .in('product_id', productIds)
+      .eq('is_preferred', true);
+
+    if (productSuppliersError) {
+      logger.error('Finalize suggestion group supplier load failed', {
+        userId: user.id,
+        checklistId: validated.checklistId,
+        error: productSuppliersError.message,
+      });
+      return { error: de.errors.generic };
+    }
+
+    for (const item of checklistItems) {
+      const preferredSupplier = (productSuppliers ?? []).find((supplier) => supplier.product_id === item.product_id);
+      const supplier = preferredSupplier?.suppliers as unknown as { id: string; name: string; is_active: boolean } | undefined;
+      const expectedSupplierId = supplier?.is_active ? supplier.id : null;
+
+      if ((validated.supplierId ?? null) !== expectedSupplierId) {
+        return { error: de.errors.unauthorized };
+      }
+    }
+
+    // Keep checklist capture + optional order creation in one RPC so the
+    // suggestion finalize flow cannot leave "ordered" checklist rows behind
+    // when order creation fails later.
+    const { data, error } = await admin.rpc('rpc_finalize_suggestion_group', {
+      p_checklist_id: validated.checklistId,
+      p_supplier_id: validated.supplierId,
+      p_supplier_name: validated.supplierName,
+      p_created_by: user.id,
+      p_items: validated.items.map((item) => {
+        const checklistItem = itemMap.get(item.checklistItemId)!;
+        const product = checklistItem.products as unknown as { unit: string | null };
+
+        return {
+          checklist_item_id: item.checklistItemId,
+          product_id: checklistItem.product_id,
+          quantity: normalizeSuggestedOrderCount(
+            checklistItem.min_stock_max_snapshot ?? checklistItem.min_stock_snapshot ?? 1
+          ),
+          unit: product.unit ?? 'stueck',
+          is_ordered: item.isOrdered,
+          ordered_quantity: item.orderedQuantity,
+        };
+      }),
+    });
+
+    if (error) {
+      logger.error('Finalize suggestion group RPC failed', {
+        userId: user.id,
+        checklistId: validated.checklistId,
+        error: error.message,
+      });
+      return { error: de.errors.generic };
+    }
+
+    const result = data as FinalizeSuggestionGroupRpcResult;
+    if (!result.success) {
+      return { error: mapFinalizeSuggestionGroupRpcError(result.error) };
+    }
+
+    if (result.order_id && result.order_number && validated.supplierId) {
+      await logAudit({
+        userId: user.id,
+        action: 'order_created',
+        entityType: 'order',
+        entityId: result.order_id,
+        details: {
+          orderNumber: result.order_number,
+          supplierId: validated.supplierId,
+          initialStatus: 'ordered',
+        },
+      });
+    }
+
+    revalidatePath('/orders');
+    revalidatePath('/dashboard');
+    revalidatePath('/reports');
+    return { success: true };
+  } catch (err) {
+    if (err instanceof z.ZodError) {
+      return { error: de.errors.invalidInput };
+    }
+
+    logger.error('Finalize suggestion group exception', {
+      userId: user.id,
+      error: err instanceof Error ? err.message : 'Unknown',
+    });
     return { error: de.errors.generic };
   }
 }
