@@ -51,11 +51,13 @@ function AccordionTrigger({
 function AccordionContent({
   className,
   children,
+  keepMounted = true,
   ...props
 }: AccordionPrimitive.Panel.Props) {
   return (
     <AccordionPrimitive.Panel
       data-slot="accordion-content"
+      keepMounted={keepMounted}
       className="overflow-hidden text-sm data-open:animate-accordion-down data-closed:animate-accordion-up"
       {...props}
     >
