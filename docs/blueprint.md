@@ -152,6 +152,6 @@ profiles (1) --< checklists (1) --< checklist_items (M) >-- products (1)
 - PWA, offline sync, push notifications
 - Real-time multi-user sync
 - PIN login, barcode, invoice parsing
-- Advanced analytics, AI suggestions
+- Advanced analytics, smart suggestions
 - Product/user admin UI
 - Vercel cron jobs
