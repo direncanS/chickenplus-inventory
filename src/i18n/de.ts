@@ -44,6 +44,7 @@ export const de = {
     suppliers: 'Lieferanten',
     orders: 'Bestellungen',
     archive: 'Archiv',
+    reports: 'Berichte',
     settings: 'Einstellungen',
   },
 
@@ -86,6 +87,15 @@ export const de = {
     saveFailed: 'Speichern fehlgeschlagen. Bitte erneut versuchen.',
     saveSuccess: 'Gespeichert',
     overrideActive: 'Override aktiv - klicken zum Zurücksetzen',
+    product: 'Produkt',
+    ordersAutoCreated: 'Bestellungen wurden automatisch erstellt.',
+    selectDate: 'Datum auswählen',
+    createForDate: 'Kontrollliste für {date} - KW {week} erstellen',
+    monthlyLimitReached: 'Für diesen Monat wurden bereits 5 Kontrolllisten erstellt.',
+    completeConfirmTitle: 'Kontrollliste abschließen',
+    completeConfirmDescription: 'Möchten Sie die Kontrollliste wirklich abschließen? Nach dem Abschluss können keine Änderungen mehr vorgenommen werden.',
+    completeConfirmButton: 'Abschließen',
+    dateLabel: 'Datum',
   },
 
   // Suppliers
@@ -187,6 +197,34 @@ export const de = {
     admin: 'Administrator',
     staff: 'Mitarbeiter',
     version: 'Version',
+  },
+
+  // Reports
+  reports: {
+    title: 'Berichte',
+    period: 'Zeitraum',
+    last4Weeks: 'Letzte 4 Wochen',
+    lastMonth: 'Letzter Monat',
+    last3Months: 'Letzte 3 Monate',
+    custom: 'Benutzerdefiniert',
+    totalChecklists: 'Kontrolllisten gesamt',
+    avgMissingProducts: 'Ø Fehlende Produkte',
+    totalOrders: 'Bestellungen',
+    deliveryRate: 'Lieferquote',
+    stockTrend: 'Bestandsentwicklung',
+    missingItems: 'Fehlende Positionen',
+    totalItems: 'Gesamtpositionen',
+    orderSummary: 'Bestellübersicht',
+    supplierPerformance: 'Lieferantenleistung',
+    topMissingProducts: 'Häufig fehlende Produkte',
+    supplier: 'Lieferant',
+    orderCount: 'Bestellungen',
+    avgDeliveryDays: 'Ø Lieferzeit (Tage)',
+    noData: 'Keine Daten vorhanden',
+    noDataDescription: 'Für den ausgewählten Zeitraum sind keine Daten vorhanden.',
+    count: 'Anzahl',
+    product: 'Produkt',
+    perChecklist: 'pro Kontrollliste',
   },
 
   // Errors

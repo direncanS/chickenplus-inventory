@@ -11,10 +11,11 @@ describe('transformChecklistItems', () => {
         product_name: 'Hähnchenbrust',
         min_stock_snapshot: 5,
         min_stock_max_snapshot: 10,
-        current_stock: 3,
+        current_stock: '3',
         missing_amount_calculated: 2,
         missing_amount_final: 2,
         is_missing_overridden: false,
+        is_missing: false,
         is_checked: false,
         products: [
           {
@@ -44,7 +45,7 @@ describe('transformChecklistItems', () => {
         product_name: 'Pommes',
         min_stock_snapshot: 3,
         min_stock_max_snapshot: null,
-        current_stock: 1,
+        current_stock: '1',
         missing_amount_calculated: 2,
         missing_amount_final: 2,
         is_missing_overridden: false,
@@ -77,10 +78,11 @@ describe('transformChecklistItems', () => {
         product_name: 'Test Product',
         min_stock_snapshot: 5,
         min_stock_max_snapshot: 8,
-        current_stock: 2,
+        current_stock: '2',
         missing_amount_calculated: 3,
         missing_amount_final: 6,
         is_missing_overridden: true,
+        is_missing: true,
         is_checked: false,
         products: [{
           sort_order: 1,
@@ -95,7 +97,7 @@ describe('transformChecklistItems', () => {
     expect(result[0].id).toBe('item-1');
     expect(result[0].is_missing_overridden).toBe(true);
     expect(result[0].missing_amount_final).toBe(6);
-    expect(result[0].current_stock).toBe(2);
+    expect(result[0].current_stock).toBe('2');
   });
 });
 

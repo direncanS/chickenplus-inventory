@@ -4,14 +4,14 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import Link from 'next/link';
-import { formatDateTimeVienna } from '@/lib/utils/date';
+import { formatDateTimeVienna, formatDateGerman } from '@/lib/utils/date';
 
 export default async function ArchivePage() {
   const supabase = await createServerClient();
 
   const { data: checklists } = await supabase
     .from('checklists')
-    .select('id, iso_year, iso_week, status, created_at, updated_at')
+    .select('id, iso_year, iso_week, checklist_date, status, created_at, updated_at')
     .eq('status', 'completed')
     .order('iso_year', { ascending: false })
     .order('iso_week', { ascending: false });
@@ -31,7 +31,9 @@ export default async function ArchivePage() {
             <CardHeader className="pb-2">
               <div className="flex items-center justify-between">
                 <CardTitle className="text-base">
-                  {de.dashboard.weekLabel} {cl.iso_week} / {cl.iso_year}
+                  {cl.checklist_date
+                    ? `${formatDateGerman(cl.checklist_date)} - ${de.dashboard.weekLabel} ${cl.iso_week}`
+                    : `${de.dashboard.weekLabel} ${cl.iso_week} / ${cl.iso_year}`}
                 </CardTitle>
                 <Badge variant="outline">{de.checklist.completed}</Badge>
               </div>

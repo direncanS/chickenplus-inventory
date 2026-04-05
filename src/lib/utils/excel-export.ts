@@ -19,8 +19,8 @@ interface ExportChecklistItem {
   productName: string;
   minStockSnapshot: number | null;
   minStockMaxSnapshot: number | null;
-  currentStock: number | null;
-  missingAmountFinal: number | null;
+  currentStock: string | null;
+  isMissing: boolean;
   unit: string;
   categoryName: string;
   storageName: string;
@@ -137,8 +137,8 @@ export async function generateChecklistExcel(
           sanitizeExcelValue(item.productName),
           sanitizeExcelValue(item.unit),
           sanitizeExcelValue(minStockDisplay),
-          item.currentStock,
-          item.missingAmountFinal,
+          sanitizeExcelValue(item.currentStock),
+          item.isMissing ? 'Ja' : 'Nein',
           sanitizeExcelValue(item.categoryName),
         ]);
       }

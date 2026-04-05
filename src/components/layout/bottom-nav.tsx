@@ -10,6 +10,7 @@ import {
   Truck,
   ShoppingCart,
   Archive,
+  BarChart3,
   Settings,
 } from 'lucide-react';
 
@@ -19,6 +20,7 @@ const navItems = [
   { href: '/orders', label: de.nav.orders, icon: ShoppingCart },
   { href: '/suppliers', label: de.nav.suppliers, icon: Truck },
   { href: '/archive', label: de.nav.archive, icon: Archive },
+  { href: '/reports', label: de.nav.reports, icon: BarChart3 },
   { href: '/settings', label: de.nav.settings, icon: Settings },
 ];
 
