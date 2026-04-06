@@ -5,10 +5,74 @@ import { createServerClient } from '@/lib/supabase/server';
 import { getActiveProfile } from '@/lib/supabase/auth-helpers';
 import { logAudit } from '@/lib/utils/audit';
 import { logger } from '@/lib/utils/logger';
-import { createOrderSchema, updateOrderStatusSchema } from '@/lib/validations/order';
+import { createOrderSchema, updateOrderItemsSchema, updateOrderStatusSchema } from '@/lib/validations/order';
 import { de } from '@/i18n/de';
 import { z } from 'zod';
 import { OPEN_ORDER_STATUSES } from '@/lib/constants';
+
+type OrderedItemsRpcResult = {
+  success: boolean;
+  error?: 'order_not_found' | 'order_not_editable' | 'order_item_not_found' | 'invalid_ordered_quantity';
+  status?: string;
+  updated_items?: number;
+};
+
+function mapOrderedItemsRpcError(
+  errorCode: OrderedItemsRpcResult['error'],
+  draftOnlyMessage: string
+) {
+  switch (errorCode) {
+    case 'order_not_found':
+    case 'order_item_not_found':
+      return de.errors.notFound;
+    case 'order_not_editable':
+      return draftOnlyMessage;
+    case 'invalid_ordered_quantity':
+      return de.orders.orderedQuantityInvalid;
+    default:
+      return de.errors.generic;
+  }
+}
+
+async function persistOrderedItems(
+  supabase: Awaited<ReturnType<typeof createServerClient>>,
+  userId: string,
+  orderId: string,
+  orderedItems: Array<{ orderItemId: string; isOrdered: boolean; orderedQuantity: number | null }>,
+  options?: { markOrdered?: boolean; draftOnlyMessage?: string }
+) {
+  const markOrdered = options?.markOrdered ?? false;
+  const draftOnlyMessage = options?.draftOnlyMessage ?? de.orders.onlyDraftsCanBeEdited;
+
+  const { data, error } = await supabase.rpc('rpc_update_order_items_ordered', {
+    p_order_id: orderId,
+    p_ordered_items: orderedItems.map((item) => ({
+      order_item_id: item.orderItemId,
+      is_ordered: item.isOrdered,
+      ordered_quantity: item.orderedQuantity,
+    })),
+    p_mark_ordered: markOrdered,
+  });
+
+  if (error) {
+    logger.error('Persist ordered items RPC error', {
+      userId,
+      orderId,
+      markOrdered,
+      error: error.message,
+    });
+    return { error: de.errors.generic };
+  }
+
+  const result = data as OrderedItemsRpcResult;
+  if (!result.success) {
+    return {
+      error: mapOrderedItemsRpcError(result.error, draftOnlyMessage),
+    };
+  }
+
+  return { success: true, status: result.status };
+}
 
 export async function generateOrderSuggestions(checklistId: string) {
   const supabase = await createServerClient();
@@ -175,6 +239,50 @@ export async function createOrder(input: z.infer<typeof createOrderSchema>) {
   }
 }
 
+export async function updateOrderItems(input: z.infer<typeof updateOrderItemsSchema>) {
+  const supabase = await createServerClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return { error: de.auth.notLoggedIn };
+
+  const profile = await getActiveProfile(supabase, user.id);
+  if (!profile) return { error: de.auth.accountDeactivated };
+
+  try {
+    const validated = updateOrderItemsSchema.parse(input);
+
+    const { data: order } = await supabase
+      .from('orders')
+      .select('id, status')
+      .eq('id', validated.orderId)
+      .single();
+
+    if (!order) return { error: de.errors.notFound };
+    if (order.status !== 'draft') {
+      return { error: de.orders.onlyDraftsCanBeEdited };
+    }
+
+    const result = await persistOrderedItems(supabase, user.id, validated.orderId, validated.orderedItems, {
+      draftOnlyMessage: de.orders.onlyDraftsCanBeEdited,
+    });
+
+    if (result.error) {
+      return { error: result.error };
+    }
+
+    revalidatePath('/orders');
+    return { success: true };
+  } catch (err) {
+    if (err instanceof z.ZodError) {
+      return { error: de.errors.invalidInput };
+    }
+    logger.error('Update order items exception', {
+      userId: user.id,
+      error: err instanceof Error ? err.message : 'Unknown',
+    });
+    return { error: de.errors.generic };
+  }
+}
+
 export async function updateOrderStatus(input: z.infer<typeof updateOrderStatusSchema>) {
   const supabase = await createServerClient();
   const { data: { user } } = await supabase.auth.getUser();
@@ -230,14 +338,25 @@ export async function updateOrderStatus(input: z.infer<typeof updateOrderStatusS
         return { error: de.orders.onlyDraftsCanBeOrdered };
       }
 
-      const { error } = await supabase
-        .from('orders')
-        .update({ status: 'ordered', ordered_at: new Date().toISOString() })
-        .eq('id', validated.orderId);
+      if (validated.orderedItems && validated.orderedItems.length > 0) {
+        const result = await persistOrderedItems(supabase, user.id, validated.orderId, validated.orderedItems, {
+          markOrdered: true,
+          draftOnlyMessage: de.orders.onlyDraftsCanBeOrdered,
+        });
 
-      if (error) {
-        logger.error('Mark ordered failed', { userId: user.id, orderId: validated.orderId, error: error.message });
-        return { error: de.errors.generic };
+        if (result.error) {
+          return { error: result.error };
+        }
+      } else {
+        const { error } = await supabase
+          .from('orders')
+          .update({ status: 'ordered', ordered_at: new Date().toISOString() })
+          .eq('id', validated.orderId);
+
+        if (error) {
+          logger.error('Mark ordered failed', { userId: user.id, orderId: validated.orderId, error: error.message });
+          return { error: de.errors.generic };
+        }
       }
 
       await logAudit({

@@ -16,7 +16,7 @@ draft ──[ilk item guncelleme]--> in_progress ──[tamamla]--> completed
                                           [yeniden ac (admin)]--> in_progress
 ```
 - **draft → in_progress:** Ilk checklist item guncellemesinde otomatik
-- **in_progress → completed:** Tum item'lar checked ve stock degeri girilmis olmali
+- **in_progress → completed:** Tum item'lar checked olmali; stock girisi opsiyoneldir
 - **completed → in_progress:** Sadece admin (reopenChecklist)
 
 ### Item Guncelleme
@@ -30,8 +30,9 @@ draft ──[ilk item guncelleme]--> in_progress ──[tamamla]--> completed
 
 ### Tamamlama Kontrolleri
 - **Tum item'lar** `is_checked = true` olmali
-- **Tum item'lar** `current_stock !== null` olmali
-- Eksik olan varsa hata doner, tamamlama kabul edilmez
+- `current_stock` tamamlamada zorunlu degildir; export ve raporlama verisi olarak kalir
+- Checklist tamamlaninca siparis olusturma arkaplanda baslatilir; tamamlanma islemi bunu beklemez
+- Eksik checked varsa hata doner, tamamlama kabul edilmez
 
 ## 2. Siparis Kurallari
 
@@ -66,6 +67,9 @@ draft ──[siparis ver]--> ordered ──[teslimat]--> partially_delivered / d
 
 ### Teslimat
 - Item bazinda teslimat takibi (`order_items.is_delivered`)
+- Draft sipariste item bazinda opsiyonel `is_ordered` + `ordered_quantity` kaydi tutulabilir
+- `quantity` onerilen miktardir; `ordered_quantity` gercek verilen miktari temsil eder
+- `ordered_quantity` yalnizca `is_ordered = true` iken kaydedilir
 - Tum item'lar teslim edildiginde `orders.delivered_at` set edilir
 - Kismen teslim: status `partially_delivered` olur
 - RPC fonksiyonu atomik guncelleme yapar

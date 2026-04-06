@@ -14,9 +14,41 @@ export const createOrderSchema = z.object({
 
 export type CreateOrderInput = z.infer<typeof createOrderSchema>;
 
+export const orderedItemDetailsSchema = z
+  .object({
+    orderItemId: z.string().uuid(),
+    isOrdered: z.boolean(),
+    orderedQuantity: z.number().positive('Bestellmenge muss > 0 sein').nullable(),
+  })
+  .superRefine((value, ctx) => {
+    if (value.isOrdered && value.orderedQuantity == null) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'Bestellmenge erforderlich',
+        path: ['orderedQuantity'],
+      });
+    }
+
+    if (!value.isOrdered && value.orderedQuantity != null) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'Bestellmenge nur fuer bestellte Positionen erlaubt',
+        path: ['orderedQuantity'],
+      });
+    }
+  });
+
+export const updateOrderItemsSchema = z.object({
+  orderId: z.string().uuid(),
+  orderedItems: z.array(orderedItemDetailsSchema).min(1, 'Mindestens eine Positionsaenderung ist erforderlich'),
+});
+
+export type UpdateOrderItemsInput = z.infer<typeof updateOrderItemsSchema>;
+
 export const updateOrderStatusSchema = z.object({
   orderId: z.string().uuid(),
   status: z.enum(['ordered', 'cancelled']).optional(),
+  orderedItems: z.array(orderedItemDetailsSchema).optional(),
   itemDeliveries: z
     .array(
       z.object({

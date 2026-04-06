@@ -13,7 +13,11 @@ export default async function ChecklistPage() {
   // Fetch active checklist
   const { data: activeChecklist } = await supabase
     .from('checklists')
-    .select('id, iso_year, iso_week, checklist_date, status, created_by, completed_by, created_at')
+    .select(`
+      id, iso_year, iso_week, checklist_date, status, created_by, completed_by, created_at,
+      order_generation_status, order_generation_started_at, order_generation_finished_at,
+      order_generation_orders_created, order_generation_error
+    `)
     .in('status', ['draft', 'in_progress'])
     .single();
 
@@ -31,7 +35,11 @@ export default async function ChecklistPage() {
     // Check for latest completed checklist for today
     const { data: completedToday } = await supabase
       .from('checklists')
-      .select('id, iso_year, iso_week, checklist_date, status')
+      .select(`
+        id, iso_year, iso_week, checklist_date, status,
+        order_generation_status, order_generation_started_at, order_generation_finished_at,
+        order_generation_orders_created, order_generation_error
+      `)
       .eq('checklist_date', todayDate)
       .eq('status', 'completed')
       .single();
@@ -85,7 +93,7 @@ export default async function ChecklistPage() {
       id, checklist_id, product_id, product_name,
       min_stock_snapshot, min_stock_max_snapshot,
       current_stock, missing_amount_calculated, missing_amount_final,
-      is_missing_overridden, is_checked,
+      is_missing_overridden, is_missing, is_checked,
       products!inner(
         sort_order,
         unit,

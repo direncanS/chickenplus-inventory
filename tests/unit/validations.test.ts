@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { createChecklistSchema, updateChecklistItemSchema, completeChecklistSchema, reopenChecklistSchema } from '@/lib/validations/checklist';
 import { createSupplierSchema, updateSupplierSchema, productSupplierSchema } from '@/lib/validations/supplier';
-import { createOrderSchema, updateOrderStatusSchema } from '@/lib/validations/order';
+import { createOrderSchema, updateOrderItemsSchema, updateOrderStatusSchema } from '@/lib/validations/order';
 
 const validUUID = '550e8400-e29b-41d4-a716-446655440000';
 const validUUID2 = '660e8400-e29b-41d4-a716-446655440001';
@@ -308,6 +308,40 @@ describe('createOrderSchema', () => {
   });
 });
 
+// ── updateOrderItemsSchema ──
+
+describe('updateOrderItemsSchema', () => {
+  it('accepts valid ordered item updates', () => {
+    const result = updateOrderItemsSchema.safeParse({
+      orderId: validUUID,
+      orderedItems: [
+        { orderItemId: validUUID2, isOrdered: true, orderedQuantity: 4 },
+      ],
+    });
+    expect(result.success).toBe(true);
+  });
+
+  it('rejects checked item without ordered quantity', () => {
+    const result = updateOrderItemsSchema.safeParse({
+      orderId: validUUID,
+      orderedItems: [
+        { orderItemId: validUUID2, isOrdered: true, orderedQuantity: null },
+      ],
+    });
+    expect(result.success).toBe(false);
+  });
+
+  it('rejects unchecked item with ordered quantity', () => {
+    const result = updateOrderItemsSchema.safeParse({
+      orderId: validUUID,
+      orderedItems: [
+        { orderItemId: validUUID2, isOrdered: false, orderedQuantity: 2 },
+      ],
+    });
+    expect(result.success).toBe(false);
+  });
+});
+
 // ── updateOrderStatusSchema ──
 
 describe('updateOrderStatusSchema', () => {
@@ -357,6 +391,17 @@ describe('updateOrderStatusSchema', () => {
     const result = updateOrderStatusSchema.safeParse({
       orderId: validUUID,
       notes: 'Delivery note',
+    });
+    expect(result.success).toBe(true);
+  });
+
+  it('accepts ordered items when marking ordered', () => {
+    const result = updateOrderStatusSchema.safeParse({
+      orderId: validUUID,
+      status: 'ordered',
+      orderedItems: [
+        { orderItemId: validUUID2, isOrdered: true, orderedQuantity: 3 },
+      ],
     });
     expect(result.success).toBe(true);
   });
