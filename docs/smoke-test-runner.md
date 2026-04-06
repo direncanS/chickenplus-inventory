@@ -16,6 +16,10 @@ Bu rehber `docs/smoke-test.md` testlerini pratikte nasil calistiracaginizi adim 
 - [Ek A: SQL Sorgu Katalogu](#ek-a-sql-sorgu-katalogu)
 - [Ek B: FAZ B/C Operasyonel Notlar](#ek-b-faz-bc-operasyonel-notlar)
 
+Not: Son sertlestirmelerle deaktive kullanici davranisi degisti:
+- A5-19b: Deaktive kullanici app sayfalarina giderse `/deactivated` sayfasina yonlenir; veri render edilmez.
+- A5-20: Deaktive kullanici yeniden login olabilir ama uygulamaya girince `/deactivated` sayfasina yonlenir.
+
 ---
 
 ## 1. Test Ortami On Kontrol
@@ -345,8 +349,8 @@ ORDER BY s.name, p.name;
 
 **Yontem**: `[UI]` + `[KOD INCELEME]`
 
-- Staff session ile supplier verisi okunabiliyor (RLS `USING(true)`, Server Action'da role check yok). UI mapping bolumunu gizler.
-- Bu davranis yalnizca A-P04d PASS ise (public signup OFF) kabul edilebilir.
+- Staff session ile `getSupplierProducts` / `getAvailableProducts` cagrisi yetki hatasi ile reddedilir.
+- UI mapping bolumu staff'a gizli kalir; server action katmani da ikinci savunma hattidir.
 
 ---
 
