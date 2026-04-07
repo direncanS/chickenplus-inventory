@@ -1,7 +1,18 @@
 import { describe, it, expect } from 'vitest';
-import { createChecklistSchema, updateChecklistItemSchema, completeChecklistSchema, reopenChecklistSchema } from '@/lib/validations/checklist';
+import {
+  createChecklistSchema,
+  updateChecklistItemSchema,
+  updateChecklistItemsBatchSchema,
+  completeChecklistSchema,
+  reopenChecklistSchema,
+} from '@/lib/validations/checklist';
 import { createSupplierSchema, updateSupplierSchema, productSupplierSchema } from '@/lib/validations/supplier';
-import { createOrderSchema, updateOrderItemsSchema, updateOrderStatusSchema } from '@/lib/validations/order';
+import {
+  createOrderSchema,
+  finalizeSuggestionGroupSchema,
+  updateOrderItemsSchema,
+  updateOrderStatusSchema,
+} from '@/lib/validations/order';
 
 const validUUID = '550e8400-e29b-41d4-a716-446655440000';
 const validUUID2 = '660e8400-e29b-41d4-a716-446655440001';
@@ -122,6 +133,49 @@ describe('updateChecklistItemSchema', () => {
       currentStock: '',
     });
     expect(result.success).toBe(true);
+  });
+});
+
+describe('updateChecklistItemsBatchSchema', () => {
+  it('accepts a valid batch payload', () => {
+    const result = updateChecklistItemsBatchSchema.safeParse({
+      checklistId: validUUID,
+      items: [
+        {
+          checklistItemId: validUUID2,
+          currentStock: 'voll',
+          isMissing: false,
+          isChecked: true,
+        },
+      ],
+    });
+
+    expect(result.success).toBe(true);
+  });
+
+  it('rejects empty batches', () => {
+    const result = updateChecklistItemsBatchSchema.safeParse({
+      checklistId: validUUID,
+      items: [],
+    });
+
+    expect(result.success).toBe(false);
+  });
+
+  it('rejects invalid checklist item ids', () => {
+    const result = updateChecklistItemsBatchSchema.safeParse({
+      checklistId: validUUID,
+      items: [
+        {
+          checklistItemId: 'broken',
+          currentStock: null,
+          isMissing: true,
+          isChecked: false,
+        },
+      ],
+    });
+
+    expect(result.success).toBe(false);
   });
 });
 
@@ -306,6 +360,18 @@ describe('createOrderSchema', () => {
     });
     expect(result.success).toBe(false);
   });
+
+  it('accepts ordered draft payload with optional ordered quantity', () => {
+    const result = createOrderSchema.safeParse({
+      supplierId: validUUID,
+      checklistId: validUUID,
+      initialStatus: 'ordered',
+      items: [
+        { productId: validUUID, quantity: 5, unit: 'koli', isOrdered: true, orderedQuantity: null },
+      ],
+    });
+    expect(result.success).toBe(true);
+  });
 });
 
 // ── updateOrderItemsSchema ──
@@ -321,11 +387,21 @@ describe('updateOrderItemsSchema', () => {
     expect(result.success).toBe(true);
   });
 
-  it('rejects checked item without ordered quantity', () => {
+  it('accepts checked item without ordered quantity', () => {
     const result = updateOrderItemsSchema.safeParse({
       orderId: validUUID,
       orderedItems: [
         { orderItemId: validUUID2, isOrdered: true, orderedQuantity: null },
+      ],
+    });
+    expect(result.success).toBe(true);
+  });
+
+  it('rejects decimal ordered quantity', () => {
+    const result = updateOrderItemsSchema.safeParse({
+      orderId: validUUID,
+      orderedItems: [
+        { orderItemId: validUUID2, isOrdered: true, orderedQuantity: 1.5 },
       ],
     });
     expect(result.success).toBe(false);
@@ -336,6 +412,46 @@ describe('updateOrderItemsSchema', () => {
       orderId: validUUID,
       orderedItems: [
         { orderItemId: validUUID2, isOrdered: false, orderedQuantity: 2 },
+      ],
+    });
+    expect(result.success).toBe(false);
+  });
+});
+
+// —— finalizeSuggestionGroupSchema ——
+
+describe('finalizeSuggestionGroupSchema', () => {
+  it('accepts checked item without ordered quantity', () => {
+    const result = finalizeSuggestionGroupSchema.safeParse({
+      checklistId: validUUID,
+      supplierId: null,
+      supplierName: 'Nicht zugeordnet',
+      items: [
+        { checklistItemId: validUUID2, isOrdered: true, orderedQuantity: null },
+      ],
+    });
+    expect(result.success).toBe(true);
+  });
+
+  it('rejects decimal quantity in suggestion capture', () => {
+    const result = finalizeSuggestionGroupSchema.safeParse({
+      checklistId: validUUID,
+      supplierId: validUUID2,
+      supplierName: 'Metro Test',
+      items: [
+        { checklistItemId: validUUID2, isOrdered: true, orderedQuantity: 2.25 },
+      ],
+    });
+    expect(result.success).toBe(false);
+  });
+
+  it('rejects unchecked item with ordered quantity', () => {
+    const result = finalizeSuggestionGroupSchema.safeParse({
+      checklistId: validUUID,
+      supplierId: validUUID2,
+      supplierName: 'Metro Test',
+      items: [
+        { checklistItemId: validUUID2, isOrdered: false, orderedQuantity: 3 },
       ],
     });
     expect(result.success).toBe(false);

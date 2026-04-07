@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -18,7 +18,7 @@ import {
   DialogClose,
 } from '@/components/ui/dialog';
 import { de } from '@/i18n/de';
-import { generateOrderSuggestions, createOrder, updateOrderItems, updateOrderStatus } from '@/app/(app)/orders/actions';
+import { finalizeSuggestionGroup, generateOrderSuggestions, updateOrderItems, updateOrderStatus } from '@/app/(app)/orders/actions';
 import { toast } from 'sonner';
 import { Checkbox } from '@/components/ui/checkbox';
 import { formatDateTimeVienna } from '@/lib/utils/date';
@@ -27,6 +27,7 @@ import {
   buildOrderedItemUpdates,
   createOrderedItemDraftState,
   hasOrderedItemChanges,
+  normalizeSuggestedOrderCount,
   prefillOrderedQuantity,
 } from '@/lib/utils/order-items';
 
@@ -58,11 +59,13 @@ interface Suggestion {
   supplierId: string;
   supplierName: string;
   items: Array<{
+    checklistItemId: string;
     productId: string;
     productName: string;
     quantity: number;
     unit: string;
-    hasOpenOrder: boolean;
+    isOrdered: boolean;
+    orderedQuantity: number | null;
   }>;
 }
 
@@ -74,10 +77,8 @@ const statusConfig: Record<string, { label: string; variant: 'default' | 'second
   cancelled: { label: de.orders.statusCancelled, variant: 'destructive' },
 };
 
-function getOrderedItemsValidationMessage(error: 'ordered_quantity_required' | 'ordered_quantity_invalid') {
-  return error === 'ordered_quantity_required'
-    ? de.orders.orderedQuantityRequired
-    : de.orders.orderedQuantityInvalid;
+function getOrderedItemsValidationMessage() {
+  return de.orders.orderedQuantityInvalid;
 }
 
 function getOrderRenderKey(order: Order) {
@@ -93,9 +94,14 @@ function formatActualOrderedQuantity(value: number | null, unit: string) {
   return `${value} ${unit}`;
 }
 
+function getQuantityInputPlaceholder(quantity: number) {
+  return String(normalizeSuggestedOrderCount(quantity));
+}
+
 export function OrderList({
   orders,
   activeChecklist,
+  initialSuggestions,
   isAdmin,
 }: {
   orders: Order[];
@@ -108,23 +114,84 @@ export function OrderList({
     order_generation_orders_created?: number | null;
     order_generation_error?: string | null;
   } | null;
+  initialSuggestions: Suggestion[];
   isAdmin: boolean;
 }) {
   const router = useRouter();
-  const [suggestions, setSuggestions] = useState<Suggestion[]>([]);
-  const [showSuggestions, setShowSuggestions] = useState(false);
+  const [isSyncPending, startSyncTransition] = useTransition();
+  const suggestionsAllowed = activeChecklist?.status === 'completed';
+  const [ordersState, setOrdersState] = useState<Order[]>(orders);
+  const [suggestions, setSuggestions] = useState<Suggestion[]>(
+    suggestionsAllowed ? initialSuggestions : []
+  );
   const [loadingSuggestions, setLoadingSuggestions] = useState(false);
-  const [creatingOrder, setCreatingOrder] = useState<string | null>(null);
-  const autoLoadedChecklistIdRef = useRef<string | null>(null);
+  const showSuggestions = suggestionsAllowed && suggestions.length > 0;
 
-  const openOrders = orders.filter((o) => OPEN_ORDER_STATUSES.includes(o.status as never));
-  const closedOrders = orders.filter((o) => !OPEN_ORDER_STATUSES.includes(o.status as never));
+  const openOrders = ordersState.filter((o) => OPEN_ORDER_STATUSES.includes(o.status as never));
+  const closedOrders = ordersState.filter((o) => !OPEN_ORDER_STATUSES.includes(o.status as never));
   const isBackgroundOrderGenerationBusy =
     activeChecklist?.order_generation_status === 'pending' ||
     activeChecklist?.order_generation_status === 'running';
+  const suggestionAvailabilityMessage = de.orders.suggestionsAvailableAfterCompletion;
+
+  function syncServerState() {
+    // Keep the UI instant, then reconcile any server-rendered side regions in the background.
+    startSyncTransition(() => {
+      router.refresh();
+    });
+  }
+
+  function patchOrder(orderId: string, updater: (order: Order) => Order) {
+    setOrdersState((current) =>
+      current.map((order) => (order.id === orderId ? updater(order) : order))
+    );
+  }
+
+  function patchOrderItems(
+    orderId: string,
+    orderedItems: Array<{ orderItemId: string; isOrdered: boolean; orderedQuantity: number | null }>
+  ) {
+    const patchMap = new Map(orderedItems.map((item) => [item.orderItemId, item]));
+
+    patchOrder(orderId, (order) => ({
+      ...order,
+      order_items: order.order_items.map((item) => {
+        const patch = patchMap.get(item.id);
+        if (!patch) return item;
+
+        return {
+          ...item,
+          is_ordered: patch.isOrdered,
+          ordered_quantity: patch.orderedQuantity,
+        };
+      }),
+    }));
+  }
+
+  function removeFinalizedSuggestionItems(supplierId: string, orderedChecklistItemIds: string[]) {
+    if (orderedChecklistItemIds.length === 0) return;
+
+    const orderedSet = new Set(orderedChecklistItemIds);
+    setSuggestions((current) =>
+      current.flatMap((group) => {
+        if (group.supplierId !== supplierId) {
+          return [group];
+        }
+
+        const remainingItems = group.items.filter(
+          (item) => !orderedSet.has(item.checklistItemId)
+        );
+
+        return remainingItems.length > 0
+          ? [{ ...group, items: remainingItems }]
+          : [];
+      })
+    );
+  }
 
   async function loadSuggestions(options?: { silentIfEmpty?: boolean }) {
     if (!activeChecklist) return;
+    if (!suggestionsAllowed) return;
 
     setLoadingSuggestions(true);
     const result = await generateOrderSuggestions(activeChecklist.id);
@@ -133,7 +200,6 @@ export function OrderList({
       toast.error(result.error);
     } else if (result.data) {
       setSuggestions(result.data);
-      setShowSuggestions(result.data.length > 0);
 
       if (result.data.length === 0 && !options?.silentIfEmpty) {
         toast.info(de.orders.noSuggestions);
@@ -144,76 +210,12 @@ export function OrderList({
   }
 
   async function handleGenerateSuggestions() {
+    if (!suggestionsAllowed) {
+      toast.info(suggestionAvailabilityMessage);
+      return;
+    }
+
     await loadSuggestions();
-  }
-
-  useEffect(() => {
-    const checklistId = activeChecklist?.id;
-    if (!checklistId || autoLoadedChecklistIdRef.current === checklistId) {
-      return;
-    }
-
-    const resolvedChecklistId = checklistId;
-    let isCancelled = false;
-    autoLoadedChecklistIdRef.current = resolvedChecklistId;
-
-    async function autoLoadSuggestions() {
-      setLoadingSuggestions(true);
-      const result = await generateOrderSuggestions(resolvedChecklistId);
-
-      if (isCancelled) {
-        return;
-      }
-
-      if (result.error) {
-        toast.error(result.error);
-      } else if (result.data) {
-        setSuggestions(result.data);
-        setShowSuggestions(result.data.length > 0);
-      }
-
-      setLoadingSuggestions(false);
-    }
-
-    void autoLoadSuggestions();
-
-    return () => {
-      isCancelled = true;
-    };
-  }, [activeChecklist?.id]);
-
-  async function handleCreateOrder(suggestion: Suggestion) {
-    if (!activeChecklist || suggestion.supplierId === 'unassigned') return;
-    setCreatingOrder(suggestion.supplierId);
-
-    const items = suggestion.items
-      .filter((i) => !i.hasOpenOrder)
-      .map((i) => ({
-        productId: i.productId,
-        quantity: i.quantity,
-        unit: i.unit,
-      }));
-
-    if (items.length === 0) {
-      toast.info(de.orders.allProductsHaveOpenOrders);
-      setCreatingOrder(null);
-      return;
-    }
-
-    const result = await createOrder({
-      supplierId: suggestion.supplierId,
-      checklistId: activeChecklist.id,
-      items,
-    });
-
-    if (result.error) {
-      toast.error(result.error);
-    } else {
-      toast.success(`${de.orders.createSuccess} ${result.orderNumber}`);
-      setShowSuggestions(false);
-      router.refresh();
-    }
-    setCreatingOrder(null);
   }
 
   async function handleDeliveryToggle(orderId: string, orderItemId: string, isDelivered: boolean) {
@@ -224,8 +226,16 @@ export function OrderList({
     if (result.error) {
       toast.error(result.error);
     } else {
+      patchOrder(orderId, (order) => ({
+        ...order,
+        status: result.status ?? order.status,
+        delivered_at: result.status === 'delivered' ? new Date().toISOString() : null,
+        order_items: order.order_items.map((item) =>
+          item.id === orderItemId ? { ...item, is_delivered: isDelivered } : item
+        ),
+      }));
       toast.success(de.orders.statusUpdateSuccess);
-      router.refresh();
+      syncServerState();
     }
   }
 
@@ -241,7 +251,11 @@ export function OrderList({
         <div className="flex flex-col sm:flex-row gap-2">
           <Button
             onClick={handleGenerateSuggestions}
-            disabled={loadingSuggestions || isBackgroundOrderGenerationBusy}
+            disabled={
+              loadingSuggestions ||
+              isBackgroundOrderGenerationBusy ||
+              !suggestionsAllowed
+            }
             variant="outline"
           >
             {loadingSuggestions ? de.common.loading : de.orders.generateSuggestions}
@@ -249,45 +263,25 @@ export function OrderList({
         </div>
       )}
 
-      {showSuggestions && suggestions.length > 0 && (
+      {activeChecklist && !suggestionsAllowed && ordersState.length > 0 && (
+        <p className="text-sm text-muted-foreground">{suggestionAvailabilityMessage}</p>
+      )}
+
+      {showSuggestions && (
         <div className="space-y-3">
           <h3 className="font-semibold">{de.orders.suggestions}</h3>
           {suggestions.map((suggestion) => (
-            <Card key={suggestion.supplierId}>
-              <CardHeader className="pb-2">
-                <div className="flex items-center justify-between">
-                  <CardTitle className="text-sm">{suggestion.supplierName}</CardTitle>
-                  {suggestion.supplierId !== 'unassigned' && (
-                    <Button
-                      size="sm"
-                      onClick={() => handleCreateOrder(suggestion)}
-                      disabled={creatingOrder === suggestion.supplierId}
-                    >
-                      {creatingOrder === suggestion.supplierId ? de.common.loading : de.orders.createNew}
-                    </Button>
-                  )}
-                </div>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-1 text-sm">
-                  {suggestion.items.map((item) => (
-                    <div key={item.productId} className="flex justify-between items-center">
-                      <span className={item.hasOpenOrder ? 'text-muted-foreground line-through' : ''}>
-                        {item.productName}
-                      </span>
-                      <span className="font-mono">
-                        {item.quantity} {item.unit}
-                        {item.hasOpenOrder && (
-                          <Badge variant="outline" className="ml-2 text-[10px]">
-                            {de.orders.duplicateWarning}
-                          </Badge>
-                        )}
-                      </span>
-                    </div>
-                  ))}
-                </div>
-              </CardContent>
-            </Card>
+            <SuggestionCard
+              key={`${activeChecklist?.id ?? 'no-checklist'}:${suggestion.supplierId}:${suggestion.items
+                .map((item) => item.checklistItemId)
+                .join(',')}`}
+              checklistId={activeChecklist!.id}
+              suggestion={suggestion}
+              onCompleted={async (orderedChecklistItemIds) => {
+                removeFinalizedSuggestionItems(suggestion.supplierId, orderedChecklistItemIds);
+                syncServerState();
+              }}
+            />
           ))}
         </div>
       )}
@@ -301,6 +295,27 @@ export function OrderList({
               order={order}
               isAdmin={isAdmin}
               onDeliveryToggle={handleDeliveryToggle}
+              onOrderedItemsSaved={(orderedItems) => {
+                patchOrderItems(order.id, orderedItems);
+              }}
+              onMarkedOrdered={(orderedItems) => {
+                if (orderedItems) {
+                  patchOrderItems(order.id, orderedItems);
+                }
+                patchOrder(order.id, (current) => ({
+                  ...current,
+                  status: 'ordered',
+                  ordered_at: current.ordered_at ?? new Date().toISOString(),
+                }));
+                syncServerState();
+              }}
+              onCancelled={() => {
+                patchOrder(order.id, (current) => ({
+                  ...current,
+                  status: 'cancelled',
+                }));
+                syncServerState();
+              }}
             />
           ))}
         </div>
@@ -315,18 +330,203 @@ export function OrderList({
               order={order}
               isAdmin={isAdmin}
               onDeliveryToggle={handleDeliveryToggle}
+              onOrderedItemsSaved={(orderedItems) => {
+                patchOrderItems(order.id, orderedItems);
+              }}
+              onMarkedOrdered={(orderedItems) => {
+                if (orderedItems) {
+                  patchOrderItems(order.id, orderedItems);
+                }
+                patchOrder(order.id, (current) => ({
+                  ...current,
+                  status: 'ordered',
+                  ordered_at: current.ordered_at ?? new Date().toISOString(),
+                }));
+                syncServerState();
+              }}
+              onCancelled={() => {
+                patchOrder(order.id, (current) => ({
+                  ...current,
+                  status: 'cancelled',
+                }));
+                syncServerState();
+              }}
             />
           ))}
         </div>
       )}
 
-      {orders.length === 0 && !showSuggestions && (
+      {ordersState.length === 0 && suggestions.length === 0 && !loadingSuggestions && !isSyncPending && (
         <div className="text-center py-8">
           <p className="font-medium mb-1">{de.orders.noOrders}</p>
-          <p className="text-sm text-muted-foreground">{de.orders.noOrdersDescription}</p>
+          <p className="text-sm text-muted-foreground">
+            {suggestionsAllowed ? de.orders.noOrdersDescription : suggestionAvailabilityMessage}
+          </p>
         </div>
       )}
     </div>
+  );
+}
+
+function SuggestionCard({
+  checklistId,
+  suggestion,
+  onCompleted,
+}: {
+  checklistId: string;
+  suggestion: Suggestion;
+  onCompleted: (orderedChecklistItemIds: string[]) => void | Promise<void>;
+}) {
+  const [saving, setSaving] = useState(false);
+  const [draftState, setDraftState] = useState(() =>
+    Object.fromEntries(
+      suggestion.items.map((item) => [
+        item.checklistItemId,
+        {
+          isOrdered: item.isOrdered,
+          orderedQuantity: item.orderedQuantity == null ? '' : String(item.orderedQuantity),
+        },
+      ])
+    )
+  );
+
+  const checkedCount = Object.values(draftState).filter((item) => item.isOrdered).length;
+
+  function handleToggle(checklistItemId: string, checked: boolean) {
+    setDraftState((current) => ({
+      ...current,
+      [checklistItemId]: {
+        isOrdered: checked,
+        orderedQuantity: checked ? current[checklistItemId]?.orderedQuantity ?? '' : '',
+      },
+    }));
+  }
+
+  function handleQuantityChange(checklistItemId: string, value: string) {
+    setDraftState((current) => ({
+      ...current,
+      [checklistItemId]: {
+        ...(current[checklistItemId] ?? { isOrdered: false, orderedQuantity: '' }),
+        orderedQuantity: value,
+      },
+    }));
+  }
+
+  async function handleComplete() {
+    if (checkedCount === 0) {
+      toast.info(de.orders.selectProductsFirst);
+      return;
+    }
+
+    const itemsPayload = [];
+    for (const item of suggestion.items) {
+      const draft = draftState[item.checklistItemId] ?? { isOrdered: false, orderedQuantity: '' };
+      const normalized = draft.orderedQuantity.trim().replace(',', '.');
+
+      if (!draft.isOrdered) {
+        itemsPayload.push({
+          checklistItemId: item.checklistItemId,
+          isOrdered: false,
+          orderedQuantity: null,
+        });
+        continue;
+      }
+
+      if (normalized !== '') {
+        const parsed = Number(normalized);
+        if (!Number.isFinite(parsed) || parsed <= 0 || !Number.isInteger(parsed)) {
+          toast.error(de.orders.orderedQuantityInvalid);
+          return;
+        }
+
+        itemsPayload.push({
+          checklistItemId: item.checklistItemId,
+          isOrdered: true,
+          orderedQuantity: parsed,
+        });
+        continue;
+      }
+
+      itemsPayload.push({
+        checklistItemId: item.checklistItemId,
+        isOrdered: true,
+        orderedQuantity: null,
+      });
+    }
+
+    setSaving(true);
+    const result = await finalizeSuggestionGroup({
+      checklistId,
+      supplierId: suggestion.supplierId === 'unassigned' ? null : suggestion.supplierId,
+      supplierName: suggestion.supplierName,
+      items: itemsPayload,
+    });
+
+    if (result.error) {
+      toast.error(result.error);
+    } else {
+      toast.success(de.orders.suggestionGroupSaved);
+      await onCompleted(
+        itemsPayload
+          .filter((item) => item.isOrdered)
+          .map((item) => item.checklistItemId)
+      );
+    }
+
+    setSaving(false);
+  }
+
+  return (
+    <Card>
+      <CardHeader className="pb-2">
+        <div className="flex items-center justify-between gap-3">
+          <CardTitle className="text-sm">{suggestion.supplierName}</CardTitle>
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={handleComplete}
+            disabled={saving || checkedCount === 0}
+          >
+            {saving ? de.common.loading : de.common.complete}
+          </Button>
+        </div>
+      </CardHeader>
+      <CardContent>
+        <div className="space-y-3">
+          {suggestion.items.map((item) => {
+            const draft = draftState[item.checklistItemId] ?? { isOrdered: false, orderedQuantity: '' };
+
+            return (
+              <div key={item.checklistItemId} className="rounded-lg border border-border/60 p-3">
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                  <label className="flex items-center gap-3 text-sm">
+                    <Checkbox
+                      checked={draft.isOrdered}
+                      disabled={saving}
+                      onCheckedChange={(checked) => handleToggle(item.checklistItemId, checked === true)}
+                    />
+                    <span>{item.productName}</span>
+                  </label>
+                  <div className="flex items-center gap-2 sm:w-60">
+                    <Input
+                      type="number"
+                      min="1"
+                      step="1"
+                      inputMode="numeric"
+                      value={draft.orderedQuantity}
+                      disabled={!draft.isOrdered || saving}
+                      onChange={(event) => handleQuantityChange(item.checklistItemId, event.target.value)}
+                      placeholder={getQuantityInputPlaceholder(item.quantity)}
+                    />
+                    <span className="text-xs text-muted-foreground whitespace-nowrap">{item.unit}</span>
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </CardContent>
+    </Card>
   );
 }
 
@@ -334,12 +534,21 @@ function OrderCard({
   order,
   isAdmin,
   onDeliveryToggle,
+  onOrderedItemsSaved,
+  onMarkedOrdered,
+  onCancelled,
 }: {
   order: Order;
   isAdmin: boolean;
   onDeliveryToggle: (orderId: string, itemId: string, isDelivered: boolean) => void;
+  onOrderedItemsSaved: (
+    orderedItems: Array<{ orderItemId: string; isOrdered: boolean; orderedQuantity: number | null }>
+  ) => void;
+  onMarkedOrdered: (
+    orderedItems?: Array<{ orderItemId: string; isOrdered: boolean; orderedQuantity: number | null }>
+  ) => void;
+  onCancelled: () => void;
 }) {
-  const router = useRouter();
   const [cancelOpen, setCancelOpen] = useState(false);
   const [cancelling, setCancelling] = useState(false);
   const [cancelError, setCancelError] = useState<string | null>(null);
@@ -384,7 +593,7 @@ function OrderCard({
   async function handleSaveOrderedItems() {
     const payload = buildOrderedItemUpdates(order.order_items, orderedItemsDraft);
     if (!payload.success) {
-      toast.error(getOrderedItemsValidationMessage(payload.error));
+      toast.error(getOrderedItemsValidationMessage());
       return;
     }
 
@@ -401,8 +610,8 @@ function OrderCard({
     if (result.error) {
       toast.error(result.error);
     } else {
+      onOrderedItemsSaved(payload.data);
       toast.success(de.orders.orderedItemsSaved);
-      router.refresh();
     }
     setSavingOrderedItems(false);
   }
@@ -413,7 +622,7 @@ function OrderCard({
     if (hasDraftChanges) {
       const payload = buildOrderedItemUpdates(order.order_items, orderedItemsDraft);
       if (!payload.success) {
-        toast.error(getOrderedItemsValidationMessage(payload.error));
+        toast.error(getOrderedItemsValidationMessage());
         return;
       }
       orderedItemsPayload = payload.data;
@@ -429,8 +638,8 @@ function OrderCard({
     if (result.error) {
       toast.error(result.error);
     } else {
+      onMarkedOrdered(orderedItemsPayload);
       toast.success(de.orders.statusUpdateSuccess);
-      router.refresh();
     }
     setMarkingOrdered(false);
   }
@@ -445,8 +654,8 @@ function OrderCard({
     } else {
       setCancelOpen(false);
       setCancelling(false);
+      onCancelled();
       toast.success(de.orders.statusUpdateSuccess);
-      router.refresh();
     }
   }
 
@@ -551,13 +760,13 @@ function OrderCard({
                     <div className="flex items-center gap-2 sm:w-64">
                       <Input
                         type="number"
-                        min="0"
-                        step="0.01"
-                        inputMode="decimal"
+                        min="1"
+                        step="1"
+                        inputMode="numeric"
                         value={draftItem.orderedQuantity}
                         disabled={!draftItem.isOrdered || isBusy}
                         onChange={(event) => handleOrderedQuantityChange(item.id, event.target.value)}
-                        placeholder={String(item.quantity)}
+                        placeholder={getQuantityInputPlaceholder(item.quantity)}
                       />
                       <span className="text-xs text-muted-foreground whitespace-nowrap">{item.unit}</span>
                     </div>
