@@ -73,6 +73,14 @@ export const de = {
     noChecklistYet: 'Noch keine Kontrollliste für diese Woche',
     noChecklistYetDescription: 'Die Kontrollliste wird automatisch erstellt, wenn Sie die Kontrolle öffnen.',
     previousWeekBlocking: 'Die Kontrollliste der Vorwoche ist noch nicht abgeschlossen.',
+    weekProgress: 'Wochenfortschritt',
+    missingItemsKpi: 'Fehlmengen',
+    openOrdersKpi: 'Offene Bestellungen',
+    routinePendingKpi: 'Routine ausstehend',
+    allCaughtUp: 'Alles erledigt',
+    statusBreakdown: 'Statusübersicht',
+    nextSteps: 'Nächste Schritte',
+    notStartedYet: 'Noch nicht gestartet',
   },
 
   // Checklist
