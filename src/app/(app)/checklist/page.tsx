@@ -1,4 +1,5 @@
 import { ChecklistView } from '@/components/checklist/checklist-view';
+import { CorrectChecklistWeekButton } from '@/components/checklist/correct-checklist-week-button';
 import { de } from '@/i18n/de';
 import { requireAppViewer } from '@/lib/supabase/app-viewer';
 import { createServerClient } from '@/lib/supabase/server';
@@ -121,6 +122,16 @@ export default async function ChecklistPage() {
             <p className="mt-1 text-sm text-amber-700">
               {de.checklist.previousWeekIncompleteDescription}
             </p>
+            <p className="mt-2 text-sm text-amber-700">
+              {de.checklist.correctionHint}
+            </p>
+            <div className="mt-3">
+              <CorrectChecklistWeekButton
+                sourceChecklistId={previousActiveChecklist.id}
+                targetWeekStart={currentWeekStart}
+                targetWeekEnd={currentWeekEnd}
+              />
+            </div>
           </div>
           <ChecklistView
             checklist={previousActiveChecklist}

@@ -16,6 +16,10 @@ vi.mock('next/link', () => ({
   default: ({ children, href }: { children: ReactNode; href: string }) => <a href={href}>{children}</a>,
 }));
 
+vi.mock('@/components/checklist/correct-checklist-week-button', () => ({
+  CorrectChecklistWeekButton: () => <button type="button">Für aktuelle Woche neu erstellen</button>,
+}));
+
 function createDashboardSupabaseStub(options: {
   currentWeekChecklist?: Record<string, unknown> | null;
   previousActiveChecklist?: Record<string, unknown> | null;
@@ -139,7 +143,8 @@ describe('DashboardPage', () => {
     const { default: DashboardPage } = await import('@/app/(app)/dashboard/page');
     render(await DashboardPage());
 
-    expect(screen.getByText(/Vorwoche/)).toBeTruthy();
+    expect(screen.getAllByText(/Vorwoche/).length).toBeGreaterThan(0);
     expect(screen.getByText(/Zur Kontrolle/)).toBeTruthy();
+    expect(screen.getByText(/Für aktuelle Woche neu erstellen/)).toBeTruthy();
   });
 });

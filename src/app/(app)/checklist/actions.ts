@@ -19,6 +19,12 @@ import { de } from '@/i18n/de';
 import { z } from 'zod';
 import { OPEN_ORDER_STATUSES } from '@/lib/constants';
 
+const correctChecklistWeekSchema = z.object({
+  sourceChecklistId: z.string().uuid(),
+  targetWeekStart: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+  targetWeekEnd: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+});
+
 type OrderGenerationStatus = 'idle' | 'pending' | 'running' | 'completed' | 'failed';
 
 type ChecklistSupplierRow = {
@@ -91,6 +97,154 @@ export async function createChecklist(input: { weekStartDate: string; weekEndDat
     }
     logger.error('Create checklist failed', { userId: user.id, error: err instanceof Error ? err.message : 'Unknown' });
     return { error: de.errors.generic };
+  }
+}
+
+export async function correctChecklistWeek(
+  input: z.infer<typeof correctChecklistWeekSchema>
+) {
+  const supabase = await createServerClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { error: de.auth.notLoggedIn };
+
+  const profile = await getActiveProfile(supabase, user.id);
+  if (!profile) return { error: de.auth.accountDeactivated };
+
+  try {
+    const validated = correctChecklistWeekSchema.parse(input);
+
+    const { data: checklist, error: checklistError } = await supabase
+      .from('checklists')
+      .select('id, iso_year, iso_week, week_start_date, week_end_date, status')
+      .eq('id', validated.sourceChecklistId)
+      .maybeSingle();
+
+    if (checklistError) {
+      logger.error('Fetch checklist for week correction failed', {
+        userId: user.id,
+        checklistId: validated.sourceChecklistId,
+        error: checklistError.message,
+      });
+      return { error: de.checklist.correctionFailed };
+    }
+
+    if (!checklist) {
+      return { error: de.errors.notFound };
+    }
+
+    if (
+      checklist.week_start_date === validated.targetWeekStart &&
+      checklist.week_end_date === validated.targetWeekEnd
+    ) {
+      return { error: de.checklist.correctionNotNeeded };
+    }
+
+    const { count: linkedOrdersCount, error: linkedOrdersError } = await supabase
+      .from('orders')
+      .select('id', { count: 'exact', head: true })
+      .eq('checklist_id', checklist.id);
+
+    if (linkedOrdersError) {
+      logger.error('Check linked orders for checklist week correction failed', {
+        userId: user.id,
+        checklistId: checklist.id,
+        error: linkedOrdersError.message,
+      });
+      return { error: de.checklist.correctionFailed };
+    }
+
+    if ((linkedOrdersCount ?? 0) > 0) {
+      return { error: de.checklist.correctionBlockedOrders };
+    }
+
+    const admin = createAdminClient();
+
+    const { error: deleteItemsError } = await admin
+      .from('checklist_items')
+      .delete()
+      .eq('checklist_id', checklist.id);
+
+    if (deleteItemsError) {
+      logger.error('Delete checklist items for week correction failed', {
+        userId: user.id,
+        checklistId: checklist.id,
+        error: deleteItemsError.message,
+      });
+      return { error: de.checklist.correctionFailed };
+    }
+
+    const { error: deleteChecklistError } = await admin
+      .from('checklists')
+      .delete()
+      .eq('id', checklist.id);
+
+    if (deleteChecklistError) {
+      logger.error('Delete checklist for week correction failed', {
+        userId: user.id,
+        checklistId: checklist.id,
+        error: deleteChecklistError.message,
+      });
+      return { error: de.checklist.correctionFailed };
+    }
+
+    await logAudit({
+      userId: user.id,
+      action: 'checklist_deleted',
+      entityType: 'checklist',
+      entityId: checklist.id,
+      details: {
+        reason: 'wrong_week_correction',
+        originalIsoYear: checklist.iso_year,
+        originalIsoWeek: checklist.iso_week,
+        originalWeekStartDate: checklist.week_start_date,
+        originalWeekEndDate: checklist.week_end_date,
+        targetWeekStartDate: validated.targetWeekStart,
+        targetWeekEndDate: validated.targetWeekEnd,
+      },
+    });
+
+    const createResult = await createChecklistForWeek(
+      supabase,
+      user.id,
+      validated.targetWeekStart,
+      validated.targetWeekEnd
+    );
+
+    if (createResult.status === 'created') {
+      revalidatePath('/checklist');
+      revalidatePath('/dashboard');
+      return { success: true, checklistId: createResult.checklistId };
+    }
+
+    if (createResult.status === 'already_exists') {
+      const { data: currentWeekChecklist } = await supabase
+        .from('checklists')
+        .select('id')
+        .eq('week_start_date', validated.targetWeekStart)
+        .maybeSingle();
+
+      revalidatePath('/checklist');
+      revalidatePath('/dashboard');
+      return { success: true, checklistId: currentWeekChecklist?.id ?? null };
+    }
+
+    if (createResult.status === 'blocked_by_active') {
+      return { error: de.checklist.activeExists };
+    }
+
+    return { error: de.checklist.correctionFailed };
+  } catch (err) {
+    if (err instanceof z.ZodError) {
+      return { error: de.errors.invalidInput };
+    }
+
+    logger.error('Checklist week correction failed', {
+      userId: user.id,
+      error: err instanceof Error ? err.message : 'Unknown',
+    });
+    return { error: de.checklist.correctionFailed };
   }
 }
 
