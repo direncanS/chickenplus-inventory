@@ -29,6 +29,8 @@ interface ExportChecklistItem {
 interface ExportData {
   isoYear: number;
   isoWeek: number;
+  weekStartDate?: string;
+  weekEndDate?: string;
   items: ExportChecklistItem[];
   storageLocations: { name: string; sortOrder: number }[];
 }
@@ -51,7 +53,14 @@ export async function generateChecklistExcel(
   // Title row
   sheet.mergeCells('A1:F1');
   const titleCell = sheet.getCell('A1');
-  titleCell.value = `Bestandskontrolle - KW ${data.isoWeek} / ${data.isoYear}`;
+  const titleSuffix = data.weekStartDate && data.weekEndDate
+    ? (() => {
+        const [, sm, sd] = data.weekStartDate.split('-');
+        const [, em, ed] = data.weekEndDate.split('-');
+        return `${sd}.${sm}-${ed}.${em}.${data.isoYear}`;
+      })()
+    : String(data.isoYear);
+  titleCell.value = `Bestandskontrolle - KW ${data.isoWeek} / ${titleSuffix}`;
   titleCell.font = { size: 14, bold: true };
   titleCell.alignment = { horizontal: 'center' };
 

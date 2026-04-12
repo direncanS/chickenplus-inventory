@@ -13,7 +13,7 @@ import {
   updateChecklistItemsBatch,
 } from '@/app/(app)/checklist/actions';
 import { toast } from 'sonner';
-import { formatDateGerman } from '@/lib/utils/date';
+import { formatWeekRangeGerman } from '@/lib/utils/date';
 import {
   Accordion,
   AccordionContent,
@@ -75,6 +75,8 @@ interface ChecklistViewProps {
     iso_year: number;
     iso_week: number;
     checklist_date?: string;
+    week_start_date?: string;
+    week_end_date?: string;
     status: 'draft' | 'in_progress' | 'completed';
     order_generation_status?: 'idle' | 'pending' | 'running' | 'completed' | 'failed' | null;
     order_generation_orders_created?: number | null;
@@ -368,8 +370,8 @@ export function ChecklistView({ checklist, items, isAdmin }: ChecklistViewProps)
       ? de.checklist.savingInProgress
       : null;
 
-  const headerText = checklist.checklist_date
-    ? `${formatDateGerman(checklist.checklist_date)} - KW ${checklist.iso_week}`
+  const headerText = checklist.week_start_date && checklist.week_end_date
+    ? `${formatWeekRangeGerman(checklist.week_start_date, checklist.week_end_date)} - KW ${checklist.iso_week}`
     : `KW ${checklist.iso_week} / ${checklist.iso_year}`;
 
   const grouped = useMemo<GroupedItems[]>(() => {
@@ -418,6 +420,26 @@ export function ChecklistView({ checklist, items, isAdmin }: ChecklistViewProps)
     completed: de.checklist.completed,
   };
 
+  const progressPercent = totalCount > 0 ? Math.round((checkedCount / totalCount) * 100) : 0;
+
+  const statusBadgeClass: Record<string, string> = {
+    draft: 'bg-amber-100 text-amber-800 border-amber-200 dark:bg-amber-900/30 dark:text-amber-400 dark:border-amber-800',
+    in_progress: 'bg-blue-100 text-blue-800 border-blue-200 dark:bg-blue-900/30 dark:text-blue-400 dark:border-blue-800',
+    completed: 'bg-green-100 text-green-800 border-green-200 dark:bg-green-900/30 dark:text-green-400 dark:border-green-800',
+  };
+
+  function getGroupCheckedCount(location: GroupedItems) {
+    let checked = 0;
+    let total = 0;
+    for (const cat of location.categories) {
+      for (const item of cat.items) {
+        total++;
+        if (itemStates[item.id]?.isChecked) checked++;
+      }
+    }
+    return { checked, total };
+  }
+
   return (
     <div className="space-y-4">
       <OrderGenerationStatusBanner
@@ -426,74 +448,83 @@ export function ChecklistView({ checklist, items, isAdmin }: ChecklistViewProps)
         error={localOrderGenerationError}
       />
 
-      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-        <div className="flex items-center gap-2">
-          <h2 className="text-lg font-semibold">{headerText}</h2>
-          <Badge variant={isCompleted ? 'outline' : 'default'}>
-            {statusLabels[localChecklistStatus]}
-          </Badge>
-        </div>
-        <div className="flex flex-wrap items-center justify-end gap-2">
-          {saveStatusMessage && (
-            <span
-              className={`text-xs ${hasSaveError ? 'text-destructive' : 'text-muted-foreground'}`}
-            >
-              {saveStatusMessage}
-            </span>
-          )}
-          <span className="text-sm text-muted-foreground">
-            {de.checklist.progress
-              .replace('{checked}', String(checkedCount))
-              .replace('{total}', String(totalCount))}
-          </span>
-          {isCompleted && isAdmin && (
-            <Button variant="outline" size="sm" onClick={handleReopen} disabled={reopening}>
-              {reopening ? de.common.loading : de.checklist.reopen}
-            </Button>
-          )}
-          {!isCompleted && (
-            <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-              <DialogTrigger
-                render={
-                  <Button
-                    size="sm"
-                    disabled={completing || checkedCount < totalCount}
-                  />
-                }
+      {/* Sticky header area */}
+      <div className="sticky top-14 z-30 bg-background pb-3 -mx-4 px-4 sm:-mx-6 sm:px-6 border-b border-transparent">
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between pt-3">
+          <div className="flex items-center gap-2">
+            <h2 className="text-lg font-semibold">{headerText}</h2>
+            <Badge variant="outline" className={statusBadgeClass[localChecklistStatus]}>
+              {statusLabels[localChecklistStatus]}
+            </Badge>
+          </div>
+          <div className="flex flex-wrap items-center justify-end gap-2">
+            {saveStatusMessage && (
+              <span
+                className={`text-xs ${hasSaveError ? 'text-destructive' : 'text-muted-foreground'}`}
               >
-                {completing ? de.common.loading : de.checklist.complete}
-              </DialogTrigger>
-              <DialogContent>
-                <DialogHeader>
-                  <DialogTitle>{de.checklist.completeConfirmTitle}</DialogTitle>
-                  <DialogDescription>
-                    {de.checklist.completeConfirmDescription}
-                  </DialogDescription>
-                </DialogHeader>
-                <DialogFooter>
-                  <DialogClose render={<Button variant="outline" />}>
-                    {de.common.cancel}
-                  </DialogClose>
-                  <Button onClick={handleComplete} disabled={completing}>
-                    {completing ? de.common.loading : de.checklist.completeConfirmButton}
-                  </Button>
-                </DialogFooter>
-              </DialogContent>
-            </Dialog>
-          )}
+                {saveStatusMessage}
+              </span>
+            )}
+            <span className="text-sm text-muted-foreground">
+              {de.checklist.progress
+                .replace('{checked}', String(checkedCount))
+                .replace('{total}', String(totalCount))}
+            </span>
+            {isCompleted && isAdmin && (
+              <Button variant="outline" size="sm" onClick={handleReopen} disabled={reopening}>
+                {reopening ? de.common.loading : de.checklist.reopen}
+              </Button>
+            )}
+            {!isCompleted && (
+              <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+                <DialogTrigger
+                  render={
+                    <Button
+                      size="sm"
+                      disabled={completing || checkedCount < totalCount}
+                    />
+                  }
+                >
+                  {completing ? de.common.loading : de.checklist.complete}
+                </DialogTrigger>
+                <DialogContent>
+                  <DialogHeader>
+                    <DialogTitle>{de.checklist.completeConfirmTitle}</DialogTitle>
+                    <DialogDescription>
+                      {de.checklist.completeConfirmDescription}
+                    </DialogDescription>
+                  </DialogHeader>
+                  <DialogFooter>
+                    <DialogClose render={<Button variant="outline" />}>
+                      {de.common.cancel}
+                    </DialogClose>
+                    <Button onClick={handleComplete} disabled={completing}>
+                      {completing ? de.common.loading : de.checklist.completeConfirmButton}
+                    </Button>
+                  </DialogFooter>
+                </DialogContent>
+              </Dialog>
+            )}
+          </div>
+        </div>
+
+        {/* Progress bar with percentage */}
+        <div className="relative mt-2">
+          <div className="w-full bg-muted rounded-full h-3">
+            <div
+              className="bg-primary h-3 rounded-full transition-all"
+              style={{
+                width: `${progressPercent}%`,
+              }}
+            />
+          </div>
+          <span className="absolute inset-0 flex items-center justify-center text-[0.625rem] font-semibold text-foreground mix-blend-difference">
+            {progressPercent}%
+          </span>
         </div>
       </div>
 
-      <div className="w-full bg-muted rounded-full h-2">
-        <div
-          className="bg-primary h-2 rounded-full transition-all"
-          style={{
-            width: `${totalCount > 0 ? (checkedCount / totalCount) * 100 : 0}%`,
-          }}
-        />
-      </div>
-
-      <div className="grid grid-cols-[1fr_80px_40px_40px] sm:grid-cols-[1fr_100px_48px_48px] items-center gap-2 px-2 text-xs text-muted-foreground font-medium">
+      <div className="grid grid-cols-[1fr_80px_44px_44px] sm:grid-cols-[1fr_100px_48px_48px] items-center gap-2 px-2 text-xs text-muted-foreground font-medium">
         <div>{de.checklist.product}</div>
         <div className="text-center">{de.checklist.stock}</div>
         <div className="text-center">{de.checklist.missing}</div>
@@ -501,53 +532,59 @@ export function ChecklistView({ checklist, items, isAdmin }: ChecklistViewProps)
       </div>
 
       <Accordion multiple defaultValue={grouped.map((group) => group.locationCode)}>
-        {grouped.map((location) => (
-          <AccordionItem key={location.locationCode} value={location.locationCode}>
-            <AccordionTrigger className="text-base font-semibold">
-              <span className="flex items-center gap-2">
-                <Badge variant="secondary" className="font-mono text-xs">
-                  {location.locationCode}
-                </Badge>
-                {location.locationName}
-              </span>
-            </AccordionTrigger>
-            <AccordionContent>
-              {location.categories.map((category) => (
-                <div key={category.categoryName} className="mb-4">
-                  {category.categoryName !== 'Allgemein' && (
-                    <h4 className="text-sm font-medium text-muted-foreground mb-2 px-1">
-                      {category.categoryName}
-                    </h4>
-                  )}
-                  <div className="space-y-1">
-                    {category.items.map((item) => (
-                      <ChecklistItemRow
-                        key={item.id}
-                        item={item}
-                        state={itemStates[item.id]}
-                        isReadOnly={isReadOnly}
-                        onStockChange={(value) => {
-                          queueLocalItemChange(item.id, { currentStock: value });
-                        }}
-                        onStockBlur={() => {
-                          void flushPendingChanges();
-                        }}
-                        onMissingToggle={() => {
-                          queueLocalItemChange(item.id, {
-                            isMissing: !itemStatesRef.current[item.id]?.isMissing,
-                          });
-                        }}
-                        onCheckToggle={(checked) => {
-                          queueLocalItemChange(item.id, { isChecked: checked });
-                        }}
-                      />
-                    ))}
+        {grouped.map((location) => {
+          const groupCount = getGroupCheckedCount(location);
+          return (
+            <AccordionItem key={location.locationCode} value={location.locationCode}>
+              <AccordionTrigger className="text-base font-semibold">
+                <span className="flex items-center gap-2 flex-1">
+                  <Badge variant="secondary" className="font-mono text-xs">
+                    {location.locationCode}
+                  </Badge>
+                  <span className="flex-1">{location.locationName}</span>
+                  <span className="text-xs font-normal text-muted-foreground ml-auto mr-2">
+                    {groupCount.checked}/{groupCount.total}
+                  </span>
+                </span>
+              </AccordionTrigger>
+              <AccordionContent>
+                {location.categories.map((category) => (
+                  <div key={category.categoryName} className="mb-4">
+                    {category.categoryName !== 'Allgemein' && (
+                      <h4 className="text-sm font-medium text-muted-foreground mb-2 px-1">
+                        {category.categoryName}
+                      </h4>
+                    )}
+                    <div className="space-y-1.5">
+                      {category.items.map((item) => (
+                        <ChecklistItemRow
+                          key={item.id}
+                          item={item}
+                          state={itemStates[item.id]}
+                          isReadOnly={isReadOnly}
+                          onStockChange={(value) => {
+                            queueLocalItemChange(item.id, { currentStock: value });
+                          }}
+                          onStockBlur={() => {
+                            void flushPendingChanges();
+                          }}
+                          onMissingToggle={() => {
+                            queueLocalItemChange(item.id, {
+                              isMissing: !itemStatesRef.current[item.id]?.isMissing,
+                            });
+                          }}
+                          onCheckToggle={(checked) => {
+                            queueLocalItemChange(item.id, { isChecked: checked });
+                          }}
+                        />
+                      ))}
+                    </div>
                   </div>
-                </div>
-              ))}
-            </AccordionContent>
-          </AccordionItem>
-        ))}
+                ))}
+              </AccordionContent>
+            </AccordionItem>
+          );
+        })}
       </Accordion>
     </div>
   );

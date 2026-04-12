@@ -26,7 +26,8 @@ export const updateChecklistItemsBatchSchema = z.object({
 export type UpdateChecklistItemsBatchInput = z.infer<typeof updateChecklistItemsBatchSchema>;
 
 export const createChecklistSchema = z.object({
-  checklistDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+  weekStartDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+  weekEndDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
 });
 
 export type CreateChecklistInput = z.infer<typeof createChecklistSchema>;

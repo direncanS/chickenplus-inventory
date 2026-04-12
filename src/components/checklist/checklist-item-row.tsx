@@ -50,15 +50,18 @@ export function ChecklistItemRow({
   return (
     <div
       className={cn(
-        'grid grid-cols-[1fr_80px_40px_40px] sm:grid-cols-[1fr_100px_48px_48px] items-center gap-2 px-2 py-1.5 rounded-md transition-colors',
-        state.isChecked && 'bg-muted/50',
-        state.isMissing && !state.isChecked && 'bg-destructive/5',
+        'grid grid-cols-[1fr_80px_44px_44px] sm:grid-cols-[1fr_100px_48px_48px] items-center gap-2 px-2 py-2 rounded-md transition-colors',
+        state.isChecked && 'bg-muted/60',
+        state.isMissing && !state.isChecked && 'bg-amber-50 dark:bg-amber-950/20',
         state.saveState === 'saving' && 'opacity-80',
         state.saveState === 'error' && 'ring-1 ring-destructive/40'
       )}
     >
       <div className="min-w-0">
-        <span className="text-sm font-medium truncate block">{item.product_name}</span>
+        <span className={cn(
+          'text-sm font-medium truncate block',
+          state.isChecked && 'line-through text-muted-foreground'
+        )}>{item.product_name}</span>
         <span className="text-xs text-muted-foreground">
           {minStockDisplay} {unitLabel}
         </span>
@@ -70,17 +73,18 @@ export function ChecklistItemRow({
         onChange={(event) => onStockChange(event.target.value)}
         onBlur={onStockBlur}
         placeholder={de.checklist.stock}
-        className="h-8 text-center text-sm"
+        className="h-9 text-center text-sm"
         disabled={isReadOnly}
       />
 
       <div className="flex justify-center">
         <Button
           variant={state.isMissing ? 'default' : 'outline'}
-          size="icon-sm"
+          size="icon"
           onClick={onMissingToggle}
           disabled={isReadOnly}
           className={cn(
+            'size-9',
             state.isMissing && 'bg-green-600 hover:bg-green-700 text-white border-green-600'
           )}
           title={de.checklist.missing}

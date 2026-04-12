@@ -28,7 +28,7 @@ export async function GET(
     // Fetch checklist
     const { data: checklist } = await supabase
       .from('checklists')
-      .select('id, iso_year, iso_week, status')
+      .select('id, iso_year, iso_week, week_start_date, week_end_date, status')
       .eq('id', checklistId)
       .single();
 
@@ -92,6 +92,8 @@ export async function GET(
     const workbook = await generateChecklistExcel({
       isoYear: checklist.iso_year,
       isoWeek: checklist.iso_week,
+      weekStartDate: checklist.week_start_date ?? undefined,
+      weekEndDate: checklist.week_end_date ?? undefined,
       items: exportItems,
       storageLocations: (storageLocations ?? []).map((loc) => ({
         name: loc.name as string,
@@ -115,7 +117,20 @@ export async function GET(
       });
     });
 
-    const filename = `Bestandskontrolle_KW${String(checklist.iso_week).padStart(2, '0')}_${checklist.iso_year}.xlsx`;
+    // Filename: Bestandskontrolle_KW16_12-18Apr2026.xlsx
+    const filename = (() => {
+      if (checklist.week_start_date && checklist.week_end_date) {
+        const start = new Date(checklist.week_start_date + 'T12:00:00');
+        const end = new Date(checklist.week_end_date + 'T12:00:00');
+        const months = ['Jan', 'Feb', 'Mar', 'Apr', 'Mai', 'Jun', 'Jul', 'Aug', 'Sep', 'Okt', 'Nov', 'Dez'];
+        const sd = start.getDate();
+        const ed = end.getDate();
+        const em = months[end.getMonth()];
+        const ey = end.getFullYear();
+        return `Bestandskontrolle_KW${String(checklist.iso_week).padStart(2, '0')}_${sd}-${ed}${em}${ey}.xlsx`;
+      }
+      return `Bestandskontrolle_KW${String(checklist.iso_week).padStart(2, '0')}_${checklist.iso_year}.xlsx`;
+    })();
 
     return new NextResponse(buffer as ArrayBuffer, {
       headers: {
