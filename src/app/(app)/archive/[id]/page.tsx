@@ -15,7 +15,7 @@ export default async function ArchiveDetailPage({
     requireAppViewer(),
     supabase
       .from('checklists')
-      .select('id, iso_year, iso_week, checklist_date, status')
+      .select('id, iso_year, iso_week, checklist_date, week_start_date, week_end_date, status')
       .eq('id', id)
       .maybeSingle(),
   ]);
@@ -41,7 +41,15 @@ export default async function ArchiveDetailPage({
 
   return (
     <ChecklistView
-      checklist={checklist as { id: string; iso_year: number; iso_week: number; checklist_date?: string; status: 'draft' | 'in_progress' | 'completed' }}
+      checklist={checklist as {
+        id: string;
+        iso_year: number;
+        iso_week: number;
+        checklist_date?: string;
+        week_start_date?: string;
+        week_end_date?: string;
+        status: 'draft' | 'in_progress' | 'completed';
+      }}
       items={transformChecklistItems(items ?? [])}
       isAdmin={viewer.isAdmin}
     />

@@ -68,6 +68,9 @@ export interface Checklist {
   id: string;
   iso_year: number;
   iso_week: number;
+  checklist_date: string;
+  week_start_date: string;
+  week_end_date: string;
   status: 'draft' | 'in_progress' | 'completed';
   created_by: string;
   completed_by: string | null;

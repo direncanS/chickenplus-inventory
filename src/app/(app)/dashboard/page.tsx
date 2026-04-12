@@ -4,7 +4,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Badge } from '@/components/ui/badge';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
-import { formatDateTimeVienna, formatDateGerman } from '@/lib/utils/date';
+import { formatDateTimeVienna, formatWeekRangeGerman } from '@/lib/utils/date';
 
 export default async function DashboardPage() {
   const supabase = await createServerClient();
@@ -13,7 +13,7 @@ export default async function DashboardPage() {
   const [{ data: activeChecklist }, { count: openOrdersCount }] = await Promise.all([
     supabase
       .from('checklists')
-      .select('id, iso_year, iso_week, checklist_date, status, created_at, updated_at')
+      .select('id, iso_year, iso_week, checklist_date, week_start_date, week_end_date, status, created_at, updated_at')
       .in('status', ['draft', 'in_progress'])
       .maybeSingle(),
     supabase
@@ -61,8 +61,8 @@ export default async function DashboardPage() {
           <CardTitle>{de.dashboard.activeChecklist}</CardTitle>
           {activeChecklist && (
             <CardDescription>
-              {activeChecklist.checklist_date
-                ? `${formatDateGerman(activeChecklist.checklist_date)} - ${de.dashboard.weekLabel} ${activeChecklist.iso_week}`
+              {activeChecklist.week_start_date && activeChecklist.week_end_date
+                ? `${formatWeekRangeGerman(activeChecklist.week_start_date, activeChecklist.week_end_date)} - ${de.dashboard.weekLabel} ${activeChecklist.iso_week}`
                 : `${de.dashboard.weekLabel} ${activeChecklist.iso_week} / ${activeChecklist.iso_year}`}
             </CardDescription>
           )}

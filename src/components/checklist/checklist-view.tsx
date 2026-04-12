@@ -13,7 +13,7 @@ import {
   updateChecklistItemsBatch,
 } from '@/app/(app)/checklist/actions';
 import { toast } from 'sonner';
-import { formatDateGerman } from '@/lib/utils/date';
+import { formatWeekRangeGerman } from '@/lib/utils/date';
 import {
   Accordion,
   AccordionContent,
@@ -75,6 +75,8 @@ interface ChecklistViewProps {
     iso_year: number;
     iso_week: number;
     checklist_date?: string;
+    week_start_date?: string;
+    week_end_date?: string;
     status: 'draft' | 'in_progress' | 'completed';
     order_generation_status?: 'idle' | 'pending' | 'running' | 'completed' | 'failed' | null;
     order_generation_orders_created?: number | null;
@@ -368,8 +370,8 @@ export function ChecklistView({ checklist, items, isAdmin }: ChecklistViewProps)
       ? de.checklist.savingInProgress
       : null;
 
-  const headerText = checklist.checklist_date
-    ? `${formatDateGerman(checklist.checklist_date)} - KW ${checklist.iso_week}`
+  const headerText = checklist.week_start_date && checklist.week_end_date
+    ? `${formatWeekRangeGerman(checklist.week_start_date, checklist.week_end_date)} - KW ${checklist.iso_week}`
     : `KW ${checklist.iso_week} / ${checklist.iso_year}`;
 
   const grouped = useMemo<GroupedItems[]>(() => {

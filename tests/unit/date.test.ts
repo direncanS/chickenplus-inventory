@@ -7,6 +7,11 @@ import {
   getCurrentMonthRange,
   isInCurrentMonth,
   formatDateGerman,
+  getWeekRange,
+  getCurrentWeekRange,
+  isDateInWeekRange,
+  isCurrentWeek,
+  formatWeekRangeGerman,
 } from '@/lib/utils/date';
 
 describe('getISOWeekAndYear', () => {
@@ -194,5 +199,106 @@ describe('formatDateGerman', () => {
 
   it('preserves leading zeros', () => {
     expect(formatDateGerman('2026-03-05')).toBe('05.03.2026');
+  });
+});
+
+describe('getWeekRange', () => {
+  it('returns Sunday-Saturday for a Wednesday', () => {
+    // April 15, 2026 is a Wednesday
+    const result = getWeekRange(new Date('2026-04-15T12:00:00'));
+    expect(result.startDate).toBe('2026-04-12'); // Sunday
+    expect(result.endDate).toBe('2026-04-18');   // Saturday
+  });
+
+  it('returns same week for a Sunday', () => {
+    // April 12, 2026 is a Sunday
+    const result = getWeekRange(new Date('2026-04-12T12:00:00'));
+    expect(result.startDate).toBe('2026-04-12');
+    expect(result.endDate).toBe('2026-04-18');
+  });
+
+  it('returns same week for a Saturday', () => {
+    // April 18, 2026 is a Saturday
+    const result = getWeekRange(new Date('2026-04-18T12:00:00'));
+    expect(result.startDate).toBe('2026-04-12');
+    expect(result.endDate).toBe('2026-04-18');
+  });
+
+  it('handles month boundary', () => {
+    // March 30, 2026 is a Monday → week starts March 29 (Sunday)
+    const result = getWeekRange(new Date('2026-03-30T12:00:00'));
+    expect(result.startDate).toBe('2026-03-29');
+    expect(result.endDate).toBe('2026-04-04');
+  });
+
+  it('end date is exactly 6 days after start date', () => {
+    const result = getWeekRange(new Date('2026-06-10T12:00:00'));
+    const start = new Date(result.startDate + 'T12:00:00');
+    const end = new Date(result.endDate + 'T12:00:00');
+    const diffDays = (end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24);
+    expect(diffDays).toBe(6);
+  });
+});
+
+describe('getCurrentWeekRange', () => {
+  it('returns dates in YYYY-MM-DD format', () => {
+    const result = getCurrentWeekRange();
+    expect(result.startDate).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+    expect(result.endDate).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+  });
+
+  it('startDate is before or equal to endDate', () => {
+    const result = getCurrentWeekRange();
+    expect(result.startDate <= result.endDate).toBe(true);
+  });
+});
+
+describe('isDateInWeekRange', () => {
+  it('returns true for date within range', () => {
+    expect(isDateInWeekRange('2026-04-15', '2026-04-12', '2026-04-18')).toBe(true);
+  });
+
+  it('returns true for start date', () => {
+    expect(isDateInWeekRange('2026-04-12', '2026-04-12', '2026-04-18')).toBe(true);
+  });
+
+  it('returns true for end date', () => {
+    expect(isDateInWeekRange('2026-04-18', '2026-04-12', '2026-04-18')).toBe(true);
+  });
+
+  it('returns false for date before range', () => {
+    expect(isDateInWeekRange('2026-04-11', '2026-04-12', '2026-04-18')).toBe(false);
+  });
+
+  it('returns false for date after range', () => {
+    expect(isDateInWeekRange('2026-04-19', '2026-04-12', '2026-04-18')).toBe(false);
+  });
+});
+
+describe('isCurrentWeek', () => {
+  it('returns true for current week range', () => {
+    const { startDate, endDate } = getCurrentWeekRange();
+    expect(isCurrentWeek(startDate, endDate)).toBe(true);
+  });
+
+  it('returns false for a past week', () => {
+    expect(isCurrentWeek('2020-01-05', '2020-01-11')).toBe(false);
+  });
+});
+
+describe('formatWeekRangeGerman', () => {
+  it('formats as DD.MM - DD.MM.YYYY', () => {
+    const result = formatWeekRangeGerman('2026-04-12', '2026-04-18');
+    expect(result).toBe('12.04 - 18.04.2026');
+  });
+
+  it('handles month boundary', () => {
+    const result = formatWeekRangeGerman('2026-03-29', '2026-04-04');
+    expect(result).toBe('29.03 - 04.04.2026');
+  });
+
+  it('handles year boundary', () => {
+    const result = formatWeekRangeGerman('2025-12-28', '2026-01-03');
+    expect(result).toBe('28.12 - 03.01.2026');
   });
 });
