@@ -6,8 +6,8 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { createServerClient } from '@/lib/supabase/server';
 import { getActiveProfile } from '@/lib/supabase/auth-helpers';
 import { logAudit } from '@/lib/utils/audit';
+import { createChecklistForWeek } from '@/lib/utils/checklist-create';
 import { logger } from '@/lib/utils/logger';
-import { getISOWeekAndYear } from '@/lib/utils/date';
 import {
   createChecklistSchema,
   updateChecklistItemSchema,
@@ -70,64 +70,21 @@ export async function createChecklist(input: { weekStartDate: string; weekEndDat
   try {
     const validated = createChecklistSchema.parse(input);
     const { weekStartDate, weekEndDate } = validated;
+    const result = await createChecklistForWeek(supabase, user.id, weekStartDate, weekEndDate);
 
-    // Server-side validation: weekStartDate must be a Sunday (DOW=0)
-    const startDate = new Date(weekStartDate + 'T12:00:00');
-    if (startDate.getDay() !== 0) {
-      return { error: de.errors.invalidInput };
+    if (result.status === 'blocked_by_active') {
+      return { error: de.checklist.activeExists };
     }
-
-    // weekEndDate must be exactly weekStartDate + 6 days (Saturday)
-    const expectedEnd = new Date(startDate);
-    expectedEnd.setDate(expectedEnd.getDate() + 6);
-    const expectedEndStr = expectedEnd.toISOString().slice(0, 10);
-    if (weekEndDate !== expectedEndStr) {
-      return { error: de.errors.invalidInput };
+    if (result.status === 'already_exists') {
+      return { error: de.checklist.weeklyChecklistExists };
     }
-
-    // Calculate ISO week from Monday (weekStartDate + 1 day)
-    const monday = new Date(startDate);
-    monday.setDate(monday.getDate() + 1);
-    const { isoYear, isoWeek } = getISOWeekAndYear(monday);
-
-    const { data, error } = await supabase.rpc('rpc_create_checklist_with_snapshot', {
-      p_iso_year: isoYear,
-      p_iso_week: isoWeek,
-      p_created_by: user.id,
-      p_week_start_date: weekStartDate,
-      p_week_end_date: weekEndDate,
-    });
-
-    if (error) {
-      logger.error('Create checklist RPC error', { userId: user.id, error: error.message });
-      return { error: de.errors.generic };
+    if (result.status === 'error') {
+      return { error: result.message };
     }
-
-    const result = data as { success: boolean; error?: string; checklist_id?: string; item_count?: number };
-
-    if (!result.success) {
-      if (result.error === 'active_checklist_exists') {
-        return { error: de.checklist.activeExists };
-      }
-      if (result.error === 'weekly_checklist_exists') {
-        return { error: de.checklist.weeklyChecklistExists };
-      }
-      return { error: de.errors.generic };
-    }
-
-    await logAudit({
-      userId: user.id,
-      action: 'checklist_created',
-      entityType: 'checklist',
-      entityId: result.checklist_id!,
-      details: { isoYear, isoWeek, weekStartDate, weekEndDate, itemCount: result.item_count },
-    });
-
-    logger.info('Checklist created', { checklistId: result.checklist_id, week: `${isoYear}-W${isoWeek}`, weekStartDate, weekEndDate });
 
     revalidatePath('/checklist');
     revalidatePath('/dashboard');
-    return { success: true, checklistId: result.checklist_id };
+    return { success: true, checklistId: result.checklistId };
   } catch (err) {
     if (err instanceof z.ZodError) {
       return { error: de.errors.invalidInput };
