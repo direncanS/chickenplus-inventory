@@ -14,7 +14,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { de } from '@/i18n/de';
 import { createServerClient } from '@/lib/supabase/server';
-import { formatDateTimeVienna, formatWeekRangeGerman, getCurrentWeekRange } from '@/lib/utils/date';
+import { formatDateTimeVienna, formatWeekRangeGerman, getCurrentWeekRange, getISOWeekAndYear } from '@/lib/utils/date';
 
 export default async function DashboardPage() {
   const supabase = await createServerClient();
@@ -90,6 +90,16 @@ export default async function DashboardPage() {
   };
 
   const progressPercent = progress.total > 0 ? Math.round((progress.checked / progress.total) * 100) : 0;
+
+  // Pending routine instances for current week
+  const currentIsoWeek = getISOWeekAndYear();
+  const { count: pendingRoutineCount } = await supabase
+    .from('routine_order_instances')
+    .select('id', { count: 'exact', head: true })
+    .eq('iso_year', currentIsoWeek.isoYear)
+    .eq('iso_week', currentIsoWeek.isoWeek)
+    .eq('status', 'pending')
+    .is('order_id', null);
 
   const orderBreakdown = (orderStatusBreakdown ?? []).reduce<Record<string, number>>((acc, order) => {
     acc[order.status] = (acc[order.status] ?? 0) + 1;
@@ -250,6 +260,11 @@ export default async function DashboardPage() {
                   {orderBreakdownParts.length > 0 && (
                     <p className="mt-2 text-sm leading-6 text-muted-foreground">
                       {orderBreakdownParts.join(', ')}
+                    </p>
+                  )}
+                  {(pendingRoutineCount ?? 0) > 0 && (
+                    <p className="mt-1 text-sm text-amber-700">
+                      {de.routineOrders.pendingRoutineOrders.replace('{count}', String(pendingRoutineCount))}
                     </p>
                   )}
                 </div>

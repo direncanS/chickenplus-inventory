@@ -32,6 +32,10 @@ vi.mock('@/components/orders/order-list', () => ({
   OrderList: (props: unknown) => props,
 }));
 
+vi.mock('@/components/routine-orders/weekly-routine-dashboard', () => ({
+  WeeklyRoutineDashboard: () => null,
+}));
+
 function createSupabaseStub(activeChecklist: unknown, orders: unknown[] = []) {
   return {
     from: vi.fn((table: string) => {
@@ -62,16 +66,61 @@ function createSupabaseStub(activeChecklist: unknown, orders: unknown[] = []) {
         return query;
       }
 
+      if (table === 'routine_order_instances') {
+        const query = {
+          select: vi.fn(() => query),
+          eq: vi.fn(() => query),
+          order: vi.fn().mockResolvedValue({
+            data: [],
+            error: null,
+          }),
+        };
+        return query;
+      }
+
+      if (table === 'routine_orders') {
+        const query = {
+          select: vi.fn(() => query),
+          eq: vi.fn(() => query),
+          then: (resolve: (value: unknown) => unknown, reject?: (reason: unknown) => unknown) =>
+            Promise.resolve({ count: 0, error: null }).then(resolve, reject),
+        };
+        return query;
+      }
+
+      if (table === 'checklist_items') {
+        const query = {
+          select: vi.fn(() => query),
+          eq: vi.fn(() => query),
+          then: (resolve: (value: unknown) => unknown, reject?: (reason: unknown) => unknown) =>
+            Promise.resolve({ data: [], error: null }).then(resolve, reject),
+        };
+        return query;
+      }
+
       throw new Error(`Unexpected table: ${table}`);
     }),
   };
 }
 
 function getOrderListPropsFromTree(tree: Awaited<ReturnType<typeof import('@/app/(app)/orders/page').default>>) {
-  return (tree as { props: { children: { props: unknown } } }).props.children.props as {
-    initialSuggestions: unknown[];
-    activeChecklist: { id: string; status: string } | null;
-  };
+  // The tree is a div with children: PageIntro, WeeklyRoutineDashboard (null), OrderList
+  // OrderList is mocked as (props) => props so its element in the tree carries props directly
+  const children = (tree as { props: { children: unknown[] } }).props.children;
+  const childArray = Array.isArray(children) ? children : [children];
+
+  for (const child of childArray) {
+    if (!child || typeof child !== 'object') continue;
+    const obj = child as Record<string, unknown>;
+    // Direct props access (mock returns props object)
+    if ('initialSuggestions' in obj) return obj as { initialSuggestions: unknown[]; activeChecklist: { id: string; status: string } | null };
+    // React element: props nested under .props
+    if (obj.props && typeof obj.props === 'object' && 'initialSuggestions' in (obj.props as Record<string, unknown>)) {
+      return obj.props as { initialSuggestions: unknown[]; activeChecklist: { id: string; status: string } | null };
+    }
+  }
+
+  return undefined as never;
 }
 
 describe('OrdersPage', () => {

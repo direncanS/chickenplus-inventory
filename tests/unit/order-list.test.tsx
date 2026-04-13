@@ -150,8 +150,8 @@ describe('OrderList', () => {
 
     expect(screen.queryByText('Cola')).toBeNull();
     expect(
-      screen.getByText('Bestellvorschlaege werden erst nach Abschluss der Kontrollliste angezeigt.')
-    ).toBeTruthy();
+      screen.getAllByText('Bestellvorschlaege werden erst nach Abschluss der Kontrollliste angezeigt.').length
+    ).toBeGreaterThan(0);
     expect(
       (screen.getByRole('button', { name: /Vorschl.ge generieren/i }) as HTMLButtonElement).disabled
     ).toBe(true);

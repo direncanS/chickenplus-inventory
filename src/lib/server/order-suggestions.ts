@@ -90,7 +90,42 @@ export async function getOrderSuggestions(
     throw new Error(openOrdersError.message);
   }
 
-  let filteredItems = items;
+  // Routine dedup: exclude products covered by pending routine instances for this week.
+  // Checklist provides iso_year/iso_week, so no extra parameter needed.
+  // Note: instances with order_id IS NOT NULL are already filtered out by the
+  // existing productsWithOpenOrders check below, so overlap is harmless.
+  const { data: checklist } = await supabase
+    .from('checklists')
+    .select('iso_year, iso_week')
+    .eq('id', checklistId)
+    .single();
+
+  const routineCoveredProducts = new Set<string>();
+  if (checklist) {
+    const { data: routineItems } = await supabase
+      .from('routine_order_instance_items')
+      .select(`
+        product_id,
+        routine_order_instances!inner(status, order_id, iso_year, iso_week)
+      `)
+      .eq('is_included', true)
+      .eq('routine_order_instances.iso_year', checklist.iso_year)
+      .eq('routine_order_instances.iso_week', checklist.iso_week)
+      .neq('routine_order_instances.status', 'skipped')
+      .is('routine_order_instances.order_id', null);
+
+    for (const ri of routineItems ?? []) {
+      routineCoveredProducts.add(ri.product_id);
+    }
+  }
+
+  let filteredItems = items.filter(
+    (item) => !routineCoveredProducts.has(item.product_id)
+  );
+
+  if (filteredItems.length === 0) {
+    return [];
+  }
 
   if ((openOrders ?? []).length > 0) {
     const openOrderIds = (openOrders as OpenOrderRow[]).map((order) => order.id);

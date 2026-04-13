@@ -66,6 +66,17 @@ function createDashboardSupabaseStub(options: {
         return query;
       }
 
+      if (table === 'routine_order_instances') {
+        const query = {
+          select: vi.fn(() => query),
+          eq: vi.fn(() => query),
+          is: vi.fn(() => query),
+          then: (resolve: (value: unknown) => unknown, reject?: (reason: unknown) => unknown) =>
+            Promise.resolve({ count: 0, error: null }).then(resolve, reject),
+        };
+        return query;
+      }
+
       if (table === 'orders') {
         let callIndex = 0;
         const query = {

@@ -181,6 +181,53 @@ export function isDateInWeekRange(dateStr: string, weekStart: string, weekEnd: s
 }
 
 /**
+ * Get the Monday (ISO week start) for a given ISO year and week as 'YYYY-MM-DD'.
+ */
+export function getISOWeekMonday(isoYear: number, isoWeek: number): string {
+  // Jan 4 is always in ISO week 1
+  const jan4 = new Date(isoYear, 0, 4);
+  const jan4DayOfWeek = jan4.getDay(); // 0=Sun, 1=Mon, ...
+  // Monday of week 1
+  const week1Monday = new Date(jan4);
+  week1Monday.setDate(jan4.getDate() - (jan4DayOfWeek === 0 ? 6 : jan4DayOfWeek - 1));
+  // Target Monday
+  const targetMonday = new Date(week1Monday);
+  targetMonday.setDate(week1Monday.getDate() + (isoWeek - 1) * 7);
+
+  const y = targetMonday.getFullYear();
+  const m = String(targetMonday.getMonth() + 1).padStart(2, '0');
+  const d = String(targetMonday.getDate()).padStart(2, '0');
+  return `${y}-${m}-${d}`;
+}
+
+/**
+ * Get the scheduled date for a given day of week within a week starting on Monday.
+ * Offset: montag=0, dienstag=1, ..., sonntag=6
+ */
+export function getScheduledDateForDay(
+  weekStartDate: string,
+  dayOfWeek: 'montag' | 'dienstag' | 'mittwoch' | 'donnerstag' | 'freitag' | 'samstag' | 'sonntag'
+): string {
+  const offsets: Record<string, number> = {
+    montag: 0,
+    dienstag: 1,
+    mittwoch: 2,
+    donnerstag: 3,
+    freitag: 4,
+    samstag: 5,
+    sonntag: 6,
+  };
+
+  const [year, month, day] = weekStartDate.split('-').map(Number);
+  const date = new Date(year, month - 1, day + offsets[dayOfWeek]);
+
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, '0');
+  const dd = String(date.getDate()).padStart(2, '0');
+  return `${y}-${m}-${dd}`;
+}
+
+/**
  * Check if a week range represents the current week (Vienna timezone).
  */
 export function isCurrentWeek(weekStart: string, weekEnd: string): boolean {
