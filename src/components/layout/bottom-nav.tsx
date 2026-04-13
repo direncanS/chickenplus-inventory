@@ -56,8 +56,8 @@ export function BottomNav() {
   }, [moreOpen]);
 
   return (
-    <nav className="md:hidden fixed bottom-0 left-0 right-0 z-50 bg-card border-t safe-area-bottom">
-      <div className="flex items-center justify-around h-[4.5rem]">
+    <nav className="md:hidden fixed bottom-0 left-0 right-0 z-50 px-3 pb-3 safe-area-bottom">
+      <div className="surface-panel flex items-center justify-around rounded-[28px] px-2 py-1.5">
         {mainNavItems.map((item) => {
           const isActive = pathname.startsWith(item.href);
           return (
@@ -65,9 +65,9 @@ export function BottomNav() {
               key={item.href}
               href={item.href}
               className={cn(
-                'flex flex-col items-center justify-center gap-0.5 min-w-0 flex-1 py-2 text-[0.6875rem] transition-colors',
+                'flex min-w-0 flex-1 flex-col items-center justify-center gap-1 rounded-2xl py-2.5 text-[0.68rem] transition-all',
                 isActive
-                  ? 'text-primary font-medium'
+                  ? 'bg-primary text-primary-foreground shadow-[0_14px_28px_-24px_rgba(191,70,44,0.9)]'
                   : 'text-muted-foreground'
               )}
             >
@@ -83,9 +83,9 @@ export function BottomNav() {
             type="button"
             onClick={() => setMoreOpen((prev) => !prev)}
             className={cn(
-              'flex flex-col items-center justify-center gap-0.5 min-w-0 w-full py-2 text-[0.6875rem] transition-colors',
+              'flex min-w-0 w-full flex-col items-center justify-center gap-1 rounded-2xl py-2.5 text-[0.68rem] transition-all',
               isMoreActive || moreOpen
-                ? 'text-primary font-medium'
+                ? 'bg-primary text-primary-foreground shadow-[0_14px_28px_-24px_rgba(191,70,44,0.9)] font-medium'
                 : 'text-muted-foreground'
             )}
           >
@@ -95,7 +95,7 @@ export function BottomNav() {
 
           {/* More menu popup */}
           {moreOpen && (
-            <div className="absolute bottom-full mb-2 right-0 min-w-[180px] rounded-lg border bg-card shadow-lg py-1">
+            <div className="absolute bottom-full right-0 mb-3 min-w-[200px] rounded-[24px] border border-white/80 bg-card/98 p-2 shadow-[0_28px_60px_-34px_rgba(38,32,29,0.35)]">
               {moreNavItems.map((item) => {
                 const isActive = pathname.startsWith(item.href);
                 return (
@@ -104,9 +104,9 @@ export function BottomNav() {
                     href={item.href}
                     onClick={handleClose}
                     className={cn(
-                      'flex items-center gap-3 px-4 py-3 text-sm transition-colors',
+                      'flex items-center gap-3 rounded-2xl px-4 py-3 text-sm transition-colors',
                       isActive
-                        ? 'text-primary font-medium bg-primary/5'
+                        ? 'bg-primary/10 text-primary font-medium'
                         : 'text-foreground hover:bg-muted'
                     )}
                   >

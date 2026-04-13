@@ -135,7 +135,7 @@ export function OrderList({
   const suggestionAvailabilityMessage = de.orders.suggestionsAvailableAfterCompletion;
 
   function syncServerState() {
-    // Keep the UI instant, then reconcile any server-rendered side regions in the background.
+    // The list stays responsive locally and then refreshes server-rendered side regions.
     startSyncTransition(() => {
       router.refresh();
     });
@@ -248,18 +248,32 @@ export function OrderList({
       />
 
       {activeChecklist && (
-        <div className="flex flex-col sm:flex-row gap-2">
-          <Button
-            onClick={handleGenerateSuggestions}
-            disabled={
-              loadingSuggestions ||
-              isBackgroundOrderGenerationBusy ||
-              !suggestionsAllowed
-            }
-            variant="outline"
-          >
-            {loadingSuggestions ? de.common.loading : de.orders.generateSuggestions}
-          </Button>
+        <div className="surface-subtle flex flex-col gap-4 px-5 py-5">
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">
+                Bestellvorschläge
+              </p>
+              <p className="text-sm text-muted-foreground">
+                {suggestionsAllowed
+                  ? 'Gruppieren Sie offene Fehlmengen nach Lieferant und behalten Sie bestehende Bestellungen parallel im Blick.'
+                  : suggestionAvailabilityMessage}
+              </p>
+            </div>
+            <div className="flex flex-col sm:flex-row gap-2">
+              <Button
+                onClick={handleGenerateSuggestions}
+                disabled={
+                  loadingSuggestions ||
+                  isBackgroundOrderGenerationBusy ||
+                  !suggestionsAllowed
+                }
+                variant="outline"
+              >
+                {loadingSuggestions ? de.common.loading : de.orders.generateSuggestions}
+              </Button>
+            </div>
+          </div>
         </div>
       )}
 
@@ -269,7 +283,10 @@ export function OrderList({
 
       {showSuggestions && (
         <div className="space-y-3">
-          <h3 className="font-semibold">{de.orders.suggestions}</h3>
+          <div className="flex items-center justify-between">
+            <h3 className="font-heading text-lg font-semibold tracking-tight">{de.orders.suggestions}</h3>
+            <Badge variant="secondary">{suggestions.length} Gruppen</Badge>
+          </div>
           {suggestions.map((suggestion) => (
             <SuggestionCard
               key={`${activeChecklist?.id ?? 'no-checklist'}:${suggestion.supplierId}:${suggestion.items
@@ -288,7 +305,10 @@ export function OrderList({
 
       {openOrders.length > 0 && (
         <div className="space-y-3">
-          <h3 className="font-semibold">{de.dashboard.openOrders} ({openOrders.length})</h3>
+          <div className="flex items-center justify-between">
+            <h3 className="font-heading text-lg font-semibold tracking-tight">{de.dashboard.openOrders}</h3>
+            <Badge variant="secondary">{openOrders.length}</Badge>
+          </div>
           {openOrders.map((order) => (
             <OrderCard
               key={getOrderRenderKey(order)}
@@ -323,7 +343,10 @@ export function OrderList({
 
       {closedOrders.length > 0 && (
         <div className="space-y-3">
-          <h3 className="font-semibold text-muted-foreground">{de.orders.closedOrders}</h3>
+          <div className="flex items-center justify-between">
+            <h3 className="font-heading text-lg font-semibold tracking-tight text-muted-foreground">{de.orders.closedOrders}</h3>
+            <Badge variant="outline">{closedOrders.length}</Badge>
+          </div>
           {closedOrders.map((order) => (
             <OrderCard
               key={getOrderRenderKey(order)}
@@ -357,7 +380,7 @@ export function OrderList({
       )}
 
       {ordersState.length === 0 && suggestions.length === 0 && !loadingSuggestions && !isSyncPending && (
-        <div className="text-center py-8">
+        <div className="surface-subtle py-10 text-center">
           <p className="font-medium mb-1">{de.orders.noOrders}</p>
           <p className="text-sm text-muted-foreground">
             {suggestionsAllowed ? de.orders.noOrdersDescription : suggestionAvailabilityMessage}
@@ -480,10 +503,12 @@ function SuggestionCard({
     <Card>
       <CardHeader className="pb-2">
         <div className="flex items-center justify-between gap-3">
-          <CardTitle className="text-sm">{suggestion.supplierName}</CardTitle>
+          <div>
+            <CardTitle className="text-base">{suggestion.supplierName}</CardTitle>
+            <p className="text-sm text-muted-foreground">{checkedCount} Positionen ausgewählt</p>
+          </div>
           <Button
             size="sm"
-            variant="outline"
             onClick={handleComplete}
             disabled={saving || checkedCount === 0}
           >
@@ -497,7 +522,7 @@ function SuggestionCard({
             const draft = draftState[item.checklistItemId] ?? { isOrdered: false, orderedQuantity: '' };
 
             return (
-              <div key={item.checklistItemId} className="rounded-lg border border-border/60 p-3">
+              <div key={item.checklistItemId} className="rounded-[22px] border border-border/60 bg-muted/25 p-3.5">
                 <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                   <label className="flex items-center gap-3 text-sm">
                     <Checkbox
@@ -664,7 +689,7 @@ function OrderCard({
       <CardHeader className="pb-2">
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
           <div>
-            <CardTitle className="text-sm font-mono">{order.order_number}</CardTitle>
+            <CardTitle className="text-base font-mono">{order.order_number}</CardTitle>
             <p className="text-sm text-muted-foreground">
               {(order.suppliers as { name: string }).name} &middot; KW {(order.checklists as { iso_week: number }).iso_week}
             </p>
@@ -729,7 +754,7 @@ function OrderCard({
             const actualOrderedQuantity = formatActualOrderedQuantity(item.ordered_quantity, item.unit);
 
             return (
-              <div key={item.id} className="rounded-lg border border-border/60 p-3">
+              <div key={item.id} className="rounded-[22px] border border-border/60 bg-muted/25 p-3.5">
                 <div className="flex items-start justify-between gap-3 text-sm">
                   <div className="flex items-center gap-2 min-w-0">
                     {canDeliver && (

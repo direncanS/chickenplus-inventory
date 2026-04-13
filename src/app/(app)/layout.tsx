@@ -13,10 +13,12 @@ export default async function AppLayout({
   return (
     <div className="min-h-screen">
       <Sidebar />
-      <div className="md:pl-56">
+      <div className="md:pl-[18rem]">
         <Header />
-        <main className="p-4 md:p-6 pb-20 md:pb-6">
-          {children}
+        <main className="pb-24 pt-4 md:pb-8 md:pt-6">
+          <div className="app-grid px-4 md:px-6">
+            {children}
+          </div>
         </main>
       </div>
       <BottomNav />

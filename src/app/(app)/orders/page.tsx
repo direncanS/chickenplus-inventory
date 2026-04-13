@@ -1,8 +1,12 @@
+import Link from 'next/link';
 import { createServerClient } from '@/lib/supabase/server';
+import { PageIntro } from '@/components/layout/page-intro';
 import { OrderList } from '@/components/orders/order-list';
+import { WeeklyRoutineDashboard } from '@/components/routine-orders/weekly-routine-dashboard';
 import { getOrderSuggestions } from '@/lib/server/order-suggestions';
 import { requireAppViewer } from '@/lib/supabase/app-viewer';
 import { transformOrders } from '@/lib/utils/transform';
+import { getISOWeekAndYear } from '@/lib/utils/date';
 
 export default async function OrdersPage() {
   const supabase = await createServerClient();
@@ -46,6 +50,11 @@ export default async function OrdersPage() {
 
   return (
     <div className="space-y-4">
+      <PageIntro
+        eyebrow="Bestellübersicht"
+        title="Bestellungen"
+        description="Verwalten Sie offene Lieferantenbestellungen, prüfen Sie Vorschlagsgruppen und behalten Sie Lieferzustände klar im Blick."
+      />
       <OrderList
         key={orderListKey}
         orders={transformOrders(orders ?? [])}

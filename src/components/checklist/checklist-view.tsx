@@ -449,109 +449,115 @@ export function ChecklistView({ checklist, items, isAdmin }: ChecklistViewProps)
       />
 
       {/* Sticky header area */}
-      <div className="sticky top-14 z-30 bg-background pb-3 -mx-4 px-4 sm:-mx-6 sm:px-6 border-b border-transparent">
-        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between pt-3">
-          <div className="flex items-center gap-2">
-            <h2 className="text-lg font-semibold">{headerText}</h2>
-            <Badge variant="outline" className={statusBadgeClass[localChecklistStatus]}>
-              {statusLabels[localChecklistStatus]}
-            </Badge>
-          </div>
-          <div className="flex flex-wrap items-center justify-end gap-2">
-            {saveStatusMessage && (
-              <span
-                className={`text-xs ${hasSaveError ? 'text-destructive' : 'text-muted-foreground'}`}
-              >
-                {saveStatusMessage}
-              </span>
-            )}
-            <span className="text-sm text-muted-foreground">
-              {de.checklist.progress
-                .replace('{checked}', String(checkedCount))
-                .replace('{total}', String(totalCount))}
-            </span>
-            {isCompleted && isAdmin && (
-              <Button variant="outline" size="sm" onClick={handleReopen} disabled={reopening}>
-                {reopening ? de.common.loading : de.checklist.reopen}
-              </Button>
-            )}
-            {!isCompleted && (
-              <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-                <DialogTrigger
-                  render={
-                    <Button
-                      size="sm"
-                      disabled={completing || checkedCount < totalCount}
-                    />
-                  }
+      <div className="sticky top-[5.35rem] z-30 pb-4">
+        <div className="surface-panel -mx-1 px-4 py-4 sm:px-5">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div className="flex flex-col gap-2">
+              <div className="flex items-center gap-2">
+                <h2 className="font-heading text-xl font-semibold tracking-tight">{headerText}</h2>
+                <Badge variant="outline" className={statusBadgeClass[localChecklistStatus]}>
+                  {statusLabels[localChecklistStatus]}
+                </Badge>
+              </div>
+              <p className="text-sm text-muted-foreground">
+                {de.checklist.progress
+                  .replace('{checked}', String(checkedCount))
+                  .replace('{total}', String(totalCount))}
+              </p>
+            </div>
+            <div className="flex flex-wrap items-center justify-end gap-2">
+              {saveStatusMessage && (
+                <span
+                  className={`rounded-full px-3 py-1 text-xs ${hasSaveError ? 'bg-destructive/10 text-destructive' : 'bg-muted text-muted-foreground'}`}
                 >
-                  {completing ? de.common.loading : de.checklist.complete}
-                </DialogTrigger>
-                <DialogContent>
-                  <DialogHeader>
-                    <DialogTitle>{de.checklist.completeConfirmTitle}</DialogTitle>
-                    <DialogDescription>
-                      {de.checklist.completeConfirmDescription}
-                    </DialogDescription>
-                  </DialogHeader>
-                  <DialogFooter>
-                    <DialogClose render={<Button variant="outline" />}>
-                      {de.common.cancel}
-                    </DialogClose>
-                    <Button onClick={handleComplete} disabled={completing}>
-                      {completing ? de.common.loading : de.checklist.completeConfirmButton}
-                    </Button>
-                  </DialogFooter>
-                </DialogContent>
-              </Dialog>
-            )}
+                  {saveStatusMessage}
+                </span>
+              )}
+              {isCompleted && isAdmin && (
+                <Button variant="outline" size="sm" onClick={handleReopen} disabled={reopening}>
+                  {reopening ? de.common.loading : de.checklist.reopen}
+                </Button>
+              )}
+              {!isCompleted && (
+                <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+                  <DialogTrigger
+                    render={
+                      <Button
+                        size="sm"
+                        disabled={completing || checkedCount < totalCount}
+                      />
+                    }
+                  >
+                    {completing ? de.common.loading : de.checklist.complete}
+                  </DialogTrigger>
+                  <DialogContent>
+                    <DialogHeader>
+                      <DialogTitle>{de.checklist.completeConfirmTitle}</DialogTitle>
+                      <DialogDescription>
+                        {de.checklist.completeConfirmDescription}
+                      </DialogDescription>
+                    </DialogHeader>
+                    <DialogFooter>
+                      <DialogClose render={<Button variant="outline" />}>
+                        {de.common.cancel}
+                      </DialogClose>
+                      <Button onClick={handleComplete} disabled={completing}>
+                        {completing ? de.common.loading : de.checklist.completeConfirmButton}
+                      </Button>
+                    </DialogFooter>
+                  </DialogContent>
+                </Dialog>
+              )}
+            </div>
           </div>
-        </div>
 
-        {/* Progress bar with percentage */}
-        <div className="relative mt-2">
-          <div className="w-full bg-muted rounded-full h-3">
-            <div
-              className="bg-primary h-3 rounded-full transition-all"
-              style={{
-                width: `${progressPercent}%`,
-              }}
-            />
+          <div className="mt-4 space-y-2">
+            <div className="flex items-center justify-between text-xs font-medium uppercase tracking-[0.16em] text-muted-foreground">
+              <span>Fortschritt</span>
+              <span>{progressPercent}%</span>
+            </div>
+            <div className="relative">
+              <div className="h-4 w-full rounded-full bg-muted">
+                <div
+                  className="h-4 rounded-full bg-gradient-to-r from-primary via-primary to-primary/70 transition-all"
+                  style={{
+                    width: `${progressPercent}%`,
+                  }}
+                />
+              </div>
+            </div>
           </div>
-          <span className="absolute inset-0 flex items-center justify-center text-[0.625rem] font-semibold text-foreground mix-blend-difference">
-            {progressPercent}%
-          </span>
         </div>
       </div>
 
-      <div className="grid grid-cols-[1fr_80px_44px_44px] sm:grid-cols-[1fr_100px_48px_48px] items-center gap-2 px-2 text-xs text-muted-foreground font-medium">
+      <div className="grid grid-cols-[1fr_112px_64px_56px] items-center gap-3 px-2 text-[0.72rem] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
         <div>{de.checklist.product}</div>
         <div className="text-center">{de.checklist.stock}</div>
         <div className="text-center">{de.checklist.missing}</div>
         <div className="text-center">{de.checklist.checked}</div>
       </div>
 
-      <Accordion multiple defaultValue={grouped.map((group) => group.locationCode)}>
+      <Accordion multiple defaultValue={grouped.map((group) => group.locationCode)} className="space-y-3">
         {grouped.map((location) => {
           const groupCount = getGroupCheckedCount(location);
           return (
-            <AccordionItem key={location.locationCode} value={location.locationCode}>
-              <AccordionTrigger className="text-base font-semibold">
+            <AccordionItem key={location.locationCode} value={location.locationCode} className="surface-subtle border px-2">
+              <AccordionTrigger className="rounded-2xl px-3 py-3 text-base font-semibold">
                 <span className="flex items-center gap-2 flex-1">
                   <Badge variant="secondary" className="font-mono text-xs">
                     {location.locationCode}
                   </Badge>
                   <span className="flex-1">{location.locationName}</span>
-                  <span className="text-xs font-normal text-muted-foreground ml-auto mr-2">
+                  <span className="mr-2 rounded-full bg-muted px-2.5 py-1 text-xs font-semibold text-muted-foreground">
                     {groupCount.checked}/{groupCount.total}
                   </span>
                 </span>
               </AccordionTrigger>
-              <AccordionContent>
+              <AccordionContent className="px-3 pb-4">
                 {location.categories.map((category) => (
                   <div key={category.categoryName} className="mb-4">
                     {category.categoryName !== 'Allgemein' && (
-                      <h4 className="text-sm font-medium text-muted-foreground mb-2 px-1">
+                      <h4 className="mb-3 px-1 text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">
                         {category.categoryName}
                       </h4>
                     )}

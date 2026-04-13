@@ -23,10 +23,10 @@ const periodOptions: { value: ReportPeriod; label: string }[] = [
 
 export function PeriodSelector({ value, onChange }: PeriodSelectorProps) {
   return (
-    <div className="flex items-center gap-2">
-      <span className="text-sm text-muted-foreground">{de.reports.period}:</span>
+    <div className="flex items-center gap-3">
+      <span className="text-sm font-medium text-muted-foreground">{de.reports.period}:</span>
       <Select value={value} onValueChange={(v) => onChange(v as ReportPeriod)}>
-        <SelectTrigger>
+        <SelectTrigger className="min-w-[13rem]">
           <SelectValue />
         </SelectTrigger>
         <SelectContent>

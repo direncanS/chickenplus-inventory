@@ -1,12 +1,20 @@
+import Link from 'next/link';
+import {
+  Archive,
+  BarChart3,
+  ClipboardCheck,
+  FileSpreadsheet,
+  ShoppingCart,
+  Sparkles,
+} from 'lucide-react';
+import { CorrectChecklistWeekButton } from '@/components/checklist/correct-checklist-week-button';
+import { PageIntro } from '@/components/layout/page-intro';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { CorrectChecklistWeekButton } from '@/components/checklist/correct-checklist-week-button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { de } from '@/i18n/de';
 import { createServerClient } from '@/lib/supabase/server';
 import { formatDateTimeVienna, formatWeekRangeGerman, getCurrentWeekRange } from '@/lib/utils/date';
-import { Archive, BarChart3, FileSpreadsheet } from 'lucide-react';
-import Link from 'next/link';
 
 export default async function DashboardPage() {
   const supabase = await createServerClient();
@@ -97,142 +105,208 @@ export default async function DashboardPage() {
 
   return (
     <div className="space-y-6">
-      <Card>
-        <CardHeader>
-          <CardTitle>{de.dashboard.currentWeekChecklist}</CardTitle>
-          {currentWeekChecklist && (
-            <CardDescription>
-              {currentWeekChecklist.week_start_date && currentWeekChecklist.week_end_date
-                ? `${formatWeekRangeGerman(currentWeekChecklist.week_start_date, currentWeekChecklist.week_end_date)} - ${de.dashboard.weekLabel} ${currentWeekChecklist.iso_week}`
-                : `${de.dashboard.weekLabel} ${currentWeekChecklist.iso_week} / ${currentWeekChecklist.iso_year}`}
-            </CardDescription>
-          )}
-        </CardHeader>
-        <CardContent>
-          {currentWeekChecklist ? (
-            <div className="space-y-3">
-              <div className="flex items-center gap-2">
-                <Badge variant="outline" className={statusBadgeClass[currentWeekChecklist.status]}>
-                  {statusLabels[currentWeekChecklist.status]}
-                </Badge>
-                <span className="text-sm text-muted-foreground">
-                  {progressPercent}% ({progress.checked}/{progress.total})
-                </span>
+      <PageIntro
+        eyebrow="Wochenübersicht"
+        title={de.dashboard.title}
+        description="Sehen Sie den Fortschritt der aktuellen Woche, offene Bestellungen und die wichtigsten nächsten Schritte für den Betrieb."
+      />
+
+      <div className="grid gap-4 lg:grid-cols-[1.55fr_0.95fr]">
+        <Card className="overflow-visible">
+          <CardHeader className="gap-3">
+            <div className="flex items-center justify-between gap-4">
+              <div className="space-y-1">
+                <CardTitle className="flex items-center gap-2 text-lg">
+                  <span className="flex h-10 w-10 items-center justify-center rounded-2xl bg-primary/10 text-primary">
+                    <ClipboardCheck className="h-5 w-5" />
+                  </span>
+                  {de.dashboard.currentWeekChecklist}
+                </CardTitle>
+                {currentWeekChecklist && (
+                  <CardDescription>
+                    {currentWeekChecklist.week_start_date && currentWeekChecklist.week_end_date
+                      ? `${formatWeekRangeGerman(currentWeekChecklist.week_start_date, currentWeekChecklist.week_end_date)} - ${de.dashboard.weekLabel} ${currentWeekChecklist.iso_week}`
+                      : `${de.dashboard.weekLabel} ${currentWeekChecklist.iso_week} / ${currentWeekChecklist.iso_year}`}
+                  </CardDescription>
+                )}
               </div>
-              <div className="relative w-full">
-                <div className="w-full bg-muted rounded-full h-3">
-                  <div
-                    className="bg-primary h-3 rounded-full transition-all"
-                    style={{ width: `${progressPercent}%` }}
+              {currentWeekChecklist && (
+                <div className="hidden h-14 w-14 items-center justify-center rounded-2xl bg-accent/70 text-primary sm:flex">
+                  <Sparkles className="h-5 w-5" />
+                </div>
+              )}
+            </div>
+          </CardHeader>
+          <CardContent>
+            {currentWeekChecklist ? (
+              <div className="space-y-5">
+                <div className="grid gap-3 sm:grid-cols-3">
+                  <div className="rounded-3xl border border-border/70 bg-muted/35 p-4">
+                    <div className="flex items-center gap-2">
+                      <Badge variant="outline" className={statusBadgeClass[currentWeekChecklist.status]}>
+                        {statusLabels[currentWeekChecklist.status]}
+                      </Badge>
+                    </div>
+                    <p className="mt-3 text-3xl font-semibold tracking-tight">{progressPercent}%</p>
+                    <p className="mt-1 text-sm text-muted-foreground">
+                      {progress.checked}/{progress.total} Positionen geprüft
+                    </p>
+                  </div>
+                  <div className="rounded-3xl border border-border/70 bg-muted/35 p-4">
+                    <p className="text-sm font-medium text-muted-foreground">Fehlmengen</p>
+                    <p className="mt-3 text-3xl font-semibold tracking-tight text-primary">
+                      {missingCount}
+                    </p>
+                    <p className={missingCount > 0 ? 'mt-1 text-sm text-amber-700' : 'mt-1 text-sm text-green-700'}>
+                      {missingCount > 0
+                        ? de.dashboard.missingProducts.replace('{count}', String(missingCount))
+                        : de.dashboard.noMissingProducts}
+                    </p>
+                  </div>
+                  <div className="rounded-3xl border border-border/70 bg-muted/35 p-4">
+                    <p className="text-sm font-medium text-muted-foreground">Letzte Aktivität</p>
+                    <p className="mt-3 text-base font-semibold tracking-tight">
+                      {formatDateTimeVienna(currentWeekChecklist.updated_at)}
+                    </p>
+                    <p className="mt-1 text-sm text-muted-foreground">
+                      Status und Fortschritt zuletzt synchronisiert
+                    </p>
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between text-sm text-muted-foreground">
+                    <span>Fortschritt dieser Woche</span>
+                    <span>{progress.checked}/{progress.total}</span>
+                  </div>
+                  <div className="h-4 overflow-hidden rounded-full bg-muted">
+                    <div
+                      className="h-full rounded-full bg-gradient-to-r from-primary via-primary to-primary/70 transition-all"
+                      style={{ width: `${progressPercent}%` }}
+                    />
+                  </div>
+                </div>
+
+                <div className="flex flex-wrap gap-2">
+                  <Link href="/checklist">
+                    <Button size="lg">
+                      {currentWeekChecklist.status === 'draft'
+                        ? de.dashboard.startChecklist
+                        : currentWeekChecklist.status === 'in_progress'
+                          ? de.dashboard.continueChecklist
+                          : de.dashboard.viewChecklist}
+                    </Button>
+                  </Link>
+                  {currentWeekChecklist.status === 'completed' && (
+                    <Link href={`/api/export/${currentWeekChecklist.id}`}>
+                      <Button variant="outline" size="lg">
+                        {de.dashboard.exportExcel}
+                      </Button>
+                    </Link>
+                  )}
+                </div>
+              </div>
+            ) : previousActiveChecklist ? (
+              <div className="rounded-[26px] border border-amber-200/80 bg-amber-50/90 p-5 text-center">
+                <p className="mb-1 font-medium">{de.dashboard.previousWeekBlocking}</p>
+                <p className="mb-4 text-sm text-muted-foreground">{de.checklist.correctionHint}</p>
+                <div className="flex flex-wrap justify-center gap-2">
+                  <Link href="/checklist">
+                    <Button>{de.dashboard.goToChecklist}</Button>
+                  </Link>
+                  <CorrectChecklistWeekButton
+                    sourceChecklistId={previousActiveChecklist.id}
+                    targetWeekStart={currentWeekStart}
+                    targetWeekEnd={currentWeekEnd}
                   />
                 </div>
               </div>
-              <p className={missingCount > 0 ? 'text-sm font-medium text-amber-700' : 'text-sm font-medium text-green-700'}>
-                {missingCount > 0
-                  ? de.dashboard.missingProducts.replace('{count}', String(missingCount))
-                  : de.dashboard.noMissingProducts}
-              </p>
-              <p className="text-xs text-muted-foreground">
-                {formatDateTimeVienna(currentWeekChecklist.updated_at)}
-              </p>
-              <div className="flex flex-wrap gap-2">
-                <Link href="/checklist">
-                  <Button size="sm">
-                    {currentWeekChecklist.status === 'draft'
-                      ? de.dashboard.startChecklist
-                      : currentWeekChecklist.status === 'in_progress'
-                        ? de.dashboard.continueChecklist
-                        : de.dashboard.viewChecklist}
-                  </Button>
-                </Link>
-                {currentWeekChecklist.status === 'completed' && (
-                  <Link href={`/api/export/${currentWeekChecklist.id}`}>
-                    <Button variant="outline" size="sm">
-                      {de.dashboard.exportExcel}
-                    </Button>
-                  </Link>
-                )}
-              </div>
-            </div>
-          ) : previousActiveChecklist ? (
-            <div className="text-center py-6">
-              <p className="font-medium mb-1">{de.dashboard.previousWeekBlocking}</p>
-              <p className="text-sm text-muted-foreground mb-3">{de.checklist.correctionHint}</p>
-              <div className="flex flex-wrap justify-center gap-2">
+            ) : (
+              <div className="rounded-[26px] border border-dashed border-border bg-muted/30 p-7 text-center">
+                <p className="mb-1 font-medium">{de.dashboard.noChecklistYet}</p>
+                <p className="mb-4 text-sm text-muted-foreground">{de.dashboard.noChecklistYetDescription}</p>
                 <Link href="/checklist">
                   <Button>{de.dashboard.goToChecklist}</Button>
                 </Link>
-                <CorrectChecklistWeekButton
-                  sourceChecklistId={previousActiveChecklist.id}
-                  targetWeekStart={currentWeekStart}
-                  targetWeekEnd={currentWeekEnd}
-                />
               </div>
-            </div>
-          ) : (
-            <div className="text-center py-6">
-              <p className="font-medium mb-1">{de.dashboard.noChecklistYet}</p>
-              <p className="text-sm text-muted-foreground mb-3">{de.dashboard.noChecklistYetDescription}</p>
-              <Link href="/checklist">
-                <Button>{de.dashboard.goToChecklist}</Button>
-              </Link>
-            </div>
-          )}
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardHeader>
-          <CardTitle>{de.dashboard.openOrders}</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="flex items-center justify-between">
-            <div>
-              <span className="text-3xl font-bold">{openOrdersCount ?? 0}</span>
-              {orderBreakdownParts.length > 0 && (
-                <p className="text-xs text-muted-foreground mt-1">
-                  {orderBreakdownParts.join(', ')}
-                </p>
-              )}
-            </div>
-            <Link href="/orders">
-              <Button variant="outline" size="sm">
-                {de.orders.title}
-              </Button>
-            </Link>
-          </div>
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardHeader>
-          <CardTitle>{de.dashboard.quickActions}</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-3 gap-3">
-            <Link href="/archive">
-              <div className="flex flex-col items-center gap-2 p-3 rounded-lg hover:bg-muted transition-colors text-center">
-                <Archive className="h-6 w-6 text-primary" />
-                <span className="text-xs font-medium">{de.nav.archive}</span>
-              </div>
-            </Link>
-            <Link href="/reports">
-              <div className="flex flex-col items-center gap-2 p-3 rounded-lg hover:bg-muted transition-colors text-center">
-                <BarChart3 className="h-6 w-6 text-primary" />
-                <span className="text-xs font-medium">{de.nav.reports}</span>
-              </div>
-            </Link>
-            {currentWeekChecklist?.status === 'completed' && (
-              <Link href={`/api/export/${currentWeekChecklist.id}`}>
-                <div className="flex flex-col items-center gap-2 p-3 rounded-lg hover:bg-muted transition-colors text-center">
-                  <FileSpreadsheet className="h-6 w-6 text-primary" />
-                  <span className="text-xs font-medium">{de.dashboard.exportExcel}</span>
-                </div>
-              </Link>
             )}
-          </div>
-        </CardContent>
-      </Card>
+          </CardContent>
+        </Card>
+
+        <div className="grid gap-4">
+          <Card size="sm">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <span className="flex h-10 w-10 items-center justify-center rounded-2xl bg-primary/10 text-primary">
+                  <ShoppingCart className="h-5 w-5" />
+                </span>
+                {de.dashboard.openOrders}
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="flex items-start justify-between gap-4">
+                <div>
+                  <span className="text-4xl font-semibold tracking-tight">{openOrdersCount ?? 0}</span>
+                  {orderBreakdownParts.length > 0 && (
+                    <p className="mt-2 text-sm leading-6 text-muted-foreground">
+                      {orderBreakdownParts.join(', ')}
+                    </p>
+                  )}
+                </div>
+                <Link href="/orders">
+                  <Button variant="outline">{de.orders.title}</Button>
+                </Link>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card size="sm">
+            <CardHeader>
+              <CardTitle>{de.dashboard.quickActions}</CardTitle>
+              <CardDescription>Schneller Zugriff auf die wichtigsten Kontroll- und Berichtsfunktionen.</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-3 lg:grid-cols-1">
+                <Link href="/archive" className="rounded-3xl border border-border/70 bg-muted/35 p-4 transition-colors hover:bg-accent/50">
+                  <div className="flex items-center gap-3">
+                    <span className="flex h-11 w-11 items-center justify-center rounded-2xl bg-white text-primary shadow-sm">
+                      <Archive className="h-5 w-5" />
+                    </span>
+                    <div>
+                      <p className="font-medium">{de.nav.archive}</p>
+                      <p className="text-sm text-muted-foreground">Abgeschlossene Wochenkontrollen</p>
+                    </div>
+                  </div>
+                </Link>
+                <Link href="/reports" className="rounded-3xl border border-border/70 bg-muted/35 p-4 transition-colors hover:bg-accent/50">
+                  <div className="flex items-center gap-3">
+                    <span className="flex h-11 w-11 items-center justify-center rounded-2xl bg-white text-primary shadow-sm">
+                      <BarChart3 className="h-5 w-5" />
+                    </span>
+                    <div>
+                      <p className="font-medium">{de.nav.reports}</p>
+                      <p className="text-sm text-muted-foreground">Kennzahlen und Liefertrends</p>
+                    </div>
+                  </div>
+                </Link>
+                {currentWeekChecklist?.status === 'completed' && (
+                  <Link href={`/api/export/${currentWeekChecklist.id}`} className="rounded-3xl border border-border/70 bg-muted/35 p-4 transition-colors hover:bg-accent/50">
+                    <div className="flex items-center gap-3">
+                      <span className="flex h-11 w-11 items-center justify-center rounded-2xl bg-white text-primary shadow-sm">
+                        <FileSpreadsheet className="h-5 w-5" />
+                      </span>
+                      <div>
+                        <p className="font-medium">{de.dashboard.exportExcel}</p>
+                        <p className="text-sm text-muted-foreground">Excel-Export der aktuellen Woche</p>
+                      </div>
+                    </div>
+                  </Link>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      </div>
     </div>
   );
 }

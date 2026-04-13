@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { BrandMark } from '@/components/layout/brand-mark';
 import { createClient } from '@/lib/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -43,13 +44,18 @@ export default function LoginPage() {
   }
 
   return (
-    <Card className="w-full max-w-sm">
-      <CardHeader className="text-center">
-        <CardTitle className="text-2xl">{de.auth.loginTitle}</CardTitle>
-        <CardDescription>{de.auth.loginSubtitle}</CardDescription>
+    <Card className="w-full max-w-[29rem]">
+      <CardHeader className="space-y-6 text-center">
+        <div className="mx-auto lg:hidden">
+          <BrandMark compact />
+        </div>
+        <div className="space-y-2">
+          <CardTitle className="text-3xl">{de.auth.loginTitle}</CardTitle>
+          <CardDescription>{de.auth.loginSubtitle}</CardDescription>
+        </div>
       </CardHeader>
-      <CardContent>
-        <form onSubmit={handleLogin} className="space-y-4">
+      <CardContent className="space-y-5">
+        <form onSubmit={handleLogin} className="space-y-5">
           <div className="space-y-2">
             <Label htmlFor="email">{de.auth.email}</Label>
             <Input
@@ -74,9 +80,11 @@ export default function LoginPage() {
             />
           </div>
           {error && (
-            <p className="text-sm text-destructive">{error}</p>
+            <p className="rounded-2xl border border-destructive/15 bg-destructive/8 px-4 py-3 text-sm text-destructive">
+              {error}
+            </p>
           )}
-          <Button type="submit" className="w-full" disabled={loading}>
+          <Button type="submit" size="lg" className="w-full" disabled={loading}>
             {loading ? de.common.loading : de.auth.loginButton}
           </Button>
         </form>
