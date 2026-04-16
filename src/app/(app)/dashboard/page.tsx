@@ -15,7 +15,6 @@ import {
   Truck,
 } from 'lucide-react';
 import { CorrectChecklistWeekButton } from '@/components/checklist/correct-checklist-week-button';
-import { PageIntro } from '@/components/layout/page-intro';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -306,13 +305,7 @@ export default async function DashboardPage() {
   };
 
   return (
-    <div className="space-y-5">
-      <PageIntro
-        eyebrow={`KW ${currentIsoWeek.isoWeek} · ${weekRangeLabel}`}
-        title={de.dashboard.title}
-        description="Sehen Sie den Fortschritt der aktuellen Woche, offene Bestellungen und die wichtigsten nächsten Schritte für den Betrieb."
-      />
-
+    <div className="space-y-4">
       {/* HERO ACTION CARD — single dominant card showing what to do next */}
       <div className={`rounded-3xl border-2 p-5 shadow-[0_24px_60px_-40px_rgba(38,32,29,0.35)] sm:p-6 ${heroStyle.bg}`}>
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">

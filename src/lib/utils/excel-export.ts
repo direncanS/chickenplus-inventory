@@ -35,9 +35,23 @@ interface ExportData {
   storageLocations: { name: string; sortOrder: number }[];
 }
 
+// Brand-tinted palette (oklch from globals.css translated to ARGB hex)
+const COLORS = {
+  primary: 'FFBF462C',       // brand orange/rust — title bar
+  primaryLight: 'FFF6E1D8',  // header tint
+  storageBar: 'FFFFE9D6',    // storage location row
+  categoryBar: 'FFFAF3EB',   // category row
+  missingTint: 'FFFFF4D6',   // missing row tint
+  missingText: 'FFB45309',   // amber-700
+  borderGray: 'FFD8CFC4',
+  textMuted: 'FF7C6F66',
+  white: 'FFFFFFFF',
+};
+
 /**
  * Generate Excel workbook for a checklist.
- * Operational equivalent layout: same ordering, same columns, readable format.
+ * Branded header, frozen panes, missing-row highlight, totals row,
+ * print page setup so a single Ctrl+P from Excel produces a clean A4.
  */
 export async function generateChecklistExcel(
   data: ExportData
@@ -46,11 +60,33 @@ export async function generateChecklistExcel(
   workbook.creator = 'Chickenplus Bestandskontrolle';
   workbook.created = new Date();
 
-  const sheet = workbook.addWorksheet(
-    `KW ${data.isoWeek} ${data.isoYear}`
-  );
+  const sheet = workbook.addWorksheet(`KW ${data.isoWeek} ${data.isoYear}`, {
+    views: [{ state: 'frozen', ySplit: 4 }], // freeze header rows
+    pageSetup: {
+      paperSize: 9, // A4
+      orientation: 'portrait',
+      fitToPage: true,
+      fitToWidth: 1,
+      fitToHeight: 0,
+      margins: { top: 0.4, bottom: 0.4, left: 0.4, right: 0.4, header: 0.2, footer: 0.2 },
+      printTitlesRow: '3:4', // repeat title and header on every printed page
+    },
+    headerFooter: {
+      oddFooter: '&L&"Aptos,Italic"&9Chickenplus Bestandskontrolle&R&"Aptos,Italic"&9Seite &P / &N',
+    },
+  });
 
-  // Title row
+  // Column widths
+  sheet.columns = [
+    { width: 38 }, // Produkt
+    { width: 12 }, // Einheit
+    { width: 16 }, // Mindestbestand
+    { width: 14 }, // Bestand
+    { width: 8 },  // Fehlt
+    { width: 18 }, // Kategorie
+  ];
+
+  // ---------- Title bar (row 1) ----------
   sheet.mergeCells('A1:F1');
   const titleCell = sheet.getCell('A1');
   const titleSuffix = data.weekStartDate && data.weekEndDate
@@ -60,42 +96,52 @@ export async function generateChecklistExcel(
         return `${sd}.${sm}-${ed}.${em}.${data.isoYear}`;
       })()
     : String(data.isoYear);
-  titleCell.value = `Bestandskontrolle - KW ${data.isoWeek} / ${titleSuffix}`;
-  titleCell.font = { size: 14, bold: true };
-  titleCell.alignment = { horizontal: 'center' };
+  titleCell.value = `Bestandskontrolle  ·  KW ${data.isoWeek}  ·  ${titleSuffix}`;
+  titleCell.font = { size: 16, bold: true, color: { argb: COLORS.white } };
+  titleCell.alignment = { horizontal: 'left', vertical: 'middle', indent: 1 };
+  titleCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: COLORS.primary } };
+  sheet.getRow(1).height = 28;
 
-  sheet.addRow([]);
+  // ---------- Summary line (row 2) ----------
+  const totalCount = data.items.length;
+  const checkedCount = data.items.filter((item) => item.currentStock !== null && item.currentStock !== '').length;
+  const missingCount = data.items.filter((item) => item.isMissing).length;
 
-  // Headers
+  sheet.mergeCells('A2:F2');
+  const summaryCell = sheet.getCell('A2');
+  summaryCell.value = `Positionen: ${totalCount}    ·    Erfasst: ${checkedCount}    ·    Fehlt: ${missingCount}`;
+  summaryCell.font = { size: 10, italic: true, color: { argb: COLORS.textMuted } };
+  summaryCell.alignment = { horizontal: 'left', vertical: 'middle', indent: 1 };
+  summaryCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: COLORS.primaryLight } };
+  sheet.getRow(2).height = 18;
+
+  sheet.addRow([]); // spacer
+
+  // ---------- Header row (row 4) ----------
   const headerRow = sheet.addRow([
     'Produkt',
     'Einheit',
-    'Mindestbestand',
+    'Min. - Max.',
     'Bestand',
     'Fehlt',
     'Kategorie',
   ]);
-  headerRow.font = { bold: true };
+  headerRow.height = 22;
+  headerRow.font = { bold: true, size: 10, color: { argb: COLORS.primary } };
   headerRow.eachCell((cell) => {
-    cell.fill = {
-      type: 'pattern',
-      pattern: 'solid',
-      fgColor: { argb: 'FFE0E0E0' },
-    };
+    cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: COLORS.primaryLight } };
+    cell.alignment = { vertical: 'middle', horizontal: 'left', indent: 1 };
     cell.border = {
-      bottom: { style: 'thin' },
+      top: { style: 'thin', color: { argb: COLORS.borderGray } },
+      bottom: { style: 'medium', color: { argb: COLORS.primary } },
     };
   });
+  headerRow.getCell(2).alignment = { vertical: 'middle', horizontal: 'center' };
+  headerRow.getCell(3).alignment = { vertical: 'middle', horizontal: 'center' };
+  headerRow.getCell(4).alignment = { vertical: 'middle', horizontal: 'center' };
+  headerRow.getCell(5).alignment = { vertical: 'middle', horizontal: 'center' };
 
-  // Column widths
-  sheet.getColumn(1).width = 30;
-  sheet.getColumn(2).width = 12;
-  sheet.getColumn(3).width = 16;
-  sheet.getColumn(4).width = 12;
-  sheet.getColumn(5).width = 12;
-  sheet.getColumn(6).width = 20;
-
-  // Group items by storage location (maintaining sort order)
+  // ---------- Body rows ----------
   const sortedLocations = [...data.storageLocations].sort(
     (a, b) => a.sortOrder - b.sortOrder
   );
@@ -107,15 +153,15 @@ export async function generateChecklistExcel(
 
     if (locationItems.length === 0) continue;
 
-    // Storage location header
-    const locRow = sheet.addRow([location.name]);
-    locRow.font = { bold: true, size: 12 };
-    locRow.getCell(1).fill = {
-      type: 'pattern',
-      pattern: 'solid',
-      fgColor: { argb: 'FFD4EDDA' },
-    };
+    // Storage location bar
+    const locRow = sheet.addRow([location.name.toUpperCase()]);
+    locRow.height = 20;
+    locRow.font = { bold: true, size: 11, color: { argb: COLORS.primary } };
+    locRow.alignment = { vertical: 'middle', indent: 1 };
     sheet.mergeCells(`A${locRow.number}:F${locRow.number}`);
+    locRow.eachCell((cell) => {
+      cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: COLORS.storageBar } };
+    });
 
     // Group by category within location
     const categories = [...new Set(locationItems.map((i) => i.categoryName))];
@@ -125,15 +171,17 @@ export async function generateChecklistExcel(
         (i) => i.categoryName === category
       );
 
-      // Category subheader
-      const catRow = sheet.addRow([`  ${category}`]);
-      catRow.font = { bold: true, italic: true };
-      catRow.getCell(1).fill = {
-        type: 'pattern',
-        pattern: 'solid',
-        fgColor: { argb: 'FFF8F9FA' },
-      };
-      sheet.mergeCells(`A${catRow.number}:F${catRow.number}`);
+      // Category subheader (skip "Allgemein" since it's just the location's default category)
+      if (category && category !== 'Allgemein') {
+        const catRow = sheet.addRow([`  ${category}`]);
+        catRow.height = 16;
+        catRow.font = { bold: true, italic: true, size: 9, color: { argb: COLORS.textMuted } };
+        catRow.alignment = { vertical: 'middle', indent: 1 };
+        sheet.mergeCells(`A${catRow.number}:F${catRow.number}`);
+        catRow.eachCell((cell) => {
+          cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: COLORS.categoryBar } };
+        });
+      }
 
       for (const item of categoryItems) {
         const minStockDisplay = item.minStockMaxSnapshot
@@ -142,17 +190,59 @@ export async function generateChecklistExcel(
             ? String(item.minStockSnapshot)
             : '';
 
-        sheet.addRow([
+        const dataRow = sheet.addRow([
           sanitizeExcelValue(item.productName),
           sanitizeExcelValue(item.unit),
           sanitizeExcelValue(minStockDisplay),
           sanitizeExcelValue(item.currentStock),
-          item.isMissing ? 'Ja' : 'Nein',
+          item.isMissing ? '✓' : '',
           sanitizeExcelValue(item.categoryName),
         ]);
+        dataRow.height = 16;
+        dataRow.font = { size: 10 };
+        dataRow.alignment = { vertical: 'middle', indent: 1 };
+
+        dataRow.eachCell((cell, col) => {
+          cell.border = {
+            bottom: { style: 'hair', color: { argb: COLORS.borderGray } },
+          };
+          if (col >= 2 && col <= 5) {
+            cell.alignment = { vertical: 'middle', horizontal: 'center' };
+          }
+        });
+
+        if (item.isMissing) {
+          dataRow.eachCell((cell) => {
+            cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: COLORS.missingTint } };
+          });
+          dataRow.getCell(5).font = { size: 11, bold: true, color: { argb: COLORS.missingText } };
+        }
       }
     }
   }
+
+  // ---------- Footer summary row ----------
+  sheet.addRow([]);
+  const totalsRow = sheet.addRow([
+    'Gesamt',
+    '',
+    '',
+    `${checkedCount} / ${totalCount}`,
+    String(missingCount),
+    '',
+  ]);
+  totalsRow.height = 20;
+  totalsRow.font = { bold: true, size: 10, color: { argb: COLORS.primary } };
+  totalsRow.alignment = { vertical: 'middle', indent: 1 };
+  totalsRow.eachCell((cell, col) => {
+    cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: COLORS.primaryLight } };
+    cell.border = {
+      top: { style: 'medium', color: { argb: COLORS.primary } },
+    };
+    if (col === 4 || col === 5) {
+      cell.alignment = { vertical: 'middle', horizontal: 'center' };
+    }
+  });
 
   return workbook;
 }

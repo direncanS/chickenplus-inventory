@@ -553,32 +553,44 @@ function SuggestionCard({
         <div className="space-y-2">
           {suggestion.items.map((item) => {
             const draft = draftState[item.checklistItemId] ?? { isOrdered: false, orderedQuantity: '' };
+            const suggested = getQuantityInputPlaceholder(item.quantity);
 
             return (
               <div key={item.checklistItemId} className="rounded-lg border border-border/60 bg-muted/25 p-2">
                 <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-                  <label className="flex min-w-0 items-center gap-2 text-sm">
+                  <label className="flex min-w-0 flex-1 items-center gap-2 text-sm">
                     <Checkbox
                       checked={draft.isOrdered}
                       disabled={saving}
                       onCheckedChange={(checked) => handleToggle(item.checklistItemId, checked === true)}
                       className="size-5 shrink-0"
                     />
-                    <span className="truncate">{item.productName}</span>
+                    <span className="min-w-0 flex-1">
+                      <span className="block truncate font-medium">{item.productName}</span>
+                      <span className="text-[11px] text-muted-foreground">
+                        {de.orders.suggestionLabel}: <span className="font-mono tabular-nums text-foreground">{suggested} {item.unit}</span>
+                      </span>
+                    </span>
                   </label>
-                  <div className="flex items-center gap-2 sm:w-48">
-                    <Input
-                      type="number"
-                      min="1"
-                      step="1"
-                      inputMode="numeric"
-                      value={draft.orderedQuantity}
-                      disabled={!draft.isOrdered || saving}
-                      onChange={(event) => handleQuantityChange(item.checklistItemId, event.target.value)}
-                      placeholder={getQuantityInputPlaceholder(item.quantity)}
-                      className="h-9"
-                    />
-                    <span className="shrink-0 text-xs text-muted-foreground whitespace-nowrap">{item.unit}</span>
+                  <div className="flex flex-col gap-1 sm:w-52">
+                    <span className="text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
+                      {de.orders.orderQuantityLabel}
+                    </span>
+                    <div className="flex items-center gap-2">
+                      <Input
+                        type="number"
+                        min="1"
+                        step="1"
+                        inputMode="numeric"
+                        value={draft.orderedQuantity}
+                        disabled={!draft.isOrdered || saving}
+                        onChange={(event) => handleQuantityChange(item.checklistItemId, event.target.value)}
+                        placeholder={suggested}
+                        className="h-9"
+                        aria-label={de.orders.orderQuantityHint}
+                      />
+                      <span className="shrink-0 text-xs text-muted-foreground whitespace-nowrap">{item.unit}</span>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -762,13 +774,15 @@ function OrderCard({
                         className="size-5 shrink-0"
                       />
                     )}
-                    <span className={`truncate ${item.is_delivered ? 'line-through text-muted-foreground' : ''}`}>
-                      {(item.products as { name: string }).name}
-                    </span>
+                    <div className="min-w-0">
+                      <span className={`block truncate font-medium ${item.is_delivered ? 'line-through text-muted-foreground' : ''}`}>
+                        {(item.products as { name: string }).name}
+                      </span>
+                      <span className="text-[11px] text-muted-foreground">
+                        {de.orders.suggestionLabel}: <span className="font-mono tabular-nums text-foreground">{item.quantity} {item.unit}</span>
+                      </span>
+                    </div>
                   </div>
-                  <span className="shrink-0 font-mono text-xs text-muted-foreground whitespace-nowrap">
-                    {item.quantity} {item.unit}
-                  </span>
                 </div>
 
                 {isDraft ? (
@@ -782,24 +796,31 @@ function OrderCard({
                       />
                       <span>{de.orders.orderedItem}</span>
                     </label>
-                    <div className="flex items-center gap-2 sm:w-48">
-                      <Input
-                        type="number"
-                        min="1"
-                        step="1"
-                        inputMode="numeric"
-                        value={draftItem.orderedQuantity}
-                        disabled={!draftItem.isOrdered || isBusy}
-                        onChange={(event) => handleOrderedQuantityChange(item.id, event.target.value)}
-                        placeholder={getQuantityInputPlaceholder(item.quantity)}
-                        className="h-9"
-                      />
-                      <span className="shrink-0 text-xs text-muted-foreground whitespace-nowrap">{item.unit}</span>
+                    <div className="flex flex-col gap-1 sm:w-52">
+                      <span className="text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
+                        {de.orders.orderQuantityLabel}
+                      </span>
+                      <div className="flex items-center gap-2">
+                        <Input
+                          type="number"
+                          min="1"
+                          step="1"
+                          inputMode="numeric"
+                          value={draftItem.orderedQuantity}
+                          disabled={!draftItem.isOrdered || isBusy}
+                          onChange={(event) => handleOrderedQuantityChange(item.id, event.target.value)}
+                          placeholder={getQuantityInputPlaceholder(item.quantity)}
+                          className="h-9"
+                          aria-label={de.orders.orderQuantityHint}
+                        />
+                        <span className="shrink-0 text-xs text-muted-foreground whitespace-nowrap">{item.unit}</span>
+                      </div>
                     </div>
                   </div>
                 ) : actualOrderedQuantity ? (
-                  <p className="mt-2 text-xs text-muted-foreground">
-                    {de.orders.orderedItem}: <span className="font-mono">{actualOrderedQuantity}</span>
+                  <p className="mt-2 text-xs">
+                    <span className="text-muted-foreground">{de.orders.orderQuantityLabel}: </span>
+                    <span className="font-mono font-medium tabular-nums">{actualOrderedQuantity}</span>
                   </p>
                 ) : null}
               </div>
