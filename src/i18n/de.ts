@@ -125,6 +125,10 @@ export const de = {
     completeConfirmDescription: 'Möchten Sie die Kontrollliste wirklich abschließen? Nach dem Abschluss können keine Änderungen mehr vorgenommen werden.',
     completeConfirmButton: 'Abschließen',
     dateLabel: 'Datum',
+    showMissingOnly: 'Nur fehlende',
+    showAll: 'Alle anzeigen',
+    filterActiveLabel: '{count} ausgeblendet',
+    print: 'Drucken',
   },
 
   // Suppliers
@@ -211,6 +215,10 @@ export const de = {
     orderedQuantityInvalid: 'Bestellmenge muss eine ganze Zahl groesser als 0 sein.',
     selectProductsFirst: 'Bitte mindestens ein Produkt als bestellt markieren.',
     suggestionGroupSaved: 'Bestellentscheidung gespeichert.',
+    print: 'Drucken',
+    suppliersTotal: '{count} Lieferanten',
+    itemsTotal: '{count} Positionen',
+    selectedCount: '{count} ausgewählt',
   },
 
   // Routine Orders

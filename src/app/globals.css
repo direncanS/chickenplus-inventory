@@ -156,3 +156,94 @@
 .safe-area-top {
   padding-top: env(safe-area-inset-top, 0px);
 }
+
+/* ============================================
+ * Print layout — A4 friendly, paper-like
+ * Triggered by browser print dialog (Ctrl+P) or "Drucken" button.
+ * ============================================ */
+@media print {
+  /* Hide app chrome and interactive controls */
+  nav,
+  header[role="banner"],
+  [data-no-print] {
+    display: none !important;
+  }
+
+  /* Force-expand all accordion content so every supplier prints */
+  [data-slot="accordion-content"] {
+    display: block !important;
+    height: auto !important;
+    overflow: visible !important;
+  }
+  [data-slot="accordion-content"] > div {
+    height: auto !important;
+  }
+  [data-slot="accordion-trigger-icon"] {
+    display: none !important;
+  }
+
+  /* Remove sticky positioning so headers print inline */
+  .sticky {
+    position: static !important;
+  }
+
+  /* Plain background, black text, no shadows */
+  html,
+  body {
+    background: white !important;
+    color: black !important;
+    font-size: 10pt;
+  }
+  body {
+    background-image: none !important;
+  }
+  .surface-panel,
+  .surface-subtle {
+    background: white !important;
+    box-shadow: none !important;
+    border: 1px solid #ccc !important;
+    backdrop-filter: none !important;
+  }
+
+  /* Make checkbox and inputs printable as fillable form fields */
+  input[type="checkbox"],
+  [role="checkbox"] {
+    appearance: none !important;
+    -webkit-appearance: none !important;
+    width: 12pt !important;
+    height: 12pt !important;
+    border: 1pt solid black !important;
+    background: white !important;
+  }
+  input[type="text"],
+  input[type="number"] {
+    border: none !important;
+    border-bottom: 0.5pt solid #888 !important;
+    background: transparent !important;
+    color: black !important;
+    box-shadow: none !important;
+  }
+
+  /* Avoid breaking sections across pages where possible */
+  section,
+  [data-slot="accordion-item"] {
+    page-break-inside: avoid;
+    break-inside: avoid;
+  }
+  h2, h3, h4 {
+    page-break-after: avoid;
+    break-after: avoid;
+  }
+
+  /* Each top-level supplier accordion item starts on a new page in Bestellung */
+  [data-print-page-break] {
+    page-break-before: always;
+    break-before: always;
+  }
+
+  /* Compact spacing for paper */
+  .space-y-4 > * + *,
+  .space-y-3 > * + * {
+    margin-top: 4pt !important;
+  }
+}
