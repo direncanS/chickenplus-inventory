@@ -1,6 +1,5 @@
 import { createServerClient } from '@/lib/supabase/server';
 import { de } from '@/i18n/de';
-import { PageIntro } from '@/components/layout/page-intro';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -21,11 +20,6 @@ export default async function ArchivePage() {
 
   return (
     <div className="space-y-4">
-      <PageIntro
-        eyebrow="Verlauf"
-        title={de.nav.archive}
-        description="Durchsuchen Sie abgeschlossene Wochenkontrollen und exportieren Sie frühere Stände bei Bedarf."
-      />
       {(checklists ?? []).length === 0 && (
         <div className="surface-subtle py-12 text-center">
           <Archive className="h-12 w-12 text-muted-foreground/50 mx-auto mb-3" />

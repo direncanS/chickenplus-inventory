@@ -536,14 +536,6 @@ export function ChecklistView({ checklist, items, isAdmin }: ChecklistViewProps)
         </div>
       </div>
 
-      {/* Persistent column header bar — visible on all sizes */}
-      <div className="sticky top-[10.5rem] z-30 -mx-1 grid grid-cols-[minmax(0,1fr)_72px_44px_44px] items-center gap-2 border-b border-border bg-background/95 px-3 py-1.5 text-[0.65rem] font-semibold uppercase tracking-[0.16em] text-muted-foreground backdrop-blur" data-no-print>
-        <span>{de.checklist.product}</span>
-        <span className="text-center">{de.checklist.stock}</span>
-        <span className="text-center">F</span>
-        <span className="text-center">✓</span>
-      </div>
-
       <div className="rounded-2xl border border-border/70 bg-white/80 shadow-[0_10px_30px_-24px_rgba(38,32,29,0.25)]">
         {grouped.map((location) => {
           const visibleCategories = location.categories
@@ -566,7 +558,7 @@ export function ChecklistView({ checklist, items, isAdmin }: ChecklistViewProps)
 
           return (
             <section key={location.locationCode} className="border-b border-border/40 last:border-b-0">
-              <header className="sticky top-[12.6rem] z-20 flex items-center gap-2 border-b border-border/60 bg-secondary/95 px-3 py-2 backdrop-blur">
+              <header className="sticky top-[10.5rem] z-20 flex items-center gap-2 border-b border-border/60 bg-secondary/95 px-3 py-2 backdrop-blur">
                 <Badge variant="secondary" className="font-mono text-[0.65rem]">
                   {location.locationCode}
                 </Badge>
@@ -581,7 +573,7 @@ export function ChecklistView({ checklist, items, isAdmin }: ChecklistViewProps)
               {visibleCategories.map((category) => (
                 <div key={category.categoryName}>
                   {category.categoryName !== 'Allgemein' && (
-                    <h4 className="sticky top-[15.4rem] z-10 border-b border-border/30 bg-background/90 px-3 py-1 text-[0.65rem] font-semibold uppercase tracking-[0.18em] text-muted-foreground backdrop-blur">
+                    <h4 className="sticky top-[13.3rem] z-10 border-b border-border/30 bg-background/90 px-3 py-1 text-[0.65rem] font-semibold uppercase tracking-[0.18em] text-muted-foreground backdrop-blur">
                       {category.categoryName}
                     </h4>
                   )}
