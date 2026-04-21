@@ -9,8 +9,10 @@ export default async function AppLayout({
 }: {
   children: React.ReactNode;
 }) {
-  await requireAppViewer();
-  const navCounts = await getNavCounts();
+  const [, navCounts] = await Promise.all([
+    requireAppViewer(),
+    getNavCounts(),
+  ]);
 
   return (
     <div className="min-h-screen">
