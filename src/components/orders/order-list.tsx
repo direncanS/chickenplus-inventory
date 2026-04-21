@@ -69,9 +69,20 @@ interface Suggestion {
     productName: string;
     quantity: number;
     unit: string;
+    currentStock: string | null;
     isOrdered: boolean;
     orderedQuantity: number | null;
   }>;
+}
+
+function formatCurrentStock(
+  currentStock: string | null
+): { value: string; showUnit: boolean } {
+  const trimmed = currentStock?.trim() ?? '';
+  if (!trimmed) {
+    return { value: de.orders.currentStockMissing, showUnit: false };
+  }
+  return { value: trimmed, showUnit: true };
 }
 
 const statusConfig: Record<string, { label: string; variant: 'default' | 'secondary' | 'outline' | 'destructive' }> = {
@@ -246,9 +257,35 @@ export function OrderList({
     }
   }
 
-  function handlePrint() {
-    if (typeof window !== 'undefined') {
-      window.print();
+  const [exportingExcel, setExportingExcel] = useState(false);
+
+  async function handleExportExcel() {
+    if (!activeChecklist) return;
+    setExportingExcel(true);
+    try {
+      const response = await fetch(`/api/export/orders/${activeChecklist.id}`);
+      if (!response.ok) {
+        const maybeJson = await response.json().catch(() => null);
+        toast.error(maybeJson?.error ?? de.orders.exportFailed);
+        return;
+      }
+      const disposition = response.headers.get('Content-Disposition') ?? '';
+      const match = disposition.match(/filename="?([^";]+)"?/i);
+      const filename = match?.[1]
+        ?? `Bestellvorschlaege_KW${String(activeChecklist.iso_week).padStart(2, '0')}_${activeChecklist.iso_year}.xlsx`;
+      const blob = await response.blob();
+      const url = URL.createObjectURL(blob);
+      const anchor = document.createElement('a');
+      anchor.href = url;
+      anchor.download = filename;
+      document.body.appendChild(anchor);
+      anchor.click();
+      document.body.removeChild(anchor);
+      URL.revokeObjectURL(url);
+    } catch {
+      toast.error(de.orders.exportFailed);
+    } finally {
+      setExportingExcel(false);
     }
   }
 
@@ -282,8 +319,13 @@ export function OrderList({
               )}
             </div>
             <div className="flex flex-wrap gap-2">
-              <Button onClick={handlePrint} variant="outline" size="sm">
-                {de.orders.print}
+              <Button
+                onClick={handleExportExcel}
+                variant="outline"
+                size="sm"
+                disabled={exportingExcel || !activeChecklist}
+              >
+                {exportingExcel ? de.common.loading : de.orders.exportExcel}
               </Button>
               <Button
                 onClick={handleGenerateSuggestions}
@@ -553,7 +595,7 @@ function SuggestionCard({
         <div className="space-y-2">
           {suggestion.items.map((item) => {
             const draft = draftState[item.checklistItemId] ?? { isOrdered: false, orderedQuantity: '' };
-            const suggested = getQuantityInputPlaceholder(item.quantity);
+            const stock = formatCurrentStock(item.currentStock);
 
             return (
               <div key={item.checklistItemId} className="rounded-lg border border-border/60 bg-muted/25 p-2">
@@ -568,7 +610,11 @@ function SuggestionCard({
                     <span className="min-w-0 flex-1">
                       <span className="block truncate font-medium">{item.productName}</span>
                       <span className="text-[11px] text-muted-foreground">
-                        {de.orders.suggestionLabel}: <span className="font-mono tabular-nums text-foreground">{suggested} {item.unit}</span>
+                        {de.orders.currentStockLabel}:{' '}
+                        <span className="font-mono tabular-nums text-foreground">
+                          {stock.value}
+                          {stock.showUnit ? ` ${item.unit}` : ''}
+                        </span>
                       </span>
                     </span>
                   </label>
@@ -585,12 +631,12 @@ function SuggestionCard({
                         value={draft.orderedQuantity}
                         disabled={!draft.isOrdered || saving}
                         onChange={(event) => handleQuantityChange(item.checklistItemId, event.target.value)}
-                        placeholder={suggested}
                         className="h-9"
                         aria-label={de.orders.orderQuantityHint}
                       />
                       <span className="shrink-0 text-xs text-muted-foreground whitespace-nowrap">{item.unit}</span>
                     </div>
+                    <span className="text-[10px] text-muted-foreground">{de.orders.orderQuantityHint}</span>
                   </div>
                 </div>
               </div>
