@@ -245,7 +245,7 @@ export const de = {
     itemsTotal: '{count} Positionen',
     selectedCount: '{count} ausgewählt',
     suggestionLabel: 'Vorschlag',
-    currentStockLabel: 'Bestand',
+    currentStockLabel: 'Aktueller Bestand',
     currentStockMissing: 'nicht erfasst',
     orderQuantityLabel: 'Bestellmenge',
     orderQuantityHint: 'Zu bestellende Menge eingeben',
