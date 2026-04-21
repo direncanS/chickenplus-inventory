@@ -4,6 +4,7 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import { de } from '@/i18n/de';
 import { OPEN_ORDER_STATUSES } from '@/lib/constants';
 import { normalizeSuggestedOrderCount } from '@/lib/utils/order-items';
+import { getCachedPreferredProductSuppliers } from '@/lib/server/cached-lookups';
 
 type SuggestionItemRow = {
   id: string;
@@ -13,13 +14,6 @@ type SuggestionItemRow = {
   min_stock_max_snapshot: number | null;
   current_stock: string | null;
   products: { unit: string | null; is_active: boolean } | Array<{ unit: string | null; is_active: boolean }>;
-};
-
-type ProductSupplierRow = {
-  product_id: string;
-  suppliers:
-    | { id: string; name: string; is_active: boolean }
-    | Array<{ id: string; name: string; is_active: boolean }>;
 };
 
 type OpenOrderRow = {
@@ -152,24 +146,17 @@ export async function getOrderSuggestions(
     return [];
   }
 
-  const filteredProductIds = [...new Set(filteredItems.map((item) => item.product_id))];
-  const { data: productSuppliers, error: suppliersError } = await supabase
-    .from('product_suppliers')
-    .select('product_id, suppliers!inner(id, name, is_active)')
-    .in('product_id', filteredProductIds)
-    .eq('is_preferred', true);
-
-  if (suppliersError) {
-    throw new Error(suppliersError.message);
+  // Cached lookup — avoids a DB round-trip on every /orders render.
+  const allPreferredSuppliers = await getCachedPreferredProductSuppliers();
+  const preferredByProduct = new Map<string, { id: string; name: string; is_active: boolean }>();
+  for (const entry of allPreferredSuppliers) {
+    preferredByProduct.set(entry.product_id, entry.supplier);
   }
 
   const supplierMap = new Map<string, OrderSuggestionGroup>();
 
   for (const item of filteredItems) {
-    const preferredSupplier = (productSuppliers ?? []).find(
-      (supplier) => supplier.product_id === item.product_id
-    ) as ProductSupplierRow | undefined;
-    const supplier = unwrapRelation(preferredSupplier?.suppliers);
+    const supplier = preferredByProduct.get(item.product_id);
     const supplierId = supplier?.is_active ? supplier.id : 'unassigned';
     const supplierName = supplier?.is_active ? supplier.name : de.orders.notAssigned;
 

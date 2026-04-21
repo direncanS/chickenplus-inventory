@@ -1,8 +1,21 @@
-import { describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { OPEN_ORDER_STATUSES } from '@/lib/constants';
 import { getOrderSuggestions } from '@/lib/server/order-suggestions';
 
 vi.mock('server-only', () => ({}));
+
+const { cachedPreferredSuppliersMock } = vi.hoisted(() => ({
+  cachedPreferredSuppliersMock: vi.fn(),
+}));
+
+vi.mock('@/lib/server/cached-lookups', () => ({
+  getCachedPreferredProductSuppliers: () => cachedPreferredSuppliersMock(),
+}));
+
+beforeEach(() => {
+  cachedPreferredSuppliersMock.mockReset();
+  cachedPreferredSuppliersMock.mockResolvedValue([]);
+});
 
 type QueryResponse = {
   data: unknown;
@@ -63,6 +76,9 @@ function createSupabaseStub(responses: Record<string, QueryResponse>) {
 
 describe('getOrderSuggestions', () => {
   it('does not re-suggest products that already belong to an open order for the same checklist', async () => {
+    cachedPreferredSuppliersMock.mockResolvedValue([
+      { product_id: 'product-2', supplier: { id: 'supplier-1', name: 'Metro', is_active: true } },
+    ]);
     const checklistId = 'checklist-1';
     const { supabase, traces } = createSupabaseStub({
       checklists: {
@@ -141,6 +157,9 @@ describe('getOrderSuggestions', () => {
   });
 
   it('keeps valid suggestions and supplier grouping when no open order exists', async () => {
+    cachedPreferredSuppliersMock.mockResolvedValue([
+      { product_id: 'product-1', supplier: { id: 'supplier-1', name: 'Metro', is_active: true } },
+    ]);
     const { supabase, from } = createSupabaseStub({
       checklists: {
         data: { iso_year: 2026, iso_week: 16 },

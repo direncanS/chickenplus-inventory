@@ -23,6 +23,8 @@ const {
 
 vi.mock('next/cache', () => ({
   revalidatePath: (...args: unknown[]) => revalidatePathMock(...args),
+  updateTag: () => undefined,
+  unstable_cache: <T extends (...args: unknown[]) => unknown>(fn: T) => fn,
 }));
 
 vi.mock('@/lib/supabase/server', () => ({

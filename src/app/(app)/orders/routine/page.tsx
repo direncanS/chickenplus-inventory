@@ -2,6 +2,7 @@ import { createServerClient } from '@/lib/supabase/server';
 import { requireAppViewer } from '@/lib/supabase/app-viewer';
 import { redirect } from 'next/navigation';
 import { RoutineOrderManager } from '@/components/routine-orders/routine-order-manager';
+import { getCachedActiveSuppliers } from '@/lib/server/cached-lookups';
 
 export default async function RoutineOrdersPage() {
   const supabase = await createServerClient();
@@ -11,7 +12,7 @@ export default async function RoutineOrdersPage() {
     redirect('/orders');
   }
 
-  const [{ data: routines }, { data: suppliers }] = await Promise.all([
+  const [{ data: routines }, suppliers] = await Promise.all([
     supabase
       .from('routine_orders')
       .select(`
@@ -24,18 +25,14 @@ export default async function RoutineOrdersPage() {
       `)
       .order('day_of_week')
       .order('created_at'),
-    supabase
-      .from('suppliers')
-      .select('id, name')
-      .eq('is_active', true)
-      .order('name'),
+    getCachedActiveSuppliers(),
   ]);
 
   return (
     <div className="space-y-4">
       <RoutineOrderManager
         routines={routines ?? []}
-        suppliers={suppliers ?? []}
+        suppliers={suppliers}
       />
     </div>
   );

@@ -1,6 +1,6 @@
 'use server';
 
-import { revalidatePath } from 'next/cache';
+import { revalidatePath, updateTag } from 'next/cache';
 import { createServerClient } from '@/lib/supabase/server';
 import { getActiveProfile } from '@/lib/supabase/auth-helpers';
 import { logAudit } from '@/lib/utils/audit';
@@ -51,6 +51,7 @@ export async function createSupplier(input: z.infer<typeof createSupplierSchema>
     });
 
     revalidatePath('/suppliers');
+    updateTag('suppliers');
     return { success: true, data: { id: data.id, name: data.name } };
   } catch (err) {
     if (err instanceof z.ZodError) {
@@ -114,6 +115,7 @@ export async function updateSupplier(input: z.infer<typeof updateSupplierSchema>
     }
 
     revalidatePath('/suppliers');
+    updateTag('suppliers');
     return { success: true };
   } catch (err) {
     if (err instanceof z.ZodError) {
@@ -163,6 +165,7 @@ export async function setProductSupplier(input: z.infer<typeof productSupplierSc
     }
 
     revalidatePath('/suppliers');
+    updateTag('product_suppliers');
     return { success: true };
   } catch (err) {
     if (err instanceof z.ZodError) {
@@ -255,6 +258,7 @@ export async function removeProductSupplier(productId: string, supplierId: strin
     }
 
     revalidatePath('/suppliers');
+    updateTag('product_suppliers');
     return { success: true };
   } catch (err) {
     logger.error('Remove product supplier exception', { userId: user.id, error: err instanceof Error ? err.message : 'Unknown' });

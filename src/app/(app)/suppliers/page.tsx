@@ -1,20 +1,16 @@
-import { createServerClient } from '@/lib/supabase/server';
 import { SupplierList } from '@/components/suppliers/supplier-list';
 import { requireAppViewer } from '@/lib/supabase/app-viewer';
+import { getCachedSuppliersFull } from '@/lib/server/cached-lookups';
 
 export default async function SuppliersPage() {
-  const supabase = await createServerClient();
-  const [viewer, { data: suppliers }] = await Promise.all([
+  const [viewer, suppliers] = await Promise.all([
     requireAppViewer(),
-    supabase
-      .from('suppliers')
-      .select('id, name, contact_name, phone, email, address, is_active')
-      .order('name'),
+    getCachedSuppliersFull(),
   ]);
 
   return (
     <div className="space-y-4">
-      <SupplierList suppliers={suppliers ?? []} isAdmin={viewer.isAdmin} />
+      <SupplierList suppliers={suppliers} isAdmin={viewer.isAdmin} />
     </div>
   );
 }
