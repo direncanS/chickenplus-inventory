@@ -94,7 +94,8 @@ INSERT INTO products (name, storage_location_id, category_id, unit, min_stock, m
   ('Deckel f Käsesauce', (SELECT id FROM storage_locations WHERE code = 'D'), (SELECT c.id FROM categories c JOIN storage_locations sl ON c.storage_location_id = sl.id WHERE sl.code = 'D' AND c.name = 'Verpackung'), 'pack', 3, NULL, 19),
   ('Bowl500 Deckel', (SELECT id FROM storage_locations WHERE code = 'D'), (SELECT c.id FROM categories c JOIN storage_locations sl ON c.storage_location_id = sl.id WHERE sl.code = 'D' AND c.name = 'Verpackung'), 'karton', 1, NULL, 20),
   ('Bowl1100 Deckel', (SELECT id FROM storage_locations WHERE code = 'D'), (SELECT c.id FROM categories c JOIN storage_locations sl ON c.storage_location_id = sl.id WHERE sl.code = 'D' AND c.name = 'Verpackung'), 'karton', 1, NULL, 21),
-  ('Limonade Becher Deckel', (SELECT id FROM storage_locations WHERE code = 'D'), (SELECT c.id FROM categories c JOIN storage_locations sl ON c.storage_location_id = sl.id WHERE sl.code = 'D' AND c.name = 'Verpackung'), 'stueck', 1, NULL, 22)
+  ('Limonade Becher Deckel', (SELECT id FROM storage_locations WHERE code = 'D'), (SELECT c.id FROM categories c JOIN storage_locations sl ON c.storage_location_id = sl.id WHERE sl.code = 'D' AND c.name = 'Verpackung'), 'stueck', 1, NULL, 22),
+  ('4Eck Bowl500 Deckel', (SELECT id FROM storage_locations WHERE code = 'D'), (SELECT c.id FROM categories c JOIN storage_locations sl ON c.storage_location_id = sl.id WHERE sl.code = 'D' AND c.name = 'Verpackung'), 'karton', 1, NULL, 23)
 ON CONFLICT (storage_location_id, category_id, name) DO NOTHING;
 
 -- D / Besteck & Zubehör (5 products)
@@ -281,6 +282,7 @@ JOIN (VALUES
   ('Kaffeebecher', 'Gmz'), ('Limonade Becher', 'Gmz'), ('Kassarolle', 'Gmz'),
   ('Gabel', 'Gmz'), ('Zahnstocher', 'Gmz'), ('Pommesbox', 'Gmz'),
   ('4Eck bowl500', 'Gmz'), ('Limonade Becher Deckel', 'Gmz'),
+  ('4Eck Bowl500 Deckel', 'Gmz'),
   ('Limonade', 'Icerex'),
   ('Cheddarsauce', 'Intergast'), ('Cheddarkäsescheiben', 'Intergast'),
   ('Speck', 'Intergast'), ('Sourcream', 'Intergast'),
