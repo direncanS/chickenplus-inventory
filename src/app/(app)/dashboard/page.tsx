@@ -36,6 +36,7 @@ interface HeroAction {
 export default async function DashboardPage() {
   const supabase = await createServerClient();
   const { startDate: currentWeekStart, endDate: currentWeekEnd } = getCurrentWeekRange();
+  const currentIsoWeek = getISOWeekAndYear();
 
   let progress = { checked: 0, total: 0 };
   let missingCount = 0;
@@ -46,6 +47,7 @@ export default async function DashboardPage() {
     { data: previousActiveChecklist },
     { count: openOrdersCount },
     { data: orderStatusBreakdown },
+    { count: pendingRoutineCount },
   ] = await Promise.all([
     supabase
       .from('checklists')
@@ -68,44 +70,35 @@ export default async function DashboardPage() {
       .from('orders')
       .select('status')
       .in('status', ['draft', 'ordered', 'partially_delivered']),
+    supabase
+      .from('routine_order_instances')
+      .select('id', { count: 'exact', head: true })
+      .eq('iso_year', currentIsoWeek.isoYear)
+      .eq('iso_week', currentIsoWeek.isoWeek)
+      .eq('status', 'pending')
+      .is('order_id', null),
   ]);
 
   if (currentWeekChecklist) {
-    const [
-      { count: totalCount },
-      { count: checkedCount },
-      { count: missingItemsCount },
-      { count: waitingCount },
-    ] = await Promise.all([
-      supabase
-        .from('checklist_items')
-        .select('id', { count: 'exact', head: true })
-        .eq('checklist_id', currentWeekChecklist.id),
-      supabase
-        .from('checklist_items')
-        .select('id', { count: 'exact', head: true })
-        .eq('checklist_id', currentWeekChecklist.id)
-        .eq('is_checked', true),
-      supabase
-        .from('checklist_items')
-        .select('id', { count: 'exact', head: true })
-        .eq('checklist_id', currentWeekChecklist.id)
-        .eq('is_missing', true),
-      // Items still waiting to be turned into orders
-      supabase
-        .from('checklist_items')
-        .select('id', { count: 'exact', head: true })
-        .eq('checklist_id', currentWeekChecklist.id)
-        .eq('is_missing', true)
-        .eq('is_ordered', false),
-    ]);
+    // Single round-trip for all checklist_items aggregates; count flags in JS.
+    const { data: items } = await supabase
+      .from('checklist_items')
+      .select('is_checked, is_missing, is_ordered')
+      .eq('checklist_id', currentWeekChecklist.id);
 
-    progress = {
-      total: totalCount ?? 0,
-      checked: checkedCount ?? 0,
-    };
-    missingCount = missingItemsCount ?? 0;
-    waitingForOrderCount = waitingCount ?? 0;
+    const rows = items ?? [];
+    let checked = 0;
+    let missing = 0;
+    let waiting = 0;
+    for (const row of rows) {
+      if (row.is_checked) checked++;
+      if (row.is_missing) missing++;
+      if (row.is_missing && !row.is_ordered) waiting++;
+    }
+
+    progress = { total: rows.length, checked };
+    missingCount = missing;
+    waitingForOrderCount = waiting;
   }
 
   const statusLabels: Record<string, string> = {
@@ -121,15 +114,6 @@ export default async function DashboardPage() {
   };
 
   const progressPercent = progress.total > 0 ? Math.round((progress.checked / progress.total) * 100) : 0;
-
-  const currentIsoWeek = getISOWeekAndYear();
-  const { count: pendingRoutineCount } = await supabase
-    .from('routine_order_instances')
-    .select('id', { count: 'exact', head: true })
-    .eq('iso_year', currentIsoWeek.isoYear)
-    .eq('iso_week', currentIsoWeek.isoWeek)
-    .eq('status', 'pending')
-    .is('order_id', null);
 
   const orderBreakdown = (orderStatusBreakdown ?? []).reduce<Record<string, number>>((acc, order) => {
     acc[order.status] = (acc[order.status] ?? 0) + 1;

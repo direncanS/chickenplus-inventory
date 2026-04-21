@@ -9,7 +9,14 @@ import { getISOWeekAndYear } from '@/lib/utils/date';
 
 export default async function OrdersPage() {
   const supabase = await createServerClient();
-  const [viewer, { data: activeChecklist }, { data: orders }] = await Promise.all([
+
+  // Round 1: independent queries in parallel.
+  const [
+    viewer,
+    { data: activeChecklist },
+    { data: orders },
+    { count: routineCount },
+  ] = await Promise.all([
     requireAppViewer(),
     supabase
       .from('checklists')
@@ -32,58 +39,57 @@ export default async function OrdersPage() {
           products!inner(name))
       `)
       .order('created_at', { ascending: false }),
+    supabase
+      .from('routine_orders')
+      .select('*', { count: 'exact', head: true })
+      .eq('is_active', true),
   ]);
 
   const canShowChecklistSuggestions = activeChecklist?.status === 'completed';
-
-  const initialSuggestions = canShowChecklistSuggestions
-    ? await getOrderSuggestions(supabase, activeChecklist.id)
-    : [];
-
-  // Routine instances for the current week
   const currentWeek = activeChecklist
     ? { isoYear: activeChecklist.iso_year, isoWeek: activeChecklist.iso_week }
     : getISOWeekAndYear();
 
-  const { data: routineInstances } = await supabase
-    .from('routine_order_instances')
-    .select(`
-      id, routine_order_id, checklist_id, order_id, iso_year, iso_week,
-      scheduled_date, status, confirmed_by, confirmed_at, notes,
-      routine_orders!inner(
-        id, supplier_id, day_of_week, is_active,
-        suppliers!inner(id, name)
-      ),
-      routine_order_instance_items(
-        id, product_id, default_quantity, adjusted_quantity, is_included,
-        products!inner(id, name, unit)
-      )
-    `)
-    .eq('iso_year', currentWeek.isoYear)
-    .eq('iso_week', currentWeek.isoWeek)
-    .order('scheduled_date');
+  // Round 2: all three depend on activeChecklist — run in parallel.
+  const [
+    initialSuggestions,
+    { data: routineInstances },
+    checklistItemsResult,
+  ] = await Promise.all([
+    canShowChecklistSuggestions
+      ? getOrderSuggestions(supabase, activeChecklist.id)
+      : Promise.resolve([] as Awaited<ReturnType<typeof getOrderSuggestions>>),
+    supabase
+      .from('routine_order_instances')
+      .select(`
+        id, routine_order_id, checklist_id, order_id, iso_year, iso_week,
+        scheduled_date, status, confirmed_by, confirmed_at, notes,
+        routine_orders!inner(
+          id, supplier_id, day_of_week, is_active,
+          suppliers!inner(id, name)
+        ),
+        routine_order_instance_items(
+          id, product_id, default_quantity, adjusted_quantity, is_included,
+          products!inner(id, name, unit)
+        )
+      `)
+      .eq('iso_year', currentWeek.isoYear)
+      .eq('iso_week', currentWeek.isoWeek)
+      .order('scheduled_date'),
+    canShowChecklistSuggestions
+      ? supabase
+          .from('checklist_items')
+          .select('product_id, product_name, is_missing, missing_amount_final')
+          .eq('checklist_id', activeChecklist.id)
+      : Promise.resolve({ data: [] as Array<{
+          product_id: string;
+          product_name: string;
+          is_missing: boolean;
+          missing_amount_final: number | null;
+        }> }),
+  ]);
 
-  // Check if routines exist (for showing "Woche vorbereiten" button)
-  const { count: routineCount } = await supabase
-    .from('routine_orders')
-    .select('*', { count: 'exact', head: true })
-    .eq('is_active', true);
-
-  // Checklist items for comparison (only when checklist is completed)
-  let checklistItems: Array<{
-    product_id: string;
-    product_name: string;
-    is_missing: boolean;
-    missing_amount_final: number | null;
-  }> = [];
-
-  if (canShowChecklistSuggestions) {
-    const { data: items } = await supabase
-      .from('checklist_items')
-      .select('product_id, product_name, is_missing, missing_amount_final')
-      .eq('checklist_id', activeChecklist.id);
-    checklistItems = items ?? [];
-  }
+  const checklistItems = checklistItemsResult.data ?? [];
 
   const orderListKey = [
     activeChecklist?.id ?? 'no-checklist',
