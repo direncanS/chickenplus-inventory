@@ -537,6 +537,15 @@ export function ChecklistView({ checklist, items, isAdmin }: ChecklistViewProps)
       </div>
 
       <div className="rounded-2xl border border-border/70 bg-white/80 shadow-[0_10px_30px_-24px_rgba(38,32,29,0.25)]">
+        <div
+          className="sticky top-[8.5rem] z-30 grid grid-cols-[minmax(0,1fr)_72px_44px_44px] items-center gap-2 border-b border-border/60 bg-background/95 px-2 py-2 text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-foreground backdrop-blur"
+          data-no-print
+        >
+          <span>{de.checklist.product}</span>
+          <span className="text-center">{de.checklist.currentStockShort}</span>
+          <span className="text-center" title={de.checklist.missing}>F</span>
+          <span className="text-center" title={de.checklist.checked}>✓</span>
+        </div>
         {grouped.map((location) => {
           const visibleCategories = location.categories
             .map((category) => ({
