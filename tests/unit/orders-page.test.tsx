@@ -103,20 +103,28 @@ function createSupabaseStub(activeChecklist: unknown, orders: unknown[] = []) {
   };
 }
 
-function getOrderListPropsFromTree(tree: Awaited<ReturnType<typeof import('@/app/(app)/orders/page').default>>) {
-  // The tree is a div with children: PageIntro, WeeklyRoutineDashboard (null), OrderList
-  // OrderList is mocked as (props) => props so its element in the tree carries props directly
+async function getOrderListPropsFromTree(tree: Awaited<ReturnType<typeof import('@/app/(app)/orders/page').default>>) {
+  // Shell tree contains Suspense wrappers around async OrdersSection.
+  // Locate the OrdersSection element and invoke it to unwrap the OrderList props.
+  const { OrdersSection } = await import('@/components/orders/orders-section');
   const children = (tree as { props: { children: unknown[] } }).props.children;
-  const childArray = Array.isArray(children) ? children : [children];
+  const flat: unknown[] = Array.isArray(children) ? children : [children];
 
-  for (const child of childArray) {
-    if (!child || typeof child !== 'object') continue;
-    const obj = child as Record<string, unknown>;
-    // Direct props access (mock returns props object)
-    if ('initialSuggestions' in obj) return obj as { initialSuggestions: unknown[]; activeChecklist: { id: string; status: string } | null };
-    // React element: props nested under .props
-    if (obj.props && typeof obj.props === 'object' && 'initialSuggestions' in (obj.props as Record<string, unknown>)) {
-      return obj.props as { initialSuggestions: unknown[]; activeChecklist: { id: string; status: string } | null };
+  for (const node of flat) {
+    if (!node || typeof node !== 'object') continue;
+    const element = node as { type?: unknown; props?: { children?: unknown } };
+    // Suspense wraps children; dig one level.
+    const inner = element.props?.children;
+    if (!inner || typeof inner !== 'object') continue;
+    const innerElement = inner as { type?: unknown; props?: Record<string, unknown> };
+    if (innerElement.type === OrdersSection) {
+      const sectionTree = await OrdersSection(innerElement.props as Parameters<typeof OrdersSection>[0]);
+      const sectionProps = (sectionTree as { props: Record<string, unknown> }).props;
+      // OrderList is mocked as (props) => props; so sectionTree IS the props object directly.
+      if ('initialSuggestions' in (sectionTree as Record<string, unknown>)) {
+        return sectionTree as { initialSuggestions: unknown[]; activeChecklist: { id: string; status: string } | null };
+      }
+      return sectionProps as { initialSuggestions: unknown[]; activeChecklist: { id: string; status: string } | null };
     }
   }
 
@@ -146,7 +154,7 @@ describe('OrdersPage', () => {
 
     const { default: OrdersPage } = await import('@/app/(app)/orders/page');
     const tree = await OrdersPage();
-    const props = getOrderListPropsFromTree(tree);
+    const props = await getOrderListPropsFromTree(tree);
 
     expect(getOrderSuggestionsMock).not.toHaveBeenCalled();
     expect(props.activeChecklist?.status).toBe('in_progress');
@@ -174,7 +182,7 @@ describe('OrdersPage', () => {
 
     const { default: OrdersPage } = await import('@/app/(app)/orders/page');
     const tree = await OrdersPage();
-    const props = getOrderListPropsFromTree(tree);
+    const props = await getOrderListPropsFromTree(tree);
 
     expect(getOrderSuggestionsMock).toHaveBeenCalledTimes(1);
     expect(props.activeChecklist?.status).toBe('completed');

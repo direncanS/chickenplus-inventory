@@ -4,12 +4,20 @@ import { cleanup, render, screen } from '@testing-library/react';
 import type { ReactNode } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-const { createServerClientMock } = vi.hoisted(() => ({
-  createServerClientMock: vi.fn(),
+const {
+  getCurrentWeekChecklistMock,
+  getPreviousActiveChecklistMock,
+  getChecklistAggregatesMock,
+} = vi.hoisted(() => ({
+  getCurrentWeekChecklistMock: vi.fn(),
+  getPreviousActiveChecklistMock: vi.fn(),
+  getChecklistAggregatesMock: vi.fn(),
 }));
 
-vi.mock('@/lib/supabase/server', () => ({
-  createServerClient: (...args: unknown[]) => createServerClientMock(...args),
+vi.mock('@/lib/server/dashboard-data', () => ({
+  getCurrentWeekChecklist: () => getCurrentWeekChecklistMock(),
+  getPreviousActiveChecklist: () => getPreviousActiveChecklistMock(),
+  getChecklistAggregates: (id: string) => getChecklistAggregatesMock(id),
 }));
 
 vi.mock('next/link', () => ({
@@ -20,98 +28,12 @@ vi.mock('@/components/checklist/correct-checklist-week-button', () => ({
   CorrectChecklistWeekButton: () => <button type="button">Für aktuelle Woche neu erstellen</button>,
 }));
 
-function createDashboardSupabaseStub(options: {
-  currentWeekChecklist?: Record<string, unknown> | null;
-  previousActiveChecklist?: Record<string, unknown> | null;
-  totalCount?: number;
-  checkedCount?: number;
-  missingCount?: number;
-}) {
-  let checklistCallIndex = 0;
-
-  const total = options.totalCount ?? 0;
-  const checked = options.checkedCount ?? 0;
-  const missing = options.missingCount ?? 0;
-  const checklistItemRows = Array.from({ length: total }, (_, i) => ({
-    is_checked: i < checked,
-    is_missing: i < missing,
-    is_ordered: false,
-  }));
-
-  return {
-    from: vi.fn((table: string) => {
-      if (table === 'checklists') {
-        const query = {
-          select: vi.fn(() => query),
-          eq: vi.fn(() => query),
-          neq: vi.fn(() => query),
-          in: vi.fn(() => query),
-          order: vi.fn(() => query),
-          limit: vi.fn(() => query),
-          maybeSingle: vi.fn().mockImplementation(() => {
-            checklistCallIndex += 1;
-            return Promise.resolve({
-              data: checklistCallIndex === 1
-                ? (options.currentWeekChecklist ?? null)
-                : (options.previousActiveChecklist ?? null),
-              error: null,
-            });
-          }),
-        };
-        return query;
-      }
-
-      if (table === 'checklist_items') {
-        const query = {
-          select: vi.fn(() => query),
-          eq: vi.fn(() => query),
-          then: (resolve: (value: unknown) => unknown, reject?: (reason: unknown) => unknown) =>
-            Promise.resolve({
-              data: checklistItemRows,
-              error: null,
-            }).then(resolve, reject),
-        };
-        return query;
-      }
-
-      if (table === 'routine_order_instances') {
-        const query = {
-          select: vi.fn(() => query),
-          eq: vi.fn(() => query),
-          is: vi.fn(() => query),
-          then: (resolve: (value: unknown) => unknown, reject?: (reason: unknown) => unknown) =>
-            Promise.resolve({ count: 0, error: null }).then(resolve, reject),
-        };
-        return query;
-      }
-
-      if (table === 'orders') {
-        let callIndex = 0;
-        const query = {
-          select: vi.fn(() => query),
-          in: vi.fn(() => {
-            callIndex += 1;
-            if (callIndex === 1) {
-              return Promise.resolve({ count: 2, error: null });
-            }
-            return Promise.resolve({
-              data: [{ status: 'draft' }, { status: 'ordered' }],
-              error: null,
-            });
-          }),
-        };
-        return query;
-      }
-
-      throw new Error(`Unexpected table: ${table}`);
-    }),
-  };
-}
-
-describe('DashboardPage', () => {
+describe('WochenkontrolleCard', () => {
   beforeEach(() => {
     vi.resetModules();
-    createServerClientMock.mockReset();
+    getCurrentWeekChecklistMock.mockReset();
+    getPreviousActiveChecklistMock.mockReset();
+    getChecklistAggregatesMock.mockReset();
   });
 
   afterEach(() => {
@@ -119,25 +41,20 @@ describe('DashboardPage', () => {
   });
 
   it('shows completed current-week checklist details, missing count, and export action', async () => {
-    createServerClientMock.mockResolvedValue(
-      createDashboardSupabaseStub({
-        currentWeekChecklist: {
-          id: 'checklist-1',
-          iso_year: 2026,
-          iso_week: 16,
-          week_start_date: '2026-04-12',
-          week_end_date: '2026-04-18',
-          status: 'completed',
-          updated_at: '2026-04-13T10:00:00.000Z',
-        },
-        totalCount: 10,
-        checkedCount: 10,
-        missingCount: 3,
-      })
-    );
+    getCurrentWeekChecklistMock.mockResolvedValue({
+      id: 'checklist-1',
+      iso_year: 2026,
+      iso_week: 16,
+      week_start_date: '2026-04-12',
+      week_end_date: '2026-04-18',
+      status: 'completed',
+      updated_at: '2026-04-13T10:00:00.000Z',
+    });
+    getPreviousActiveChecklistMock.mockResolvedValue(null);
+    getChecklistAggregatesMock.mockResolvedValue({ total: 10, checked: 10, missing: 3, waiting: 3 });
 
-    const { default: DashboardPage } = await import('@/app/(app)/dashboard/page');
-    render(await DashboardPage());
+    const { WochenkontrolleCard } = await import('@/components/dashboard/wochenkontrolle-card');
+    render(await WochenkontrolleCard());
 
     expect(screen.getByText(/Kontrollliste dieser Woche/)).toBeTruthy();
     expect(screen.getByText(/3 Produkte fehlen/)).toBeTruthy();
@@ -145,22 +62,19 @@ describe('DashboardPage', () => {
   });
 
   it('shows a previous-week blocking state when no current-week checklist exists', async () => {
-    createServerClientMock.mockResolvedValue(
-      createDashboardSupabaseStub({
-        currentWeekChecklist: null,
-        previousActiveChecklist: {
-          id: 'checklist-old',
-          iso_year: 2026,
-          iso_week: 15,
-          week_start_date: '2026-04-05',
-          week_end_date: '2026-04-11',
-          status: 'in_progress',
-        },
-      })
-    );
+    getCurrentWeekChecklistMock.mockResolvedValue(null);
+    getPreviousActiveChecklistMock.mockResolvedValue({
+      id: 'checklist-old',
+      iso_year: 2026,
+      iso_week: 15,
+      week_start_date: '2026-04-05',
+      week_end_date: '2026-04-11',
+      status: 'in_progress',
+    });
+    getChecklistAggregatesMock.mockResolvedValue({ total: 0, checked: 0, missing: 0, waiting: 0 });
 
-    const { default: DashboardPage } = await import('@/app/(app)/dashboard/page');
-    render(await DashboardPage());
+    const { WochenkontrolleCard } = await import('@/components/dashboard/wochenkontrolle-card');
+    render(await WochenkontrolleCard());
 
     expect(screen.getAllByText(/Vorwoche/).length).toBeGreaterThan(0);
     expect(screen.getByText(/Zur Kontrolle/)).toBeTruthy();
