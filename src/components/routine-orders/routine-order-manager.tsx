@@ -1,7 +1,6 @@
 'use client';
 
 import { useState } from 'react';
-import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -86,7 +85,6 @@ export function RoutineOrderManager({
   routines: Routine[];
   suppliers: Array<{ id: string; name: string }>;
 }) {
-  const router = useRouter();
   const [createOpen, setCreateOpen] = useState(false);
   const [creating, setCreating] = useState(false);
   const [selectedSupplier, setSelectedSupplier] = useState<string>('');
@@ -123,7 +121,6 @@ export function RoutineOrderManager({
       setCreateOpen(false);
       setSelectedSupplier('');
       setSelectedDay('');
-      router.refresh();
     }
     setCreating(false);
   }
@@ -231,7 +228,7 @@ export function RoutineOrderManager({
                       <RoutineCard
                         key={routine.id}
                         routine={routine}
-                        onChanged={() => router.refresh()}
+                        onChanged={() => {}}
                       />
                     ))}
                   </div>

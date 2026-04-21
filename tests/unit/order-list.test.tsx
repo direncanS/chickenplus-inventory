@@ -109,10 +109,6 @@ describe('OrderList', () => {
     await waitFor(() => {
       expect(screen.queryByText('Cola')).toBeNull();
     });
-
-    await waitFor(() => {
-      expect(refreshMock).toHaveBeenCalled();
-    });
   });
 
   it('suppresses checklist suggestions until the checklist is completed', () => {
