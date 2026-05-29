@@ -10,6 +10,8 @@ export interface NavCounts {
     progressPercent: number | null;
     status: 'draft' | 'in_progress' | 'completed' | null;
     missingCount: number;
+    remainingCount: number;
+    orderActionCount: number;
   };
 }
 
@@ -25,15 +27,11 @@ export async function getNavCounts(): Promise<NavCounts> {
   const { isoWeek, isoYear } = getISOWeekAndYear();
 
   const [
-    { count: openOrdersCount },
     { count: pendingRoutineCount },
     { data: currentWeekChecklist },
     { data: currentWeekItems },
+    { data: currentWeekOrders },
   ] = await Promise.all([
-    supabase
-      .from('orders')
-      .select('id', { count: 'exact', head: true })
-      .in('status', ['draft', 'ordered', 'partially_delivered']),
     supabase
       .from('routine_order_instances')
       .select('id', { count: 'exact', head: true })
@@ -48,12 +46,23 @@ export async function getNavCounts(): Promise<NavCounts> {
       .maybeSingle(),
     supabase
       .from('checklist_items')
-      .select('is_checked, is_missing, checklists!inner(week_start_date)')
+      .select('product_id, is_checked, is_missing, is_ordered, checklists!inner(week_start_date)')
       .eq('checklists.week_start_date', currentWeekStart),
+    supabase
+      .from('orders')
+      .select(`
+        id, status,
+        checklists!inner(week_start_date),
+        order_items(product_id, is_delivered, is_ordered, ordered_quantity)
+      `)
+      .eq('checklists.week_start_date', currentWeekStart)
+      .in('status', ['draft', 'ordered', 'partially_delivered']),
   ]);
 
   let progressPercent: number | null = null;
   let missingCount = 0;
+  let remainingCount = 0;
+  let orderActionCount = 0;
   const checklistStatus = currentWeekChecklist?.status ?? null;
 
   if (currentWeekChecklist && currentWeekItems) {
@@ -66,10 +75,29 @@ export async function getNavCounts(): Promise<NavCounts> {
     }
     progressPercent = total > 0 ? Math.round((checked / total) * 100) : 0;
     missingCount = missing;
+    remainingCount = Math.max(0, total - checked);
   }
 
+  const actionedOrders = (currentWeekOrders ?? []).filter((order) => {
+    if (order.status !== 'draft') return true;
+    return (order.order_items ?? []).some(
+      (item) => item.is_ordered || item.ordered_quantity !== null || item.is_delivered
+    );
+  });
+  const actionedProductIds = new Set(
+    actionedOrders.flatMap((order) => (order.order_items ?? []).map((item) => item.product_id))
+  );
+
+  const waitingMissingItems = currentWeekChecklist?.status === 'completed'
+    ? (currentWeekItems ?? []).filter(
+        (item) => item.is_missing && !item.is_ordered && !actionedProductIds.has(item.product_id)
+      ).length
+    : 0;
+
+  orderActionCount = actionedOrders.length + waitingMissingItems;
+
   return {
-    openOrders: openOrdersCount ?? 0,
+    openOrders: orderActionCount,
     pendingRoutine: pendingRoutineCount ?? 0,
     currentWeek: {
       isoWeek,
@@ -77,6 +105,8 @@ export async function getNavCounts(): Promise<NavCounts> {
       progressPercent,
       status: checklistStatus as NavCounts['currentWeek']['status'],
       missingCount,
+      remainingCount,
+      orderActionCount,
     },
   };
 }
