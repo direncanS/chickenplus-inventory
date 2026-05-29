@@ -41,6 +41,7 @@ import {
   matchesChecklistFilter,
   type ChecklistFilterMode,
 } from '@/lib/utils/checklist-filters';
+import { useOnlineStatus } from '@/lib/hooks/use-online-status';
 
 interface ChecklistItem {
   id: string;
@@ -96,6 +97,7 @@ interface GroupedItems {
 }
 
 export function ChecklistView({ checklist, items, isAdmin }: ChecklistViewProps) {
+  const isOnline = useOnlineStatus();
   const [completing, setCompleting] = useState(false);
   const [reopening, setReopening] = useState(false);
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -195,6 +197,10 @@ export function ChecklistView({ checklist, items, isAdmin }: ChecklistViewProps)
       flushTimerRef.current = null;
     }
 
+    if (!isOnline) {
+      return !hasDirtyChecklistItems(itemStatesRef.current);
+    }
+
     if (flushPromiseRef.current) {
       const inFlightSucceeded = await flushPromiseRef.current;
       if (!inFlightSucceeded) {
@@ -244,7 +250,7 @@ export function ChecklistView({ checklist, items, isAdmin }: ChecklistViewProps)
     }
 
     return success;
-  }, [applyItemStates, checklist.id]);
+  }, [applyItemStates, checklist.id, isOnline]);
 
   useEffect(() => {
     flushPendingChangesRef.current = flushPendingChanges;
@@ -255,10 +261,21 @@ export function ChecklistView({ checklist, items, isAdmin }: ChecklistViewProps)
       clearTimeout(flushTimerRef.current);
     }
 
+    if (!isOnline) {
+      flushTimerRef.current = null;
+      return;
+    }
+
     flushTimerRef.current = setTimeout(() => {
       void flushPendingChanges();
     }, AUTOSAVE_DEBOUNCE_MS);
-  }, [flushPendingChanges]);
+  }, [flushPendingChanges, isOnline]);
+
+  useEffect(() => {
+    if (isOnline && hasDirtyChecklistItems(itemStatesRef.current)) {
+      void flushPendingChanges();
+    }
+  }, [flushPendingChanges, isOnline]);
 
   useEffect(() => {
     function handleVisibilityChange() {
@@ -378,11 +395,16 @@ export function ChecklistView({ checklist, items, isAdmin }: ChecklistViewProps)
   const isReadOnly = isCompleted;
   const hasSaveError = hasChecklistSaveError(itemStates);
   const isSavePending = isChecklistSavePending(itemStates);
+  const hasUnsavedChanges = hasDirtyChecklistItems(itemStates);
   const saveStatusMessage = hasSaveError
     ? de.checklist.saveFailed
-    : isSavePending
-      ? de.checklist.savingInProgress
-      : null;
+    : !isOnline && hasUnsavedChanges
+      ? de.checklist.offlineChangesPending
+      : !isOnline
+        ? de.checklist.offline
+        : isSavePending
+          ? de.checklist.savingInProgress
+          : null;
 
   const headerText = checklist.week_start_date && checklist.week_end_date
     ? `${formatWeekRangeGerman(checklist.week_start_date, checklist.week_end_date)} - KW ${checklist.iso_week}`
@@ -474,6 +496,16 @@ export function ChecklistView({ checklist, items, isAdmin }: ChecklistViewProps)
         error={localOrderGenerationError}
       />
 
+      {!isOnline && (
+        <div
+          className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900 shadow-[0_10px_30px_-26px_rgba(146,64,14,0.35)]"
+          data-no-print
+        >
+          <div className="font-semibold">{de.checklist.offlineChangesPending}</div>
+          <div className="mt-0.5 text-amber-800">{de.checklist.offlineDescription}</div>
+        </div>
+      )}
+
       {/* Sticky toolbar */}
       <div className="sticky top-[5.35rem] z-40 -mx-1 px-1 pb-2" data-no-print>
         <div className="surface-panel px-3 py-3 sm:px-4">
@@ -487,7 +519,13 @@ export function ChecklistView({ checklist, items, isAdmin }: ChecklistViewProps)
             <div className="flex flex-wrap items-center gap-2">
               {saveStatusMessage && (
                 <span
-                  className={`rounded-full px-2.5 py-1 text-xs ${hasSaveError ? 'bg-destructive/10 text-destructive' : 'bg-muted text-muted-foreground'}`}
+                  className={`rounded-full px-2.5 py-1 text-xs ${
+                    hasSaveError
+                      ? 'bg-destructive/10 text-destructive'
+                      : !isOnline
+                        ? 'bg-amber-100 text-amber-800'
+                        : 'bg-muted text-muted-foreground'
+                  }`}
                 >
                   {saveStatusMessage}
                 </span>
