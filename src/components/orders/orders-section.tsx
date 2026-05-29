@@ -45,7 +45,7 @@ export async function OrdersSection({ activeChecklist, isAdmin }: Props) {
           .from('orders')
           .select(`
             id, order_number, status, ordered_at, delivered_at, notes, created_at,
-            suppliers!inner(id, name),
+            suppliers!inner(id, name, phone, email),
             checklists!inner(iso_year, iso_week),
             order_items(id, product_id, quantity, unit, is_delivered, is_ordered, ordered_quantity,
               products!inner(name))

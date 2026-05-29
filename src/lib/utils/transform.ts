@@ -87,7 +87,7 @@ export interface TransformedOrder {
   delivered_at: string | null;
   notes: string | null;
   created_at: string;
-  suppliers: { id: string; name: string };
+  suppliers: { id: string; name: string; phone?: string | null; email?: string | null };
   checklists: { iso_year: number; iso_week: number };
   order_items: TransformedOrderItem[];
 }
