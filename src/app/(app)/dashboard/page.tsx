@@ -5,6 +5,7 @@ import { KpiStrip } from '@/components/dashboard/kpi-strip';
 import { WochenkontrolleCard } from '@/components/dashboard/wochenkontrolle-card';
 import { StatusBreakdown } from '@/components/dashboard/status-breakdown';
 import { QuickActions } from '@/components/dashboard/quick-actions';
+import { RecentActivity } from '@/components/dashboard/recent-activity';
 import {
   HeroCardSkeleton,
   KpiStripSkeleton,
@@ -35,6 +36,9 @@ export default function DashboardPage() {
         <div className="grid gap-4">
           <Suspense fallback={<StatusBreakdownSkeleton />}>
             <StatusBreakdown />
+          </Suspense>
+          <Suspense fallback={<StatusBreakdownSkeleton />}>
+            <RecentActivity />
           </Suspense>
           <QuickActions />
         </div>
