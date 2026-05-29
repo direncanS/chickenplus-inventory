@@ -36,6 +36,11 @@ import {
   reconcileChecklistBatchError,
   reconcileChecklistBatchSuccess,
 } from '@/lib/utils/checklist-batch';
+import {
+  countHiddenChecklistItems,
+  matchesChecklistFilter,
+  type ChecklistFilterMode,
+} from '@/lib/utils/checklist-filters';
 
 interface ChecklistItem {
   id: string;
@@ -94,7 +99,7 @@ export function ChecklistView({ checklist, items, isAdmin }: ChecklistViewProps)
   const [completing, setCompleting] = useState(false);
   const [reopening, setReopening] = useState(false);
   const [dialogOpen, setDialogOpen] = useState(false);
-  const [showMissingOnly, setShowMissingOnly] = useState(false);
+  const [filterMode, setFilterMode] = useState<ChecklistFilterMode>('all');
   const [localChecklistStatus, setLocalChecklistStatus] = useState(checklist.status);
   const [localOrderGenerationStatus, setLocalOrderGenerationStatus] = useState(
     checklist.order_generation_status ?? 'idle'
@@ -280,6 +285,26 @@ export function ChecklistView({ checklist, items, isAdmin }: ChecklistViewProps)
     scheduleFlush();
   }
 
+  function queueVisibleItemsChecked() {
+    const visibleItemIds = items
+      .filter((item) => shouldShowItem(item))
+      .filter((item) => !itemStatesRef.current[item.id]?.isChecked)
+      .map((item) => item.id);
+
+    if (visibleItemIds.length === 0) {
+      return;
+    }
+
+    applyItemStates((current) => {
+      let next = current;
+      for (const itemId of visibleItemIds) {
+        next = patchChecklistItemDraft(next, itemId, { isChecked: true });
+      }
+      return next;
+    });
+    scheduleFlush();
+  }
+
   async function handleComplete() {
     const flushed = await flushPendingChanges();
     if (!flushed) {
@@ -410,6 +435,8 @@ export function ChecklistView({ checklist, items, isAdmin }: ChecklistViewProps)
   };
 
   const progressPercent = totalCount > 0 ? Math.round((checkedCount / totalCount) * 100) : 0;
+  const missingCount = items.filter((item) => itemStates[item.id]?.isMissing === true).length;
+  const uncheckedCount = totalCount - checkedCount;
 
   const statusBadgeClass: Record<string, string> = {
     draft: 'bg-amber-100 text-amber-800 border-amber-200 dark:bg-amber-900/30 dark:text-amber-400 dark:border-amber-800',
@@ -418,13 +445,26 @@ export function ChecklistView({ checklist, items, isAdmin }: ChecklistViewProps)
   };
 
   function shouldShowItem(item: ChecklistItem) {
-    if (!showMissingOnly) return true;
-    return itemStates[item.id]?.isMissing === true;
+    return matchesChecklistFilter(
+      {
+        isMissing: itemStates[item.id]?.isMissing === true,
+        isChecked: itemStates[item.id]?.isChecked === true,
+      },
+      filterMode
+    );
   }
 
-  const hiddenByFilter = showMissingOnly
-    ? items.length - items.filter((item) => itemStates[item.id]?.isMissing === true).length
-    : 0;
+  const hiddenByFilter = countHiddenChecklistItems(
+    items.map((item) => ({
+      isMissing: itemStates[item.id]?.isMissing === true,
+      isChecked: itemStates[item.id]?.isChecked === true,
+    })),
+    filterMode
+  );
+
+  const visibleUncheckedCount = items
+    .filter((item) => shouldShowItem(item))
+    .filter((item) => !itemStates[item.id]?.isChecked).length;
 
   return (
     <div className="space-y-3">
@@ -452,15 +492,27 @@ export function ChecklistView({ checklist, items, isAdmin }: ChecklistViewProps)
                   {saveStatusMessage}
                 </span>
               )}
-              <Button
-                variant={showMissingOnly ? 'default' : 'outline'}
-                size="sm"
-                onClick={() => setShowMissingOnly((value) => !value)}
-                aria-pressed={showMissingOnly}
-                className={showMissingOnly ? 'bg-amber-500 hover:bg-amber-600 text-white border-amber-500' : ''}
-              >
-                {showMissingOnly ? de.checklist.showAll : de.checklist.showMissingOnly}
-              </Button>
+              <div className="flex rounded-2xl border border-border/70 bg-white/75 p-1">
+                {(['all', 'missing', 'unchecked'] as const).map((mode) => (
+                  <Button
+                    key={mode}
+                    variant={filterMode === mode ? 'default' : 'ghost'}
+                    size="sm"
+                    onClick={() => setFilterMode(mode)}
+                    aria-pressed={filterMode === mode}
+                    className="h-7 rounded-xl px-2 text-xs"
+                  >
+                    {mode === 'all' && de.checklist.showAll}
+                    {mode === 'missing' && `${de.checklist.showMissingOnly} (${missingCount})`}
+                    {mode === 'unchecked' && `${de.checklist.showUncheckedOnly} (${uncheckedCount})`}
+                  </Button>
+                ))}
+              </div>
+              {!isReadOnly && visibleUncheckedCount > 0 && (
+                <Button variant="outline" size="sm" onClick={queueVisibleItemsChecked}>
+                  {de.checklist.markVisibleChecked}
+                </Button>
+              )}
               <Button variant="outline" size="sm" onClick={handlePrint}>
                 {de.checklist.print}
               </Button>
@@ -515,7 +567,7 @@ export function ChecklistView({ checklist, items, isAdmin }: ChecklistViewProps)
               />
             </div>
             <span className="tabular-nums font-semibold text-foreground">{progressPercent}%</span>
-            {showMissingOnly && hiddenByFilter > 0 && (
+            {filterMode !== 'all' && hiddenByFilter > 0 && (
               <Badge variant="outline" className="border-amber-300 bg-amber-50 text-amber-700">
                 {de.checklist.filterActiveLabel.replace('{count}', String(hiddenByFilter))}
               </Badge>
