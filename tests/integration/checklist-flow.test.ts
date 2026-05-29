@@ -76,12 +76,12 @@ function simulateComplete(checklist: Checklist): {
 
   return {
     success: true,
-    orderGenerationStatus: 'pending',
+    orderGenerationStatus: 'idle',
     checklist: {
       ...checklist,
       status: 'completed',
       completed_by: 'user-1',
-      order_generation_status: 'pending',
+      order_generation_status: 'idle',
       order_generation_orders_created: 0,
       order_generation_error: null,
     },
@@ -185,10 +185,10 @@ describe('Checklist lifecycle flow (mock)', () => {
 
     const completeResult = simulateComplete(checklist);
     expect(completeResult.success).toBe(true);
-    expect(completeResult.orderGenerationStatus).toBe('pending');
+    expect(completeResult.orderGenerationStatus).toBe('idle');
     expect(completeResult.checklist.status).toBe('completed');
     expect(completeResult.checklist.completed_by).toBe('user-1');
-    expect(completeResult.checklist.order_generation_status).toBe('pending');
+    expect(completeResult.checklist.order_generation_status).toBe('idle');
   });
 
   it('rejects complete when not all items are checked', () => {
@@ -218,22 +218,22 @@ describe('Checklist lifecycle flow (mock)', () => {
     const completeResult = simulateComplete(checklist);
     expect(completeResult.success).toBe(true);
     expect(completeResult.checklist.status).toBe('completed');
-    expect(completeResult.checklist.order_generation_status).toBe('pending');
+    expect(completeResult.checklist.order_generation_status).toBe('idle');
   });
 
-  it('marks background order generation as completed after completion returns', () => {
+  it('does not start automatic order generation after completion', () => {
     checklist.items = checklist.items.map((item) => ({ ...item, is_checked: true }));
 
     const completed = simulateComplete(checklist).checklist;
     const finalChecklist = simulateBackgroundOrderGeneration(completed, { ordersCreated: 2 });
 
-    expect(completed.order_generation_status).toBe('pending');
-    expect(finalChecklist.order_generation_status).toBe('completed');
-    expect(finalChecklist.order_generation_orders_created).toBe(2);
+    expect(completed.order_generation_status).toBe('idle');
+    expect(finalChecklist.order_generation_status).toBe('idle');
+    expect(finalChecklist.order_generation_orders_created).toBe(0);
     expect(finalChecklist.order_generation_error).toBeNull();
   });
 
-  it('marks background order generation as failed without undoing checklist completion', () => {
+  it('ignores background order generation errors when no generation was started', () => {
     checklist.items = checklist.items.map((item) => ({ ...item, is_checked: true }));
 
     const completed = simulateComplete(checklist).checklist;
@@ -243,9 +243,9 @@ describe('Checklist lifecycle flow (mock)', () => {
     });
 
     expect(finalChecklist.status).toBe('completed');
-    expect(finalChecklist.order_generation_status).toBe('failed');
-    expect(finalChecklist.order_generation_orders_created).toBe(1);
-    expect(finalChecklist.order_generation_error).toBe('supplier rpc failed');
+    expect(finalChecklist.order_generation_status).toBe('idle');
+    expect(finalChecklist.order_generation_orders_created).toBe(0);
+    expect(finalChecklist.order_generation_error).toBeNull();
   });
 
   it('aborts background order generation after checklist is reopened', () => {

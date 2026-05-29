@@ -53,7 +53,7 @@ describe('ChecklistItemRow', () => {
   it('shows checked items without striking through the product name', () => {
     renderRow({ isChecked: true });
 
-    expect(screen.getByText('Geprüft')).toBeTruthy();
+    expect(screen.queryByText('Geprüft')).toBeNull();
     expect(screen.getByText('Cola').className).not.toContain('line-through');
   });
 

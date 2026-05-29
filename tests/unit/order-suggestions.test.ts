@@ -189,6 +189,62 @@ describe('getOrderSuggestions', () => {
     expect(result[0].items.map((item) => item.productId)).toEqual(['product-visible']);
   });
 
+  it('ignores untouched draft orders so suggestions stay visible', async () => {
+    getCachedPreferredProductSuppliersMock.mockResolvedValue([
+      {
+        product_id: 'product-1',
+        supplier: { id: 'supplier-1', name: 'Metro', is_active: true },
+      },
+    ]);
+
+    const supabase = createSupabaseMock({
+      checklist_items: [
+        {
+          data: [
+            {
+              id: 'item-1',
+              product_id: 'product-1',
+              product_name: 'Cola',
+              min_stock_snapshot: 2,
+              min_stock_max_snapshot: null,
+              current_stock: '3 Stück',
+              products: { unit: 'koli', is_active: true },
+            },
+          ],
+          error: null,
+        },
+      ],
+      orders: [
+        {
+          data: [
+            {
+              id: 'order-1',
+              status: 'draft',
+              order_items: [
+                {
+                  product_id: 'product-1',
+                  is_ordered: false,
+                  ordered_quantity: null,
+                  is_delivered: false,
+                },
+              ],
+            },
+          ],
+          error: null,
+        },
+      ],
+      checklists: [{ data: { iso_year: 2026, iso_week: 14 }, error: null }],
+      routine_order_instance_items: [{ data: [], error: null }],
+    });
+
+    const { getOrderSuggestions } = await import('@/lib/server/order-suggestions');
+    const result = await getOrderSuggestions(supabase as never, 'checklist-1');
+
+    expect(result).toHaveLength(1);
+    expect(result[0].supplierName).toBe('Metro');
+    expect(result[0].items[0].productName).toBe('Cola');
+  });
+
   it('continues normal suggestions when routine tables are not available', async () => {
     getCachedPreferredProductSuppliersMock.mockResolvedValue([]);
 

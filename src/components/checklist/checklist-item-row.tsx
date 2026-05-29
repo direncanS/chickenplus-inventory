@@ -1,6 +1,6 @@
 'use client';
 
-import { AlertTriangle, CheckCircle2 } from 'lucide-react';
+import { AlertTriangle } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -53,8 +53,7 @@ export function ChecklistItemRow({
     <div
       className={cn(
         'grid grid-cols-[minmax(0,1fr)_44px] items-center gap-3 border-b border-border/40 px-2 py-2 transition-colors sm:grid-cols-[minmax(0,1fr)_minmax(132px,160px)_88px_44px]',
-        state.isChecked && 'bg-emerald-50/45 dark:bg-emerald-950/15',
-        state.isMissing && 'border-l-4 border-l-amber-500 bg-amber-50/90 dark:bg-amber-950/25',
+        state.isMissing && 'border-l-4 border-l-rose-400 bg-rose-50/80 dark:bg-rose-950/20',
         state.saveState === 'saving' && 'opacity-70',
         state.saveState === 'error' && 'ring-1 ring-destructive/40'
       )}
@@ -64,21 +63,15 @@ export function ChecklistItemRow({
           <span
             className={cn(
               'truncate text-sm font-semibold text-foreground',
-              state.isMissing && 'text-amber-950 dark:text-amber-200'
+              state.isMissing && 'text-rose-950 dark:text-rose-200'
             )}
           >
             {item.product_name}
           </span>
           {state.isMissing && (
-            <Badge variant="outline" className="h-5 border-amber-300 bg-amber-100 px-2 text-[0.68rem] text-amber-800">
+            <Badge variant="outline" className="h-5 border-rose-300 bg-rose-100 px-2 text-[0.68rem] text-rose-800">
               <AlertTriangle className="h-3 w-3" />
               {de.checklist.missing}
-            </Badge>
-          )}
-          {state.isChecked && (
-            <Badge variant="outline" className="h-5 border-emerald-300 bg-emerald-50 px-2 text-[0.68rem] text-emerald-700">
-              <CheckCircle2 className="h-3 w-3" />
-              {de.checklist.checked}
             </Badge>
           )}
         </div>
@@ -109,7 +102,7 @@ export function ChecklistItemRow({
         disabled={isReadOnly}
         className={cn(
           'h-10 w-full text-xs font-bold sm:w-[88px]',
-          state.isMissing && 'border-amber-500 bg-amber-500 text-white hover:bg-amber-600'
+          state.isMissing && 'border-rose-500 bg-rose-500 text-white hover:bg-rose-600'
         )}
         title={de.checklist.missing}
         aria-pressed={state.isMissing}

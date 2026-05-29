@@ -293,7 +293,7 @@ export function ChecklistView({ checklist, items, isAdmin }: ChecklistViewProps)
 
     setCompleting(true);
     setLocalChecklistStatus('completed');
-    setLocalOrderGenerationStatus('pending');
+    setLocalOrderGenerationStatus('idle');
     setLocalOrdersCreated(0);
     setLocalOrderGenerationError(null);
 
@@ -306,9 +306,6 @@ export function ChecklistView({ checklist, items, isAdmin }: ChecklistViewProps)
       setLocalOrderGenerationError(previousOrderGenerationError);
     } else {
       toast.success(de.checklist.completionSuccess);
-      if (result.orderGenerationStatus === 'pending') {
-        toast.info(de.checklist.orderGenerationPending);
-      }
       setDialogOpen(false);
     }
     setCompleting(false);

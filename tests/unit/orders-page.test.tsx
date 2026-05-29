@@ -57,6 +57,7 @@ function createSupabaseStub(activeChecklist: unknown, orders: unknown[] = []) {
       if (table === 'orders') {
         const query = {
           select: vi.fn(() => query),
+          eq: vi.fn(() => query),
           order: vi.fn().mockResolvedValue({
             data: orders,
             error: null,
@@ -118,11 +119,11 @@ async function getOrderListPropsFromTree(tree: Awaited<ReturnType<typeof import(
     if (!inner || typeof inner !== 'object') continue;
     const innerElement = inner as { type?: unknown; props?: Record<string, unknown> };
     if (innerElement.type === OrdersSection) {
-      const sectionTree = await OrdersSection(innerElement.props as Parameters<typeof OrdersSection>[0]);
-      const sectionProps = (sectionTree as { props: Record<string, unknown> }).props;
+      const sectionTree = await OrdersSection(innerElement.props as unknown as Parameters<typeof OrdersSection>[0]);
+      const sectionProps = (sectionTree as unknown as { props: Record<string, unknown> }).props;
       // OrderList is mocked as (props) => props; so sectionTree IS the props object directly.
-      if ('initialSuggestions' in (sectionTree as Record<string, unknown>)) {
-        return sectionTree as { initialSuggestions: unknown[]; activeChecklist: { id: string; status: string } | null };
+      if ('initialSuggestions' in (sectionTree as unknown as Record<string, unknown>)) {
+        return sectionTree as unknown as { initialSuggestions: unknown[]; activeChecklist: { id: string; status: string } | null };
       }
       return sectionProps as { initialSuggestions: unknown[]; activeChecklist: { id: string; status: string } | null };
     }
