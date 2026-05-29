@@ -1,8 +1,10 @@
 'use client';
 
-import { Input } from '@/components/ui/input';
-import { Checkbox } from '@/components/ui/checkbox';
+import { AlertTriangle, CheckCircle2 } from 'lucide-react';
+import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Input } from '@/components/ui/input';
 import { de } from '@/i18n/de';
 import { cn } from '@/lib/utils';
 import type { ChecklistItemDraftState } from '@/lib/utils/checklist-batch';
@@ -50,54 +52,73 @@ export function ChecklistItemRow({
   return (
     <div
       className={cn(
-        'grid grid-cols-[minmax(0,1fr)_72px_44px_44px] items-center gap-2 border-b border-border/40 px-2 py-1 transition-colors',
-        state.isChecked && 'bg-muted/40',
-        state.isMissing && !state.isChecked && 'bg-amber-50/70 dark:bg-amber-950/20',
+        'grid grid-cols-[minmax(0,1fr)_44px] items-center gap-3 border-b border-border/40 px-2 py-2 transition-colors sm:grid-cols-[minmax(0,1fr)_minmax(132px,160px)_88px_44px]',
+        state.isChecked && 'bg-emerald-50/45 dark:bg-emerald-950/15',
+        state.isMissing && 'border-l-4 border-l-amber-500 bg-amber-50/90 dark:bg-amber-950/25',
         state.saveState === 'saving' && 'opacity-70',
         state.saveState === 'error' && 'ring-1 ring-destructive/40'
       )}
     >
-      <div className="min-w-0 flex flex-col leading-tight">
-        <span className={cn(
-          'truncate text-sm font-medium',
-          state.isChecked && 'line-through text-muted-foreground'
-        )}>
-          {item.product_name}
-        </span>
+      <div className="min-w-0 flex flex-col gap-1 leading-tight">
+        <div className="flex min-w-0 flex-wrap items-center gap-1.5">
+          <span
+            className={cn(
+              'truncate text-sm font-semibold text-foreground',
+              state.isMissing && 'text-amber-950 dark:text-amber-200'
+            )}
+          >
+            {item.product_name}
+          </span>
+          {state.isMissing && (
+            <Badge variant="outline" className="h-5 border-amber-300 bg-amber-100 px-2 text-[0.68rem] text-amber-800">
+              <AlertTriangle className="h-3 w-3" />
+              {de.checklist.missing}
+            </Badge>
+          )}
+          {state.isChecked && (
+            <Badge variant="outline" className="h-5 border-emerald-300 bg-emerald-50 px-2 text-[0.68rem] text-emerald-700">
+              <CheckCircle2 className="h-3 w-3" />
+              {de.checklist.checked}
+            </Badge>
+          )}
+        </div>
         <span className="truncate text-[11px] text-muted-foreground">
           Min. {minStockDisplay} {unitLabel}
         </span>
       </div>
 
-      <Input
-        type="text"
-        inputMode="decimal"
-        value={state.currentStock}
-        onChange={(event) => onStockChange(event.target.value)}
-        onBlur={onStockBlur}
-        placeholder="—"
-        aria-label={de.checklist.stock}
-        className="h-9 w-full text-center text-sm"
-        disabled={isReadOnly}
-      />
+      <div className="col-span-2 sm:col-span-1">
+        <Input
+          type="text"
+          inputMode="text"
+          maxLength={100}
+          value={state.currentStock}
+          onChange={(event) => onStockChange(event.target.value)}
+          onBlur={onStockBlur}
+          placeholder="z.B. 3 Stück"
+          aria-label={de.checklist.stock}
+          className="h-10 w-full text-sm font-medium"
+          disabled={isReadOnly}
+        />
+      </div>
 
       <Button
         variant={state.isMissing ? 'default' : 'outline'}
-        size="icon"
+        size="sm"
         onClick={onMissingToggle}
         disabled={isReadOnly}
         className={cn(
-          'h-9 w-9 text-sm font-bold',
-          state.isMissing && 'bg-amber-500 hover:bg-amber-600 text-white border-amber-500'
+          'h-10 w-full text-xs font-bold sm:w-[88px]',
+          state.isMissing && 'border-amber-500 bg-amber-500 text-white hover:bg-amber-600'
         )}
         title={de.checklist.missing}
         aria-pressed={state.isMissing}
         aria-label={de.checklist.missing}
       >
-        F
+        {de.checklist.missing}
       </Button>
 
-      <div className="flex h-9 w-9 items-center justify-center">
+      <div className="flex h-10 w-10 items-center justify-center">
         <Checkbox
           checked={state.isChecked}
           onCheckedChange={(checked) => onCheckToggle(checked === true)}

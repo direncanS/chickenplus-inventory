@@ -24,6 +24,11 @@ type OpenOrderItemRow = {
   product_id: string;
 };
 
+type SupabaseMaybeError = {
+  code?: string;
+  message?: string;
+};
+
 export interface OrderSuggestionItem {
   checklistItemId: string;
   productId: string;
@@ -44,6 +49,11 @@ export interface OrderSuggestionGroup {
 function unwrapRelation<T>(value: T | T[] | null | undefined): T | undefined {
   if (Array.isArray(value)) return value[0];
   return value ?? undefined;
+}
+
+function isMissingRoutineTableError(error: SupabaseMaybeError | null | undefined) {
+  if (!error) return false;
+  return error.code === '42P01' || error.message?.includes('routine_order_instance_items');
 }
 
 /**
@@ -98,7 +108,7 @@ export async function getOrderSuggestions(
 
   const routineCoveredProducts = new Set<string>();
   if (checklist) {
-    const { data: routineItems } = await supabase
+    const { data: routineItems, error: routineItemsError } = await supabase
       .from('routine_order_instance_items')
       .select(`
         product_id,
@@ -109,6 +119,10 @@ export async function getOrderSuggestions(
       .eq('routine_order_instances.iso_week', checklist.iso_week)
       .neq('routine_order_instances.status', 'skipped')
       .is('routine_order_instances.order_id', null);
+
+    if (routineItemsError && !isMissingRoutineTableError(routineItemsError)) {
+      throw new Error(routineItemsError.message);
+    }
 
     for (const ri of routineItems ?? []) {
       routineCoveredProducts.add(ri.product_id);
@@ -139,7 +153,7 @@ export async function getOrderSuggestions(
       (openOrderItems as OpenOrderItemRow[] | null | undefined)?.map((item) => item.product_id) ?? []
     );
 
-    filteredItems = items.filter((item) => !productsWithOpenOrders.has(item.product_id));
+    filteredItems = filteredItems.filter((item) => !productsWithOpenOrders.has(item.product_id));
   }
 
   if (filteredItems.length === 0) {

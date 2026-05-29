@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Badge } from '@/components/ui/badge';
@@ -529,15 +529,15 @@ export function ChecklistView({ checklist, items, isAdmin }: ChecklistViewProps)
 
       <div className="rounded-2xl border border-border/70 bg-white/80 shadow-[0_10px_30px_-24px_rgba(38,32,29,0.25)]">
         <div
-          className="sticky top-[8.5rem] z-30 grid grid-cols-[minmax(0,1fr)_72px_44px_44px] items-center gap-2 border-b border-border/60 bg-background/95 px-2 py-2 text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-foreground backdrop-blur"
+          className="sticky top-[8.5rem] z-30 hidden grid-cols-[minmax(0,1fr)_minmax(132px,160px)_88px_44px] items-center gap-3 border-b border-border/60 bg-background/95 px-2 py-2 text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-foreground backdrop-blur sm:grid"
           data-no-print
         >
           <span>{de.checklist.product}</span>
           <span className="whitespace-normal text-center text-[9px] font-semibold normal-case leading-[1.1] tracking-[0.01em]">
             {de.checklist.currentStockShort}
           </span>
-          <span className="text-center" title={de.checklist.missing}>F</span>
-          <span className="text-center" title={de.checklist.checked}>✓</span>
+          <span className="text-center" title={de.checklist.missing}>{de.checklist.missing}</span>
+          <span className="text-center" title={de.checklist.checked}>{de.checklist.checked}</span>
         </div>
         {grouped.map((location) => {
           const visibleCategories = location.categories
