@@ -7,6 +7,7 @@ import {
   reopenChecklistSchema,
 } from '@/lib/validations/checklist';
 import { createSupplierSchema, updateSupplierSchema, productSupplierSchema } from '@/lib/validations/supplier';
+import { createProductSchema, updateProductSchema } from '@/lib/validations/product';
 import {
   createOrderSchema,
   finalizeSuggestionGroupSchema,
@@ -253,6 +254,63 @@ describe('updateSupplierSchema', () => {
       supplierId: validUUID,
       email: '',
     });
+    expect(result.success).toBe(true);
+  });
+});
+
+// Product schemas
+
+describe('createProductSchema', () => {
+  const validProduct = {
+    name: 'Fritz Honig Melone',
+    storageLocationId: validUUID,
+    categoryId: validUUID2,
+    unit: 'kiste' as const,
+    minStock: 1,
+    minStockMax: 3,
+    sortOrder: 10,
+    preferredSupplierId: null,
+  };
+
+  it('accepts a valid product payload', () => {
+    const result = createProductSchema.safeParse(validProduct);
+    expect(result.success).toBe(true);
+  });
+
+  it('accepts empty optional stock values', () => {
+    const result = createProductSchema.safeParse({
+      ...validProduct,
+      minStock: null,
+      minStockMax: null,
+    });
+    expect(result.success).toBe(true);
+  });
+
+  it('rejects a max stock below min stock', () => {
+    const result = createProductSchema.safeParse({
+      ...validProduct,
+      minStock: 5,
+      minStockMax: 2,
+    });
+    expect(result.success).toBe(false);
+  });
+});
+
+describe('updateProductSchema', () => {
+  it('requires a product id for updates', () => {
+    const result = updateProductSchema.safeParse({
+      productId: validUUID,
+      name: 'Cola',
+      storageLocationId: validUUID,
+      categoryId: validUUID2,
+      unit: 'koli',
+      minStock: 10,
+      minStockMax: null,
+      sortOrder: 1,
+      preferredSupplierId: null,
+      isActive: true,
+    });
+
     expect(result.success).toBe(true);
   });
 });
