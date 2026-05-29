@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
@@ -26,6 +27,7 @@ import { toast } from 'sonner';
 import { Checkbox } from '@/components/ui/checkbox';
 import { formatDateTimeVienna } from '@/lib/utils/date';
 import { OPEN_ORDER_STATUSES } from '@/lib/constants';
+import { summarizeOrderWorkflow, type OrderWorkflowSummary } from '@/lib/utils/order-workflow';
 import {
   buildOrderedItemUpdates,
   createOrderedItemDraftState,
@@ -33,6 +35,7 @@ import {
   normalizeSuggestedOrderCount,
   prefillOrderedQuantity,
 } from '@/lib/utils/order-items';
+import { AlertTriangle, ClipboardList, PackageCheck, Truck } from 'lucide-react';
 
 interface OrderItem {
   id: string;
@@ -147,6 +150,7 @@ export function OrderList({
   );
   const [loadingSuggestions, setLoadingSuggestions] = useState(false);
   const showSuggestions = suggestionsAllowed && suggestions.length > 0;
+  const workflowSummary = summarizeOrderWorkflow(ordersState, suggestions);
 
   const openOrders = ordersState.filter((o) => OPEN_ORDER_STATUSES.includes(o.status as never));
   const closedOrders = ordersState.filter((o) => !OPEN_ORDER_STATUSES.includes(o.status as never));
@@ -286,7 +290,7 @@ export function OrderList({
   return (
     <div className="space-y-4">
       {activeChecklist && (
-        <div className="surface-subtle flex flex-col gap-3 px-4 py-4" data-no-print>
+        <div className="surface-subtle flex flex-col gap-4 px-4 py-4" data-no-print>
           <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
             <div className="flex flex-col gap-1">
               <p className="text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">
@@ -328,6 +332,7 @@ export function OrderList({
               </Button>
             </div>
           </div>
+          <OrderWorkflowPanel summary={workflowSummary} suggestionsAllowed={suggestionsAllowed} />
         </div>
       )}
 
@@ -446,6 +451,87 @@ export function OrderList({
   );
 }
 
+function OrderWorkflowPanel({
+  summary,
+  suggestionsAllowed,
+}: {
+  summary: OrderWorkflowSummary;
+  suggestionsAllowed: boolean;
+}) {
+  const deliveryPercent =
+    summary.deliveryItemsTotal === 0
+      ? 0
+      : Math.round((summary.deliveryItemsDone / summary.deliveryItemsTotal) * 100);
+
+  const cards = [
+    {
+      label: de.orders.workflowSuggestions,
+      value: suggestionsAllowed ? String(summary.suggestedItems) : '0',
+      detail: suggestionsAllowed
+        ? de.orders.workflowSuggestionGroups.replace('{count}', String(summary.suggestionGroups))
+        : de.orders.workflowLocked,
+      icon: ClipboardList,
+      tone: 'border-amber-200 bg-amber-50 text-amber-900',
+    },
+    {
+      label: de.orders.workflowOpenOrders,
+      value: String(summary.openOrders),
+      detail: de.orders.workflowOpenOrderDetail
+        .replace('{draft}', String(summary.draftOrders))
+        .replace('{ordered}', String(summary.orderedOrders + summary.partiallyDeliveredOrders)),
+      icon: Truck,
+      tone: 'border-blue-200 bg-blue-50 text-blue-950',
+    },
+    {
+      label: de.orders.workflowDelivery,
+      value: `${deliveryPercent}%`,
+      detail: `${summary.deliveryItemsDone}/${summary.deliveryItemsTotal} ${de.orders.items}`,
+      icon: PackageCheck,
+      tone: 'border-emerald-200 bg-emerald-50 text-emerald-950',
+    },
+  ];
+
+  return (
+    <div className="grid gap-2 md:grid-cols-3">
+      {cards.map((card) => (
+        <div key={card.label} className={`rounded-3xl border px-4 py-3 ${card.tone}`}>
+          <div className="flex items-start justify-between gap-3">
+            <div>
+              <p className="text-[0.68rem] font-semibold uppercase tracking-[0.16em] opacity-75">
+                {card.label}
+              </p>
+              <p className="mt-1 text-2xl font-semibold tracking-tight tabular-nums">
+                {card.value}
+              </p>
+              <p className="mt-1 text-xs opacity-75">{card.detail}</p>
+            </div>
+            <span className="rounded-2xl bg-white/70 p-2 shadow-sm">
+              <card.icon className="h-4 w-4" />
+            </span>
+          </div>
+        </div>
+      ))}
+
+      {summary.unassignedSuggestionItems > 0 && (
+        <div className="rounded-3xl border border-rose-200 bg-rose-50 px-4 py-3 text-rose-950 md:col-span-3">
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+            <p className="flex items-center gap-2 text-sm font-medium">
+              <AlertTriangle className="h-4 w-4" />
+              {de.orders.unassignedSuggestionWarning.replace(
+                '{count}',
+                String(summary.unassignedSuggestionItems)
+              )}
+            </p>
+            <Link href="/suppliers" className="text-sm font-semibold underline underline-offset-4">
+              {de.orders.fixSupplierMappings}
+            </Link>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 function SuggestionCard({
   checklistId,
   suggestion,
@@ -558,6 +644,11 @@ function SuggestionCard({
     <div className="surface-subtle overflow-hidden border border-border/60">
       <div className="flex flex-wrap items-center gap-2 border-b border-border/50 bg-card/70 px-4 py-3">
         <span className="flex-1 truncate text-sm font-semibold sm:text-base">{suggestion.supplierName}</span>
+        {suggestion.supplierId === 'unassigned' && (
+          <Badge variant="destructive" className="text-[11px]">
+            {de.orders.supplierMissing}
+          </Badge>
+        )}
         <Badge variant="outline" className="font-mono text-[11px]">
           {suggestion.items.length}
         </Badge>
@@ -568,6 +659,16 @@ function SuggestionCard({
         )}
       </div>
       <div className="px-3 py-3">
+        {suggestion.supplierId === 'unassigned' && (
+          <div className="mb-3 rounded-2xl border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-900">
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+              <span>{de.orders.unassignedGroupDescription}</span>
+              <Link href="/suppliers" className="font-semibold underline underline-offset-4">
+                {de.orders.fixSupplierMappings}
+              </Link>
+            </div>
+          </div>
+        )}
         <div className="space-y-2">
           {suggestion.items.map((item) => {
             const draft = draftState[item.checklistItemId] ?? { isOrdered: false, orderedQuantity: '' };
@@ -622,8 +723,9 @@ function SuggestionCard({
               size="sm"
               onClick={handleComplete}
               disabled={saving || checkedCount === 0}
+              aria-label={de.common.complete}
             >
-              {saving ? de.common.loading : de.common.complete}
+              {saving ? de.common.loading : de.orders.createOrderFromSelection}
             </Button>
           </div>
         </div>
@@ -659,6 +761,7 @@ function OrderCard({
   const [orderedItemsDraft, setOrderedItemsDraft] = useState(() => createOrderedItemDraftState(order.order_items));
 
   const config = statusConfig[order.status] ?? statusConfig.draft;
+  const deliveredItems = order.order_items.filter((item) => item.is_delivered).length;
   const isDraft = order.status === 'draft';
   const isReadOnly = order.status === 'delivered' || order.status === 'cancelled';
   const canDeliver = order.status === 'ordered' || order.status === 'partially_delivered';
@@ -772,6 +875,11 @@ function OrderCard({
           <Badge variant="outline" className="font-mono text-[11px]">
             KW {(order.checklists as { iso_week: number }).iso_week}
           </Badge>
+          {(order.status === 'ordered' || order.status === 'partially_delivered' || order.status === 'delivered') && (
+            <Badge variant="outline" className="font-mono text-[11px]">
+              {deliveredItems}/{order.order_items.length} {de.orders.delivered}
+            </Badge>
+          )}
           <Badge variant={config.variant} className="text-[11px]">{config.label}</Badge>
         </div>
       </AccordionTrigger>
