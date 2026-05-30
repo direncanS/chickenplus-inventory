@@ -79,6 +79,7 @@ export function Sidebar({ counts, isAdmin }: SidebarProps) {
               <Link
                 key={item.href}
                 href={item.href}
+                prefetch
                 className={cn(
                   'flex items-center gap-3 rounded-2xl px-3.5 py-3 text-sm font-medium transition-all',
                   isActive
