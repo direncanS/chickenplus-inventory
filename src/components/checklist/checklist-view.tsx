@@ -383,12 +383,6 @@ export function ChecklistView({ checklist, items, isAdmin }: ChecklistViewProps)
     setReopening(false);
   }
 
-  function handlePrint() {
-    if (typeof window !== 'undefined') {
-      window.print();
-    }
-  }
-
   const checkedCount = countCheckedChecklistItems(itemStates);
   const totalCount = items.length;
   const isCompleted = localChecklistStatus === 'completed';
@@ -551,8 +545,12 @@ export function ChecklistView({ checklist, items, isAdmin }: ChecklistViewProps)
                   {de.checklist.markVisibleChecked}
                 </Button>
               )}
-              <Button variant="outline" size="sm" onClick={handlePrint}>
-                {de.checklist.print}
+              <Button
+                variant="outline"
+                size="sm"
+                render={<a href={`/api/export/${checklist.id}`} download />}
+              >
+                {de.dashboard.exportExcel}
               </Button>
               {isCompleted && isAdmin && (
                 <Button variant="outline" size="sm" onClick={handleReopen} disabled={reopening}>
