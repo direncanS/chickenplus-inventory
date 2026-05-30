@@ -8,6 +8,7 @@ import { OrderSummaryChart } from './order-summary-chart';
 import { SupplierPerformanceChart } from './supplier-performance';
 import { TopMissingProducts } from './top-missing-products';
 import { OrderedProductsTable } from './ordered-products-table';
+import { ReportInsights } from './report-insights';
 import {
   Accordion,
   AccordionContent,
@@ -88,6 +89,7 @@ export function ReportsContent({ initialData }: ReportsContentProps) {
           )}
         </div>
         <KPICards kpis={data.kpis} />
+        <ReportInsights data={data} />
       </div>
 
       {error && (

@@ -464,6 +464,8 @@ export const de = {
   // Reports
   reports: {
     title: 'Berichte',
+    eyebrow: 'Analyse',
+    description: 'Fehlmengen, Bestellungen und Lieferantenleistung fuer bessere Wochenentscheidungen auswerten.',
     period: 'Zeitraum',
     last4Weeks: 'Letzte 4 Wochen',
     lastMonth: 'Letzter Monat',
@@ -491,6 +493,20 @@ export const de = {
     count: 'Anzahl',
     product: 'Produkt',
     perChecklist: 'pro Kontrollliste',
+    insightNoDataTitle: 'Noch keine belastbaren Daten',
+    insightNoDataDescription: 'Sobald Kontrolllisten abgeschlossen sind, erscheinen hier automatische Hinweise.',
+    insightMissingUpTitle: 'Fehlmengen steigen',
+    insightMissingUpDescription: 'In {week} fehlen {count} Positionen mehr als am Anfang des Zeitraums.',
+    insightMissingDownTitle: 'Fehlmengen sinken',
+    insightMissingDownDescription: 'In {week} fehlen {count} Positionen weniger als am Anfang des Zeitraums.',
+    insightMissingStableTitle: 'Fehlmengen stabil',
+    insightMissingStableDescription: 'Der Zeitraum endet mit {count} fehlenden Positionen, ohne klaren Anstieg.',
+    insightDeliveryGoodTitle: 'Lieferquote stark',
+    insightDeliveryGoodDescription: '{rate}% der bestellten Positionen sind geliefert.',
+    insightDeliveryNeedsAttentionTitle: 'Lieferstatus pruefen',
+    insightDeliveryNeedsAttentionDescription: 'Die Lieferquote liegt bei {rate}%. Offene Lieferungen sollten geprueft werden.',
+    insightRepeatMissingTitle: 'Wiederkehrende Fehlmenge',
+    insightRepeatMissingDescription: '{product} fehlt im Zeitraum {count} Mal. Mindestbestand oder Routine pruefen.',
   },
 
   // Errors
