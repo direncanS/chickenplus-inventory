@@ -1,0 +1,146 @@
+// Auto-generated types will go here after `supabase gen types typescript`
+// For now, define the application types manually
+
+export interface Profile {
+  id: string;
+  display_name: string | null;
+  role: 'admin' | 'staff';
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface StorageLocation {
+  id: string;
+  code: string;
+  name: string;
+  sort_order: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface Category {
+  id: string;
+  storage_location_id: string;
+  name: string;
+  sort_order: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface Product {
+  id: string;
+  name: string;
+  storage_location_id: string;
+  category_id: string;
+  unit: string;
+  min_stock: number | null;
+  min_stock_max: number | null;
+  sort_order: number;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface Supplier {
+  id: string;
+  name: string;
+  contact_name: string | null;
+  phone: string | null;
+  email: string | null;
+  address: string | null;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface ProductSupplier {
+  id: string;
+  product_id: string;
+  supplier_id: string;
+  is_preferred: boolean;
+  unit_price: number | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface Checklist {
+  id: string;
+  iso_year: number;
+  iso_week: number;
+  status: 'draft' | 'in_progress' | 'completed';
+  created_by: string;
+  completed_by: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface ChecklistItem {
+  id: string;
+  checklist_id: string;
+  product_id: string;
+  product_name: string;
+  min_stock_snapshot: number | null;
+  min_stock_max_snapshot: number | null;
+  current_stock: number | null;
+  missing_amount_calculated: number | null;
+  missing_amount_final: number | null;
+  is_missing_overridden: boolean;
+  is_checked: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface Order {
+  id: string;
+  order_number: string;
+  supplier_id: string;
+  checklist_id: string;
+  status: 'draft' | 'ordered' | 'partially_delivered' | 'delivered' | 'cancelled';
+  ordered_at: string | null;
+  delivered_at: string | null;
+  notes: string | null;
+  created_by: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface OrderItem {
+  id: string;
+  order_id: string;
+  product_id: string;
+  quantity: number;
+  unit: string;
+  is_delivered: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface AuditLog {
+  id: string;
+  user_id: string;
+  action: string;
+  entity_type: string;
+  entity_id: string;
+  details: Record<string, unknown>;
+  created_at: string;
+}
+
+// Extended types with joins
+export interface ChecklistItemWithProduct extends ChecklistItem {
+  storage_location_name: string;
+  storage_location_code: string;
+  storage_location_sort_order: number;
+  category_name: string;
+  category_sort_order: number;
+  product_sort_order: number;
+  unit: string;
+}
+
+export interface OrderWithSupplier extends Order {
+  supplier_name: string;
+}
+
+export interface OrderItemWithProduct extends OrderItem {
+  product_name: string;
+}
