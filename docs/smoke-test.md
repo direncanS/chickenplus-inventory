@@ -48,12 +48,12 @@ Bu dokumanda "kullanici olusturma" ifadesi her zaman Supabase Auth uzerinden hes
 
 | Faz | Komut / Kontrol | Beklenen Sonuc | Durum | Not |
 |-----|------------------|----------------|-------|-----|
-| A / B / C oncesi | `npm run type-check` | 0 hata | `NOT RUN` | |
-| A / B / C oncesi | `npm run lint` | 0 hata | `NOT RUN` | |
-| A / B / C oncesi | `npm run test` | Tum Vitest testleri gecer | `NOT RUN` | |
-| A / B / C oncesi | `npm run build` | Production build basarili | `NOT RUN` | |
-| A oncesi | Supabase migrations uygulanmis | 11 tablo + 4 RPC mevcut | `NOT RUN` | |
-| A oncesi | Seed data yuklenmis | 7 storage location, 16 category, 126 product (suppliers seed'de yok) | `NOT RUN` | |
+| A / B / C oncesi | `npm run type-check` | 0 hata | `PASS` | 0 hata |
+| A / B / C oncesi | `npm run lint` | 0 hata | `PASS` | 0 hata |
+| A / B / C oncesi | `npm run test` | Tum Vitest testleri gecer | `PASS` | 8 dosya, 112 test |
+| A / B / C oncesi | `npm run build` | Production build basarili | `PASS` | Next.js 16.2.1 Turbopack |
+| A oncesi | Supabase migrations uygulanmis | 11 tablo + 4 RPC mevcut | `PASS` | supabase db push basarili |
+| A oncesi | Seed data yuklenmis | 7 storage location, 16 category, 126 product (suppliers seed'de yok) | `PASS` | SQL Editor ile yuklendi |
 | B oncesi | Vercel/staging deploy | HTTPS erisimi var, env degiskenleri dogru | `NOT RUN` | |
 | C oncesi | Monitoring / logs erisimi | Vercel logs + audit log erisilebilir | `NOT RUN` | |
 
@@ -67,19 +67,19 @@ Amac: Uygulamayi gelistirici olarak, gercek Supabase ve gercek browser ile uctan
 
 | ID | Oncelik | On Kosul | Veri / Kurulum | Beklenen Sonuc | Durum | Not |
 |----|---------|----------|----------------|----------------|-------|-----|
-| A-P01 | `[BLOCKER]` | Supabase staging project hazir | Hosted veya local remote project | Erisilebilir proje mevcut | `NOT RUN` | |
-| A-P02 | `[BLOCKER]` | Tum migration'lar uygulanmis | `supabase/migrations/*.sql` | 11 tablo ve 4 RPC yuklu | `NOT RUN` | |
-| A-P03 | `[BLOCKER]` | Seed yuklenmis | `supabase/seed.sql` | 7 storage location, 16 category, 126 product yuklendi. NOT: Seed yalnizca bu 3 tabloyu icerir; `suppliers` ve `product_suppliers` tablolari seed'de YOKTUR | `NOT RUN` | |
-| A-P03b | `[BLOCKER]` | Test supplier ve mapping verisi hazir | Manuel olusturma (Supabase Dashboard veya SQL) | En az 3 test supplier, 5+ product mapping, 1+ preferred mapping, 1+ mapping'siz urun mevcut. **Fixture**: `Metro Test` (preferred supplier: `Cola`, `Pommesbox`), `Transgourmet Test` (secondary: `Cola`), `Backer Test` (secondary: `Pommes`, `Mayo 10kg`). `Rotezwiebel` mapping'siz (unmapped, Nicht zugewiesen'e duser). `Lieferdienst Test` henuz yok (A3-19'da olusturulacak) | `NOT RUN` | |
+| A-P01 | `[BLOCKER]` | Supabase staging project hazir | Hosted veya local remote project | Erisilebilir proje mevcut | `PASS` | chickenplus-staging, eu-central-1, ref: ivrhgfosktnyczlwqurj |
+| A-P02 | `[BLOCKER]` | Tum migration'lar uygulanmis | `supabase/migrations/*.sql` | 11 tablo ve 4 RPC yuklu | `PASS` | supabase db push basarili (get_user_role siralama fix sonrasi) |
+| A-P03 | `[BLOCKER]` | Seed yuklenmis | `supabase/seed.sql` | 7 storage location, 16 category, 126 product yuklendi. NOT: Seed yalnizca bu 3 tabloyu icerir; `suppliers` ve `product_suppliers` tablolari seed'de YOKTUR | `PASS` | SQL Editor ile yuklendi |
+| A-P03b | `[BLOCKER]` | Test supplier ve mapping verisi hazir | Manuel olusturma (Supabase Dashboard veya SQL) | En az 3 test supplier, 5+ product mapping, 1+ preferred mapping, 1+ mapping'siz urun mevcut. **Fixture**: `Metro Test` (preferred supplier: `Cola`, `Pommesbox`), `Transgourmet Test` (secondary: `Cola`), `Backer Test` (secondary: `Pommes`, `Mayo 10kg`). `Rotezwiebel` mapping'siz (unmapped, Nicht zugewiesen'e duser). `Lieferdienst Test` henuz yok (A3-19'da olusturulacak) | `PASS` | test-suppliers.sql ile yuklendi |
 | A-P04 | `[BLOCKER]` | Vercel / staging env'leri set | `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY` | App auth + DB baglantisi calisiyor | `NOT RUN` | |
 | A-P04b | `[BLOCKER]` | Email confirmation ayari kontrol edildi | Supabase Dashboard > Auth > Providers > Email | "Confirm email" OFF veya SMTP gercekten calisiyor; Supabase Auth uzerinden olusturulan kullanici login yapabiliyor | `NOT RUN` | |
-| A-P04c | `[BLOCKER]` | Auth provisioning modeli tanimli | Dokumante edilmis karar | Kullanici olusturma yontemi net: manual (Dashboard/API), invite, veya controlled signup. Secilen model yazili | `NOT RUN` | |
+| A-P04c | `[BLOCKER]` | Auth provisioning modeli tanimli | Dokumante edilmis karar | Kullanici olusturma yontemi net: manual (Dashboard/API), invite, veya controlled signup. Secilen model yazili | `PASS` | Manuel model, docs/deployment.md'ye yazildi |
 | A-P04d | `[BLOCKER]` | Production auth exposure kontrol edildi | Supabase Auth ayarlari | Internal tool icin public signup OFF; veya acik ise neden ve hangi ek korumalar oldugu yazili | `NOT RUN` | |
-| A-P05 | `[BLOCKER]` | Deployment candidate commit sabitlenmis | Test edilecek branch/commit | Test boyunca kod sabit | `NOT RUN` | |
-| A-P06 | `[BLOCKER]` | `type-check` temiz | `npm run type-check` | 0 hata | `NOT RUN` | |
-| A-P07 | `[BLOCKER]` | `lint` temiz | `npm run lint` | 0 hata | `NOT RUN` | |
-| A-P08 | `[BLOCKER]` | `test` temiz | `npm run test` | Tum testler gecer | `NOT RUN` | |
-| A-P09 | `[BLOCKER]` | `build` temiz | `npm run build` | Production build basarili | `NOT RUN` | |
+| A-P05 | `[BLOCKER]` | Deployment candidate commit sabitlenmis | Test edilecek branch/commit | Test boyunca kod sabit | `PASS` | cf55686, GitHub push basarili |
+| A-P06 | `[BLOCKER]` | `type-check` temiz | `npm run type-check` | 0 hata | `PASS` | 0 hata |
+| A-P07 | `[BLOCKER]` | `lint` temiz | `npm run lint` | 0 hata | `PASS` | 0 hata |
+| A-P08 | `[BLOCKER]` | `test` temiz | `npm run test` | Tum testler gecer | `PASS` | 112 test, 8 dosya |
+| A-P09 | `[BLOCKER]` | `build` temiz | `npm run build` | Production build basarili | `PASS` | Next.js 16.2.1 Turbopack |
 | A-P10 | `[BLOCKER]` | Iki test hesabi hazir | Supabase Auth uzerinden 1 admin adayi + 1 staff adayi olusturuldu | Her iki kullanici login yapabiliyor | `NOT RUN` | |
 | A-P11 | `[BLOCKER]` | Staging ve production env ayrilmis | Env degiskenleri karsilastirma | Staging ve prod farkli Supabase project'e bakar; preview deploy prod DB'ye yonlenmez; service role key yalnizca server'da | `NOT RUN` | |
 
