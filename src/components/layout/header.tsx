@@ -9,6 +9,7 @@ const pageTitles: Record<string, string> = {
   '/suppliers': de.nav.suppliers,
   '/orders': de.nav.orders,
   '/archive': de.nav.archive,
+  '/reports': de.nav.reports,
   '/settings': de.nav.settings,
 };
 

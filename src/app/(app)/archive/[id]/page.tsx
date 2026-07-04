@@ -22,7 +22,7 @@ export default async function ArchiveDetailPage({
 
   const { data: checklist } = await supabase
     .from('checklists')
-    .select('id, iso_year, iso_week, status')
+    .select('id, iso_year, iso_week, checklist_date, status')
     .eq('id', id)
     .single();
 
@@ -34,7 +34,7 @@ export default async function ArchiveDetailPage({
       id, checklist_id, product_id, product_name,
       min_stock_snapshot, min_stock_max_snapshot,
       current_stock, missing_amount_calculated, missing_amount_final,
-      is_missing_overridden, is_checked,
+      is_missing_overridden, is_missing, is_checked,
       products!inner(
         sort_order,
         unit,
@@ -47,7 +47,7 @@ export default async function ArchiveDetailPage({
 
   return (
     <ChecklistView
-      checklist={checklist as { id: string; iso_year: number; iso_week: number; status: 'draft' | 'in_progress' | 'completed' }}
+      checklist={checklist as { id: string; iso_year: number; iso_week: number; checklist_date?: string; status: 'draft' | 'in_progress' | 'completed' }}
       items={transformChecklistItems(items ?? [])}
       isAdmin={isAdmin}
     />

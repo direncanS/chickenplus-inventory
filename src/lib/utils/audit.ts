@@ -8,10 +8,12 @@ type AuditAction =
   | 'checklist_reopened'
   | 'admin_bootstrapped'
   | 'order_created'
+  | 'order_auto_created'
   | 'order_status_changed'
   | 'order_delivered'
   | 'supplier_created'
-  | 'supplier_deactivated';
+  | 'supplier_deactivated'
+  | 'data_cleanup';
 
 interface AuditEntry {
   userId: string;

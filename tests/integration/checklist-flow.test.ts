@@ -4,7 +4,6 @@
  * Note: Should be re-verified with real DB after local Supabase setup
  */
 import { describe, it, expect, beforeEach } from 'vitest';
-import { calculateMissing } from '@/lib/utils/calculations';
 import { de } from '@/i18n/de';
 
 // -- Helpers that mirror server action logic without Supabase dependency --
@@ -14,10 +13,8 @@ interface ChecklistItem {
   checklist_id: string;
   min_stock_snapshot: number;
   min_stock_max_snapshot: number | null;
-  current_stock: number | null;
-  missing_amount_calculated: number;
-  missing_amount_final: number;
-  is_missing_overridden: boolean;
+  current_stock: string | null;
+  is_missing: boolean;
   is_checked: boolean;
 }
 
@@ -30,11 +27,11 @@ interface Checklist {
   items: ChecklistItem[];
 }
 
-/** Simulates updateChecklistItem server action logic */
+/** Simulates updateChecklistItem server action logic (redesigned) */
 function simulateItemUpdate(
   checklist: Checklist,
   itemId: string,
-  update: { currentStock?: number | null; isChecked?: boolean; isMissingOverridden?: boolean; missingAmountFinal?: number }
+  update: { currentStock?: string | null; isMissing?: boolean; isChecked?: boolean }
 ): { success: boolean; error?: string; checklist: Checklist } {
   if (checklist.status === 'completed') {
     return { success: false, error: de.errors.unauthorized, checklist };
@@ -45,20 +42,11 @@ function simulateItemUpdate(
     return { success: false, error: de.errors.notFound, checklist };
   }
 
-  const currentStock = update.currentStock !== undefined ? update.currentStock : item.current_stock;
-  const missingCalculated = calculateMissing(currentStock, item.min_stock_snapshot);
-  const isOverridden = update.isMissingOverridden ?? item.is_missing_overridden;
-  const missingFinal = isOverridden && update.missingAmountFinal !== undefined
-    ? update.missingAmountFinal
-    : missingCalculated;
-
   const updatedItem: ChecklistItem = {
     ...item,
-    current_stock: currentStock,
-    missing_amount_calculated: missingCalculated,
-    missing_amount_final: missingFinal,
-    is_missing_overridden: isOverridden,
-    is_checked: update.isChecked ?? item.is_checked,
+    current_stock: update.currentStock !== undefined ? update.currentStock : item.current_stock,
+    is_missing: update.isMissing !== undefined ? update.isMissing : item.is_missing,
+    is_checked: update.isChecked !== undefined ? update.isChecked : item.is_checked,
   };
 
   const newItems = checklist.items.map((i) => (i.id === itemId ? updatedItem : i));
@@ -81,11 +69,6 @@ function simulateComplete(checklist: Checklist): { success: boolean; error?: str
   const allChecked = checklist.items.every((i) => i.is_checked);
   if (!allChecked) {
     return { success: false, error: de.checklist.allCheckedRequired, checklist };
-  }
-
-  const allHaveStock = checklist.items.every((i) => i.current_stock !== null);
-  if (!allHaveStock) {
-    return { success: false, error: de.checklist.allStockRequired, checklist };
   }
 
   return {
@@ -111,9 +94,7 @@ describe('Checklist lifecycle flow (mock)', () => {
           min_stock_snapshot: 5,
           min_stock_max_snapshot: 10,
           current_stock: null,
-          missing_amount_calculated: 0,
-          missing_amount_final: 0,
-          is_missing_overridden: false,
+          is_missing: false,
           is_checked: false,
         },
         {
@@ -122,9 +103,7 @@ describe('Checklist lifecycle flow (mock)', () => {
           min_stock_snapshot: 3,
           min_stock_max_snapshot: null,
           current_stock: null,
-          missing_amount_calculated: 0,
-          missing_amount_final: 0,
-          is_missing_overridden: false,
+          is_missing: false,
           is_checked: false,
         },
       ],
@@ -132,9 +111,10 @@ describe('Checklist lifecycle flow (mock)', () => {
   });
 
   it('full flow: create → update items → complete', () => {
-    // Step 1: Update item 1
+    // Step 1: Update item 1 - stock as free text, mark as missing
     let result = simulateItemUpdate(checklist, 'item-1', {
-      currentStock: 2,
+      currentStock: '2 koli',
+      isMissing: true,
       isChecked: true,
     });
     expect(result.success).toBe(true);
@@ -142,21 +122,20 @@ describe('Checklist lifecycle flow (mock)', () => {
 
     // Auto-transition: draft → in_progress
     expect(checklist.status).toBe('in_progress');
-    expect(checklist.items[0].current_stock).toBe(2);
-    expect(checklist.items[0].missing_amount_calculated).toBe(3); // 5 - 2
-    expect(checklist.items[0].missing_amount_final).toBe(3);
+    expect(checklist.items[0].current_stock).toBe('2 koli');
+    expect(checklist.items[0].is_missing).toBe(true);
     expect(checklist.items[0].is_checked).toBe(true);
 
-    // Step 2: Update item 2
+    // Step 2: Update item 2 - stock ok, not missing
     result = simulateItemUpdate(checklist, 'item-2', {
-      currentStock: 1,
+      currentStock: 'voll',
       isChecked: true,
     });
     expect(result.success).toBe(true);
     checklist = result.checklist;
 
-    expect(checklist.items[1].current_stock).toBe(1);
-    expect(checklist.items[1].missing_amount_calculated).toBe(2); // 3 - 1
+    expect(checklist.items[1].current_stock).toBe('voll');
+    expect(checklist.items[1].is_missing).toBe(false);
     expect(checklist.items[1].is_checked).toBe(true);
 
     // Step 3: Complete
@@ -167,15 +146,14 @@ describe('Checklist lifecycle flow (mock)', () => {
   });
 
   it('rejects complete when not all items are checked', () => {
-    // Update only item 1, leave item 2 unchecked
     let result = simulateItemUpdate(checklist, 'item-1', {
-      currentStock: 5,
+      currentStock: 'voll',
       isChecked: true,
     });
     checklist = result.checklist;
 
     result = simulateItemUpdate(checklist, 'item-2', {
-      currentStock: 3,
+      currentStock: '3',
       isChecked: false,
     });
     checklist = result.checklist;
@@ -185,49 +163,50 @@ describe('Checklist lifecycle flow (mock)', () => {
     expect(completeResult.error).toBe(de.checklist.allCheckedRequired);
   });
 
-  it('rejects complete when stock values are null', () => {
-    // Check items but don't set stock
+  it('allows complete when stock values are null (stock is optional)', () => {
     let result = simulateItemUpdate(checklist, 'item-1', { isChecked: true });
     checklist = result.checklist;
     result = simulateItemUpdate(checklist, 'item-2', { isChecked: true });
     checklist = result.checklist;
 
     const completeResult = simulateComplete(checklist);
-    expect(completeResult.success).toBe(false);
-    expect(completeResult.error).toBe(de.checklist.allStockRequired);
+    expect(completeResult.success).toBe(true);
+    expect(completeResult.checklist.status).toBe('completed');
   });
 
   it('rejects update on completed checklist', () => {
     checklist.status = 'completed';
 
     const result = simulateItemUpdate(checklist, 'item-1', {
-      currentStock: 5,
+      currentStock: 'voll',
     });
     expect(result.success).toBe(false);
     expect(result.error).toBe(de.errors.unauthorized);
   });
 
-  it('handles override flow correctly', () => {
-    // Update with override
-    const result = simulateItemUpdate(checklist, 'item-1', {
-      currentStock: 2,
+  it('is_missing toggle works correctly', () => {
+    // Toggle missing on
+    let result = simulateItemUpdate(checklist, 'item-1', {
+      currentStock: 'leer',
+      isMissing: true,
       isChecked: true,
-      isMissingOverridden: true,
-      missingAmountFinal: 8, // override: order 8 instead of calculated 3
     });
     expect(result.success).toBe(true);
+    expect(result.checklist.items[0].is_missing).toBe(true);
 
-    const item = result.checklist.items[0];
-    expect(item.missing_amount_calculated).toBe(3); // server always computes
-    expect(item.missing_amount_final).toBe(8); // overridden value
-    expect(item.is_missing_overridden).toBe(true);
+    // Toggle missing off
+    result = simulateItemUpdate(result.checklist, 'item-1', {
+      isMissing: false,
+    });
+    expect(result.success).toBe(true);
+    expect(result.checklist.items[0].is_missing).toBe(false);
   });
 
   it('auto-transitions from draft to in_progress on first update', () => {
     expect(checklist.status).toBe('draft');
 
     const result = simulateItemUpdate(checklist, 'item-1', {
-      currentStock: 0,
+      currentStock: '0',
     });
     expect(result.success).toBe(true);
     expect(result.checklist.status).toBe('in_progress');
@@ -237,7 +216,7 @@ describe('Checklist lifecycle flow (mock)', () => {
     checklist.status = 'in_progress';
 
     const result = simulateItemUpdate(checklist, 'item-1', {
-      currentStock: 3,
+      currentStock: '3 koli',
     });
     expect(result.success).toBe(true);
     expect(result.checklist.status).toBe('in_progress');
@@ -245,9 +224,20 @@ describe('Checklist lifecycle flow (mock)', () => {
 
   it('returns error for non-existent item', () => {
     const result = simulateItemUpdate(checklist, 'non-existent', {
-      currentStock: 5,
+      currentStock: 'voll',
     });
     expect(result.success).toBe(false);
     expect(result.error).toBe(de.errors.notFound);
+  });
+
+  it('accepts free text stock values', () => {
+    const freeTextValues = ['voll', 'leer', '3 koli', 'halb', '1/2 Karton'];
+    for (const val of freeTextValues) {
+      const result = simulateItemUpdate(checklist, 'item-1', {
+        currentStock: val,
+      });
+      expect(result.success).toBe(true);
+      expect(result.checklist.items[0].current_stock).toBe(val);
+    }
   });
 });

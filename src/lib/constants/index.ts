@@ -44,4 +44,6 @@ export const OPEN_ORDER_STATUSES: OrderStatus[] = [
 
 export const AUTOSAVE_DEBOUNCE_MS = 800;
 
+export const MAX_CHECKLISTS_PER_MONTH = 5;
+
 export const TIMEZONE = 'Europe/Vienna';

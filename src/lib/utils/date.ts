@@ -73,6 +73,58 @@ export function formatDateVienna(
 }
 
 /**
+ * Get today's date in Europe/Vienna timezone as 'YYYY-MM-DD'.
+ */
+export function getTodayVienna(): string {
+  const now = new Date();
+  const parts = new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'Europe/Vienna',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).formatToParts(now);
+
+  const year = parts.find((p) => p.type === 'year')!.value;
+  const month = parts.find((p) => p.type === 'month')!.value;
+  const day = parts.find((p) => p.type === 'day')!.value;
+  return `${year}-${month}-${day}`;
+}
+
+/**
+ * Get the first and last day of the current month in Europe/Vienna timezone.
+ */
+export function getCurrentMonthRange(): { minDate: string; maxDate: string } {
+  const today = getTodayVienna();
+  const [year, month] = today.split('-').map(Number);
+
+  const minDate = `${year}-${String(month).padStart(2, '0')}-01`;
+
+  // Last day of current month
+  const lastDay = new Date(year, month, 0).getDate();
+  const maxDate = `${year}-${String(month).padStart(2, '0')}-${String(lastDay).padStart(2, '0')}`;
+
+  return { minDate, maxDate };
+}
+
+/**
+ * Check if a date string (YYYY-MM-DD) is in the current month (Vienna timezone).
+ */
+export function isInCurrentMonth(dateStr: string): boolean {
+  const today = getTodayVienna();
+  const [todayYear, todayMonth] = today.split('-').map(Number);
+  const [dateYear, dateMonth] = dateStr.split('-').map(Number);
+  return todayYear === dateYear && todayMonth === dateMonth;
+}
+
+/**
+ * Format a date string (YYYY-MM-DD) as 'DD.MM.YYYY'.
+ */
+export function formatDateGerman(dateStr: string): string {
+  const [year, month, day] = dateStr.split('-');
+  return `${day}.${month}.${year}`;
+}
+
+/**
  * Format a datetime in Europe/Vienna timezone for display.
  */
 export function formatDateTimeVienna(date: Date | string): string {

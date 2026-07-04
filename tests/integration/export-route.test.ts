@@ -22,8 +22,8 @@ interface ExportItem {
   productName: string;
   minStockSnapshot: number | null;
   minStockMaxSnapshot: number | null;
-  currentStock: number | null;
-  missingAmountFinal: number | null;
+  currentStock: string | null;
+  isMissing: boolean;
   unit: string;
   categoryName: string;
   storageName: string;
@@ -89,8 +89,8 @@ describe('Export route behavior (mock)', () => {
       productName: 'Hähnchenbrust',
       minStockSnapshot: 5,
       minStockMaxSnapshot: 10,
-      currentStock: 2,
-      missingAmountFinal: 8,
+      currentStock: '2',
+      isMissing: true,
       unit: 'kg',
       categoryName: 'Fleisch',
       storageName: 'Kühlhaus',
@@ -99,8 +99,8 @@ describe('Export route behavior (mock)', () => {
       productName: 'Pommes',
       minStockSnapshot: 3,
       minStockMaxSnapshot: null,
-      currentStock: 1,
-      missingAmountFinal: 2,
+      currentStock: 'voll',
+      isMissing: false,
       unit: 'karton',
       categoryName: 'TK',
       storageName: 'Tiefkühler',

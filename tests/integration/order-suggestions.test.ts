@@ -4,7 +4,6 @@
  * Note: Should be re-verified with real DB after local Supabase setup
  */
 import { describe, it, expect } from 'vitest';
-import { suggestedOrderQuantity } from '@/lib/utils/calculations';
 import { OPEN_ORDER_STATUSES } from '@/lib/constants';
 
 // -- Types mirroring the data structures in generateOrderSuggestions --
@@ -13,10 +12,9 @@ interface ChecklistItem {
   id: string;
   product_id: string;
   product_name: string;
-  current_stock: number | null;
   min_stock_snapshot: number;
   min_stock_max_snapshot: number | null;
-  missing_amount_final: number;
+  is_missing: boolean;
   unit: string;
 }
 
@@ -48,7 +46,9 @@ interface SuggestionGroup {
 const NOT_ASSIGNED = 'Nicht zugewiesen';
 
 /**
- * Simulates generateOrderSuggestions logic without Supabase
+ * Simulates generateOrderSuggestions logic without Supabase (redesigned)
+ * - Filter: is_missing === true (instead of missing_amount_final > 0)
+ * - Quantity: min_stock_max_snapshot ?? min_stock_snapshot ?? 1
  */
 function simulateOrderSuggestions(
   checklistId: string,
@@ -56,8 +56,8 @@ function simulateOrderSuggestions(
   preferredSuppliers: PreferredSupplier[],
   existingOrderItems: ExistingOrderItem[]
 ): SuggestionGroup[] {
-  // Filter items with missing amounts > 0
-  const missingItems = items.filter((i) => i.missing_amount_final > 0);
+  // Filter items marked as missing
+  const missingItems = items.filter((i) => i.is_missing);
   if (missingItems.length === 0) return [];
 
   // Determine products with open orders
@@ -90,11 +90,7 @@ function simulateOrderSuggestions(
       });
     }
 
-    const quantity = suggestedOrderQuantity(
-      item.current_stock,
-      item.min_stock_snapshot,
-      item.min_stock_max_snapshot
-    );
+    const quantity = item.min_stock_max_snapshot ?? item.min_stock_snapshot ?? 1;
 
     supplierMap.get(supplierId)!.items.push({
       productId: item.product_id,
@@ -115,8 +111,8 @@ describe('Order suggestion grouping (mock)', () => {
 
   it('groups items by preferred supplier', () => {
     const items: ChecklistItem[] = [
-      { id: 'i1', product_id: 'p1', product_name: 'Hähnchenbrust', current_stock: 2, min_stock_snapshot: 5, min_stock_max_snapshot: 10, missing_amount_final: 8, unit: 'kg' },
-      { id: 'i2', product_id: 'p2', product_name: 'Pommes', current_stock: 1, min_stock_snapshot: 3, min_stock_max_snapshot: null, missing_amount_final: 2, unit: 'karton' },
+      { id: 'i1', product_id: 'p1', product_name: 'Hähnchenbrust', min_stock_snapshot: 5, min_stock_max_snapshot: 10, is_missing: true, unit: 'kg' },
+      { id: 'i2', product_id: 'p2', product_name: 'Pommes', min_stock_snapshot: 3, min_stock_max_snapshot: null, is_missing: true, unit: 'karton' },
     ];
 
     const preferredSuppliers: PreferredSupplier[] = [
@@ -129,13 +125,13 @@ describe('Order suggestion grouping (mock)', () => {
     expect(result).toHaveLength(1);
     expect(result[0].supplierName).toBe('Metro');
     expect(result[0].items).toHaveLength(2);
-    expect(result[0].items[0].quantity).toBe(8); // max(0, 10 - 2)
-    expect(result[0].items[1].quantity).toBe(2); // max(0, 3 - 1)
+    expect(result[0].items[0].quantity).toBe(10); // min_stock_max_snapshot
+    expect(result[0].items[1].quantity).toBe(3); // min_stock_snapshot (no max)
   });
 
   it('puts unassigned products in "Nicht zugewiesen" group', () => {
     const items: ChecklistItem[] = [
-      { id: 'i1', product_id: 'p1', product_name: 'Hähnchenbrust', current_stock: 2, min_stock_snapshot: 5, min_stock_max_snapshot: null, missing_amount_final: 3, unit: 'kg' },
+      { id: 'i1', product_id: 'p1', product_name: 'Hähnchenbrust', min_stock_snapshot: 5, min_stock_max_snapshot: null, is_missing: true, unit: 'kg' },
     ];
 
     const result = simulateOrderSuggestions(checklistId, items, [], []);
@@ -148,8 +144,8 @@ describe('Order suggestion grouping (mock)', () => {
 
   it('separates items across multiple suppliers', () => {
     const items: ChecklistItem[] = [
-      { id: 'i1', product_id: 'p1', product_name: 'Hähnchenbrust', current_stock: 2, min_stock_snapshot: 5, min_stock_max_snapshot: null, missing_amount_final: 3, unit: 'kg' },
-      { id: 'i2', product_id: 'p2', product_name: 'Pommes', current_stock: 0, min_stock_snapshot: 5, min_stock_max_snapshot: null, missing_amount_final: 5, unit: 'karton' },
+      { id: 'i1', product_id: 'p1', product_name: 'Hähnchenbrust', min_stock_snapshot: 5, min_stock_max_snapshot: null, is_missing: true, unit: 'kg' },
+      { id: 'i2', product_id: 'p2', product_name: 'Pommes', min_stock_snapshot: 5, min_stock_max_snapshot: null, is_missing: true, unit: 'karton' },
     ];
 
     const preferredSuppliers: PreferredSupplier[] = [
@@ -170,7 +166,7 @@ describe('Order suggestion grouping (mock)', () => {
 
   it('falls back to unassigned when preferred supplier is inactive', () => {
     const items: ChecklistItem[] = [
-      { id: 'i1', product_id: 'p1', product_name: 'Hähnchenbrust', current_stock: 2, min_stock_snapshot: 5, min_stock_max_snapshot: null, missing_amount_final: 3, unit: 'kg' },
+      { id: 'i1', product_id: 'p1', product_name: 'Hähnchenbrust', min_stock_snapshot: 5, min_stock_max_snapshot: null, is_missing: true, unit: 'kg' },
     ];
 
     const preferredSuppliers: PreferredSupplier[] = [
@@ -186,8 +182,8 @@ describe('Order suggestion grouping (mock)', () => {
 
   it('marks products with existing open orders', () => {
     const items: ChecklistItem[] = [
-      { id: 'i1', product_id: 'p1', product_name: 'Hähnchenbrust', current_stock: 2, min_stock_snapshot: 5, min_stock_max_snapshot: null, missing_amount_final: 3, unit: 'kg' },
-      { id: 'i2', product_id: 'p2', product_name: 'Pommes', current_stock: 0, min_stock_snapshot: 5, min_stock_max_snapshot: null, missing_amount_final: 5, unit: 'karton' },
+      { id: 'i1', product_id: 'p1', product_name: 'Hähnchenbrust', min_stock_snapshot: 5, min_stock_max_snapshot: null, is_missing: true, unit: 'kg' },
+      { id: 'i2', product_id: 'p2', product_name: 'Pommes', min_stock_snapshot: 5, min_stock_max_snapshot: null, is_missing: true, unit: 'karton' },
     ];
 
     const existingOrderItems: ExistingOrderItem[] = [
@@ -205,7 +201,7 @@ describe('Order suggestion grouping (mock)', () => {
 
   it('does not mark closed orders as open', () => {
     const items: ChecklistItem[] = [
-      { id: 'i1', product_id: 'p1', product_name: 'Hähnchenbrust', current_stock: 2, min_stock_snapshot: 5, min_stock_max_snapshot: null, missing_amount_final: 3, unit: 'kg' },
+      { id: 'i1', product_id: 'p1', product_name: 'Hähnchenbrust', min_stock_snapshot: 5, min_stock_max_snapshot: null, is_missing: true, unit: 'kg' },
     ];
 
     const existingOrderItems: ExistingOrderItem[] = [
@@ -220,7 +216,7 @@ describe('Order suggestion grouping (mock)', () => {
 
   it('ignores orders from different checklists', () => {
     const items: ChecklistItem[] = [
-      { id: 'i1', product_id: 'p1', product_name: 'Hähnchenbrust', current_stock: 2, min_stock_snapshot: 5, min_stock_max_snapshot: null, missing_amount_final: 3, unit: 'kg' },
+      { id: 'i1', product_id: 'p1', product_name: 'Hähnchenbrust', min_stock_snapshot: 5, min_stock_max_snapshot: null, is_missing: true, unit: 'kg' },
     ];
 
     const existingOrderItems: ExistingOrderItem[] = [
@@ -232,9 +228,9 @@ describe('Order suggestion grouping (mock)', () => {
     expect(result[0].items[0].hasOpenOrder).toBe(false);
   });
 
-  it('returns empty array when no items have missing amounts', () => {
+  it('returns empty array when no items are marked as missing', () => {
     const items: ChecklistItem[] = [
-      { id: 'i1', product_id: 'p1', product_name: 'Hähnchenbrust', current_stock: 10, min_stock_snapshot: 5, min_stock_max_snapshot: null, missing_amount_final: 0, unit: 'kg' },
+      { id: 'i1', product_id: 'p1', product_name: 'Hähnchenbrust', min_stock_snapshot: 5, min_stock_max_snapshot: null, is_missing: false, unit: 'kg' },
     ];
 
     const result = simulateOrderSuggestions(checklistId, items, [], []);
@@ -242,25 +238,23 @@ describe('Order suggestion grouping (mock)', () => {
     expect(result).toEqual([]);
   });
 
-  it('calculates quantity using minStockMax when available', () => {
+  it('uses min_stock_max_snapshot for quantity when available', () => {
     const items: ChecklistItem[] = [
-      { id: 'i1', product_id: 'p1', product_name: 'Hähnchenbrust', current_stock: 2, min_stock_snapshot: 5, min_stock_max_snapshot: 10, missing_amount_final: 8, unit: 'kg' },
+      { id: 'i1', product_id: 'p1', product_name: 'Hähnchenbrust', min_stock_snapshot: 5, min_stock_max_snapshot: 10, is_missing: true, unit: 'kg' },
     ];
 
     const result = simulateOrderSuggestions(checklistId, items, [], []);
 
-    // suggestedOrderQuantity(2, 5, 10) = max(0, 10 - 2) = 8
-    expect(result[0].items[0].quantity).toBe(8);
+    expect(result[0].items[0].quantity).toBe(10);
   });
 
-  it('calculates quantity using minStock when minStockMax is null', () => {
+  it('uses min_stock_snapshot for quantity when min_stock_max is null', () => {
     const items: ChecklistItem[] = [
-      { id: 'i1', product_id: 'p1', product_name: 'Hähnchenbrust', current_stock: 2, min_stock_snapshot: 5, min_stock_max_snapshot: null, missing_amount_final: 3, unit: 'kg' },
+      { id: 'i1', product_id: 'p1', product_name: 'Hähnchenbrust', min_stock_snapshot: 5, min_stock_max_snapshot: null, is_missing: true, unit: 'kg' },
     ];
 
     const result = simulateOrderSuggestions(checklistId, items, [], []);
 
-    // suggestedOrderQuantity(2, 5, null) = max(0, 5 - 2) = 3
-    expect(result[0].items[0].quantity).toBe(3);
+    expect(result[0].items[0].quantity).toBe(5);
   });
 });

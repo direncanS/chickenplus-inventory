@@ -1,18 +1,19 @@
 import { createServerClient } from '@/lib/supabase/server';
 import { de } from '@/i18n/de';
-import { getISOWeekAndYear } from '@/lib/utils/date';
+import { getTodayVienna, getCurrentMonthRange } from '@/lib/utils/date';
 import { CreateChecklistButton } from '@/components/checklist/create-checklist-button';
 import { ChecklistView } from '@/components/checklist/checklist-view';
 import { transformChecklistItems } from '@/lib/utils/transform';
 
 export default async function ChecklistPage() {
   const supabase = await createServerClient();
-  const { isoYear, isoWeek } = getISOWeekAndYear();
+  const todayDate = getTodayVienna();
+  const { minDate, maxDate } = getCurrentMonthRange();
 
   // Fetch active checklist
   const { data: activeChecklist } = await supabase
     .from('checklists')
-    .select('id, iso_year, iso_week, status, created_by, completed_by, created_at')
+    .select('id, iso_year, iso_week, checklist_date, status, created_by, completed_by, created_at')
     .in('status', ['draft', 'in_progress'])
     .single();
 
@@ -27,16 +28,15 @@ export default async function ChecklistPage() {
   const isAdmin = profile?.role === 'admin';
 
   if (!activeChecklist) {
-    // Also check for the latest completed checklist for this week
-    const { data: completedThisWeek } = await supabase
+    // Check for latest completed checklist for today
+    const { data: completedToday } = await supabase
       .from('checklists')
-      .select('id, iso_year, iso_week, status')
-      .eq('iso_year', isoYear)
-      .eq('iso_week', isoWeek)
+      .select('id, iso_year, iso_week, checklist_date, status')
+      .eq('checklist_date', todayDate)
       .eq('status', 'completed')
       .single();
 
-    if (completedThisWeek) {
+    if (completedToday) {
       // Show completed checklist with reopen option (admin only)
       const { data: items } = await supabase
         .from('checklist_items')
@@ -44,7 +44,7 @@ export default async function ChecklistPage() {
           id, checklist_id, product_id, product_name,
           min_stock_snapshot, min_stock_max_snapshot,
           current_stock, missing_amount_calculated, missing_amount_final,
-          is_missing_overridden, is_checked,
+          is_missing_overridden, is_missing, is_checked,
           products!inner(
             sort_order,
             unit,
@@ -52,24 +52,28 @@ export default async function ChecklistPage() {
             categories!inner(name, sort_order)
           )
         `)
-        .eq('checklist_id', completedThisWeek.id)
+        .eq('checklist_id', completedToday.id)
         .order('id');
 
       return (
         <ChecklistView
-          checklist={{ ...completedThisWeek, status: 'completed' as const }}
+          checklist={{ ...completedToday, status: 'completed' as const }}
           items={transformChecklistItems(items ?? [])}
           isAdmin={isAdmin}
         />
       );
     }
 
-    // No checklist at all — show create button
+    // No checklist at all — show create button with date picker
     return (
       <div className="flex flex-col items-center justify-center py-12 space-y-4">
         <p className="font-medium">{de.checklist.noActive}</p>
         <p className="text-sm text-muted-foreground">{de.checklist.noActiveDescription}</p>
-        <CreateChecklistButton week={isoWeek} />
+        <CreateChecklistButton
+          todayDate={todayDate}
+          minDate={minDate}
+          maxDate={maxDate}
+        />
       </div>
     );
   }

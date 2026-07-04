@@ -21,10 +21,11 @@ export interface TransformedChecklistItem {
   product_name: string;
   min_stock_snapshot: number | null;
   min_stock_max_snapshot: number | null;
-  current_stock: number | null;
+  current_stock: string | null;
   missing_amount_calculated: number | null;
   missing_amount_final: number | null;
   is_missing_overridden: boolean;
+  is_missing: boolean;
   is_checked: boolean;
   products: {
     sort_order: number;
