@@ -12,6 +12,9 @@ ALTER TABLE checklists ALTER COLUMN checklist_date SET NOT NULL;
 --    - New parameter: p_checklist_date
 --    - New check: monthly limit (max 5 per month)
 -- ============================================
+-- Drop old 3-parameter overload to prevent PostgREST ambiguity
+DROP FUNCTION IF EXISTS rpc_create_checklist_with_snapshot(INTEGER, INTEGER, UUID);
+
 CREATE OR REPLACE FUNCTION rpc_create_checklist_with_snapshot(
   p_iso_year INTEGER,
   p_iso_week INTEGER,

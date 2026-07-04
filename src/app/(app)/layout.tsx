@@ -1,12 +1,28 @@
+import { redirect } from 'next/navigation';
 import { Sidebar } from '@/components/layout/sidebar';
 import { BottomNav } from '@/components/layout/bottom-nav';
 import { Header } from '@/components/layout/header';
+import { createServerClient } from '@/lib/supabase/server';
+import { getActiveProfile } from '@/lib/supabase/auth-helpers';
 
-export default function AppLayout({
+export default async function AppLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
+  const supabase = await createServerClient();
+  const { data: { user } } = await supabase.auth.getUser();
+
+  if (!user) {
+    redirect('/login');
+  }
+
+  const profile = await getActiveProfile(supabase, user.id);
+
+  if (!profile) {
+    redirect('/deactivated');
+  }
+
   return (
     <div className="min-h-screen">
       <Sidebar />

@@ -30,6 +30,8 @@ export const de = {
     loginError: 'Anmeldung fehlgeschlagen. Bitte überprüfen Sie Ihre Eingaben.',
     notLoggedIn: 'Nicht angemeldet',
     accountDeactivated: 'Konto deaktiviert',
+    accountDeactivatedDescription: 'Dieses Konto ist deaktiviert und kann die Anwendung derzeit nicht verwenden.',
+    accountDeactivatedHelp: 'Bitte wenden Sie sich an einen Administrator, um den Zugriff wieder aktivieren zu lassen.',
     setupTitle: 'Admin-Einrichtung',
     setupDescription: 'Richten Sie das erste Admin-Konto ein.',
     setupButton: 'Als Admin einrichten',

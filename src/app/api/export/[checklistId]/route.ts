@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createServerClient } from '@/lib/supabase/server';
+import { getActiveProfile } from '@/lib/supabase/auth-helpers';
 import { generateChecklistExcel } from '@/lib/utils/excel-export';
 import { logAudit } from '@/lib/utils/audit';
 import { logger } from '@/lib/utils/logger';
@@ -17,6 +18,11 @@ export async function GET(
 
     if (!user) {
       return NextResponse.json({ error: de.export.notLoggedIn }, { status: 401 });
+    }
+
+    const profile = await getActiveProfile(supabase, user.id);
+    if (!profile) {
+      return NextResponse.json({ error: de.auth.accountDeactivated }, { status: 403 });
     }
 
     // Fetch checklist

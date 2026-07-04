@@ -13,6 +13,13 @@ export async function middleware(request: NextRequest) {
     return supabaseResponse;
   }
 
+  if (pathname === '/deactivated') {
+    if (!user) {
+      return NextResponse.redirect(new URL('/login', request.url));
+    }
+    return supabaseResponse;
+  }
+
   // Setup route: special handling
   if (pathname === '/setup') {
     if (!user) {
