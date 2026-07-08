@@ -1,6 +1,8 @@
 'use server';
 
 import { revalidatePath } from 'next/cache';
+import { after } from 'next/server';
+import { createAdminClient } from '@/lib/supabase/admin';
 import { createServerClient } from '@/lib/supabase/server';
 import { getActiveProfile } from '@/lib/supabase/auth-helpers';
 import { logAudit } from '@/lib/utils/audit';
@@ -10,6 +12,38 @@ import { createChecklistSchema, updateChecklistItemSchema, completeChecklistSche
 import { de } from '@/i18n/de';
 import { z } from 'zod';
 import { OPEN_ORDER_STATUSES } from '@/lib/constants';
+
+type OrderGenerationStatus = 'idle' | 'pending' | 'running' | 'completed' | 'failed';
+
+type ChecklistSupplierRow = {
+  product_id: string;
+  supplier_id: string;
+  suppliers:
+    | { id: string; name: string; is_active: boolean }
+    | Array<{ id: string; name: string; is_active: boolean }>;
+};
+
+type ExistingOrderItemRow = {
+  product_id: string;
+  orders:
+    | { checklist_id: string; status: string }
+    | Array<{ checklist_id: string; status: string }>;
+};
+
+type MissingChecklistItemRow = {
+  product_id: string;
+  product_name: string;
+  min_stock_snapshot: number | null;
+  min_stock_max_snapshot: number | null;
+  products:
+    | { unit: string | null }
+    | Array<{ unit: string | null }>;
+};
+
+function unwrapRelation<T>(value: T | T[] | null | undefined): T | undefined {
+  if (Array.isArray(value)) return value[0];
+  return value ?? undefined;
+}
 
 export async function createChecklist(input: { checklistDate: string }) {
   const supabase = await createServerClient();
@@ -158,45 +192,101 @@ export async function updateChecklistItem(input: z.infer<typeof updateChecklistI
  * Groups is_missing=true items by preferred supplier and creates draft orders.
  * Skips products without a preferred supplier or with existing open orders.
  */
-async function autoCreateOrders(
+async function autoCreateOrdersInBackground(
   checklistId: string,
   userId: string
 ): Promise<{ ordersCreated: number }> {
-  const supabase = await createServerClient();
+  const supabase = createAdminClient();
   let ordersCreated = 0;
 
   try {
+    const startedAt = new Date().toISOString();
+    const { data: runningChecklist, error: statusError } = await supabase
+      .from('checklists')
+      .update({
+        order_generation_status: 'running',
+        order_generation_started_at: startedAt,
+        order_generation_finished_at: null,
+        order_generation_error: null,
+      })
+      .eq('id', checklistId)
+      .eq('status', 'completed')
+      .eq('order_generation_status', 'pending')
+      .select('id')
+      .maybeSingle();
+
+    if (statusError) {
+      throw new Error(statusError.message);
+    }
+
+    if (!runningChecklist) {
+      logger.info('Background order generation aborted', {
+        checklistId,
+        reason: 'checklist_no_longer_pending',
+      });
+      return { ordersCreated: 0 };
+    }
+
     // Get all missing items
-    const { data: missingItems } = await supabase
+    const { data: missingItems, error: missingItemsError } = await supabase
       .from('checklist_items')
-      .select('product_id, product_name, min_stock_snapshot, min_stock_max_snapshot')
+      .select(`
+        product_id, product_name, min_stock_snapshot, min_stock_max_snapshot,
+        products!inner(unit)
+      `)
       .eq('checklist_id', checklistId)
       .eq('is_missing', true);
 
+    if (missingItemsError) {
+      throw new Error(missingItemsError.message);
+    }
+
     if (!missingItems || missingItems.length === 0) {
+      await supabase
+        .from('checklists')
+        .update({
+          order_generation_status: 'completed',
+          order_generation_finished_at: new Date().toISOString(),
+          order_generation_orders_created: 0,
+          order_generation_error: null,
+        })
+        .eq('id', checklistId);
+
+      revalidatePath('/checklist');
+      revalidatePath('/dashboard');
+      revalidatePath('/orders');
       return { ordersCreated: 0 };
     }
 
     const productIds = missingItems.map((i) => i.product_id);
 
     // Get preferred suppliers
-    const { data: productSuppliers } = await supabase
+    const { data: productSuppliers, error: preferredSuppliersError } = await supabase
       .from('product_suppliers')
       .select('product_id, supplier_id, suppliers!inner(id, name, is_active)')
       .in('product_id', productIds)
       .eq('is_preferred', true);
 
+    if (preferredSuppliersError) {
+      throw new Error(preferredSuppliersError.message);
+    }
+
     // Check existing open orders for these products
-    const { data: existingOrderItems } = await supabase
+    const { data: existingOrderItems, error: existingOrdersError } = await supabase
       .from('order_items')
       .select('product_id, orders!inner(checklist_id, status)')
       .in('product_id', productIds);
 
+    if (existingOrdersError) {
+      throw new Error(existingOrdersError.message);
+    }
+
     const productsWithOpenOrders = new Set(
-      (existingOrderItems ?? [])
+      ((existingOrderItems ?? []) as ExistingOrderItemRow[])
         .filter((o) => {
-          const order = o.orders as unknown as { checklist_id: string; status: string };
-          return OPEN_ORDER_STATUSES.includes(order.status as never);
+          const order = unwrapRelation(o.orders);
+          return order?.checklist_id === checklistId &&
+            OPEN_ORDER_STATUSES.includes(order.status as never);
         })
         .map((o) => o.product_id)
     );
@@ -207,15 +297,15 @@ async function autoCreateOrders(
       items: Array<{ productId: string; quantity: number; unit: string }>;
     }>();
 
-    for (const item of missingItems) {
+    for (const item of missingItems as MissingChecklistItemRow[]) {
       // Skip if product already has open order
       if (productsWithOpenOrders.has(item.product_id)) continue;
 
-      const preferredSupplier = (productSuppliers ?? []).find(
+      const preferredSupplier = ((productSuppliers ?? []) as ChecklistSupplierRow[]).find(
         (ps) => ps.product_id === item.product_id
       );
 
-      const supplier = preferredSupplier?.suppliers as unknown as { id: string; name: string; is_active: boolean } | undefined;
+      const supplier = unwrapRelation(preferredSupplier?.suppliers);
 
       // Skip products without active preferred supplier
       if (!supplier?.is_active) continue;
@@ -225,13 +315,7 @@ async function autoCreateOrders(
       }
 
       const quantity = item.min_stock_max_snapshot ?? item.min_stock_snapshot ?? 1;
-
-      // Get product unit
-      const { data: product } = await supabase
-        .from('products')
-        .select('unit')
-        .eq('id', item.product_id)
-        .single();
+      const product = unwrapRelation(item.products);
 
       supplierGroups.get(supplier.id)!.items.push({
         productId: item.product_id,
@@ -239,6 +323,8 @@ async function autoCreateOrders(
         unit: product?.unit ?? 'stueck',
       });
     }
+
+    let backgroundError: string | null = null;
 
     // Create orders via RPC
     for (const [, group] of supplierGroups) {
@@ -256,37 +342,72 @@ async function autoCreateOrders(
       });
 
       if (error) {
+        backgroundError = error.message;
         logger.error('Auto-create order failed', {
           supplierId: group.supplierId,
           checklistId,
           error: error.message,
         });
-        continue;
+        break;
       }
 
-      const result = data as { success: boolean; order_id?: string; order_number?: string };
+      const result = data as { success: boolean; error?: string; order_id?: string; order_number?: string };
 
-      if (result.success) {
-        ordersCreated++;
-        await logAudit({
-          userId,
-          action: 'order_auto_created',
-          entityType: 'order',
-          entityId: result.order_id!,
-          details: {
-            orderNumber: result.order_number,
-            supplierId: group.supplierId,
-            checklistId,
-            itemCount: group.items.length,
-          },
+      if (!result.success) {
+        backgroundError = result.error ?? 'rpc_create_order_with_items returned unsuccessful result';
+        logger.error('Auto-create order returned unsuccessful result', {
+          supplierId: group.supplierId,
+          checklistId,
+          error: backgroundError,
         });
+        break;
       }
+
+      ordersCreated++;
+      await logAudit({
+        userId,
+        action: 'order_auto_created',
+        entityType: 'order',
+        entityId: result.order_id!,
+        details: {
+          orderNumber: result.order_number,
+          supplierId: group.supplierId,
+          checklistId,
+          itemCount: group.items.length,
+        },
+      });
     }
+
+    await supabase
+      .from('checklists')
+      .update({
+        order_generation_status: (backgroundError ? 'failed' : 'completed') as OrderGenerationStatus,
+        order_generation_finished_at: new Date().toISOString(),
+        order_generation_orders_created: ordersCreated,
+        order_generation_error: backgroundError ? backgroundError.slice(0, 500) : null,
+      })
+      .eq('id', checklistId);
   } catch (err) {
+    const errorMessage = err instanceof Error ? err.message : 'Unknown';
+
     logger.error('Auto-create orders exception', {
       checklistId,
-      error: err instanceof Error ? err.message : 'Unknown',
+      error: errorMessage,
     });
+
+    await supabase
+      .from('checklists')
+      .update({
+        order_generation_status: 'failed',
+        order_generation_finished_at: new Date().toISOString(),
+        order_generation_orders_created: ordersCreated,
+        order_generation_error: errorMessage.slice(0, 500),
+      })
+      .eq('id', checklistId);
+  } finally {
+    revalidatePath('/checklist');
+    revalidatePath('/dashboard');
+    revalidatePath('/orders');
   }
 
   return { ordersCreated };
@@ -306,7 +427,7 @@ export async function completeChecklist(input: z.infer<typeof completeChecklistS
     // Server-side validation: fresh read of all items
     const { data: items } = await supabase
       .from('checklist_items')
-      .select('is_checked, current_stock')
+      .select('is_checked')
       .eq('checklist_id', validated.checklistId);
 
     if (!items || items.length === 0) {
@@ -318,17 +439,18 @@ export async function completeChecklist(input: z.infer<typeof completeChecklistS
       return { error: de.checklist.allCheckedRequired };
     }
 
-    const allStockProvided = items.every(
-      (i) => typeof i.current_stock === 'string' && i.current_stock.trim() !== ''
-    );
-    if (!allStockProvided) {
-      return { error: de.checklist.allStockRequired };
-    }
-
     // Complete
     const { data: completedChecklist, error } = await supabase
       .from('checklists')
-      .update({ status: 'completed', completed_by: user.id })
+      .update({
+        status: 'completed',
+        completed_by: user.id,
+        order_generation_status: 'pending',
+        order_generation_started_at: null,
+        order_generation_finished_at: null,
+        order_generation_orders_created: 0,
+        order_generation_error: null,
+      })
       .eq('id', validated.checklistId)
       .in('status', ['draft', 'in_progress'])
       .select('id')
@@ -352,14 +474,18 @@ export async function completeChecklist(input: z.infer<typeof completeChecklistS
       details: { itemCount: items.length },
     });
 
-    // Auto-create orders for missing items (non-blocking for completion)
-    const { ordersCreated } = await autoCreateOrders(validated.checklistId, user.id);
+    after(async () => {
+      await autoCreateOrdersInBackground(validated.checklistId, user.id);
+    });
 
-    logger.info('Checklist completed', { checklistId: validated.checklistId, ordersCreated });
+    logger.info('Checklist completed', {
+      checklistId: validated.checklistId,
+      orderGenerationStatus: 'pending',
+    });
     revalidatePath('/checklist');
     revalidatePath('/dashboard');
     revalidatePath('/orders');
-    return { success: true, ordersCreated };
+    return { success: true, orderGenerationStatus: 'pending' as const };
   } catch (err) {
     if (err instanceof z.ZodError) {
       return { error: de.errors.invalidInput };
@@ -387,7 +513,15 @@ export async function reopenChecklist(input: z.infer<typeof reopenChecklistSchem
 
     const { error } = await supabase
       .from('checklists')
-      .update({ status: 'in_progress', completed_by: null })
+      .update({
+        status: 'in_progress',
+        completed_by: null,
+        order_generation_status: 'idle',
+        order_generation_started_at: null,
+        order_generation_finished_at: null,
+        order_generation_orders_created: 0,
+        order_generation_error: null,
+      })
       .eq('id', validated.checklistId)
       .eq('status', 'completed');
 

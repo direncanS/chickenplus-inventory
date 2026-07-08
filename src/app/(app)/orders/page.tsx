@@ -17,7 +17,11 @@ export default async function OrdersPage() {
   // Fetch active checklist for order suggestions
   const { data: activeChecklist } = await supabase
     .from('checklists')
-    .select('id, iso_year, iso_week, status')
+    .select(`
+      id, iso_year, iso_week, status,
+      order_generation_status, order_generation_started_at, order_generation_finished_at,
+      order_generation_orders_created, order_generation_error
+    `)
     .in('status', ['draft', 'in_progress', 'completed'])
     .order('created_at', { ascending: false })
     .limit(1)
@@ -30,7 +34,7 @@ export default async function OrdersPage() {
       id, order_number, status, ordered_at, delivered_at, notes, created_at,
       suppliers!inner(id, name),
       checklists!inner(iso_year, iso_week),
-      order_items(id, product_id, quantity, unit, is_delivered,
+      order_items(id, product_id, quantity, unit, is_delivered, is_ordered, ordered_quantity,
         products!inner(name))
     `)
     .order('created_at', { ascending: false });

@@ -8,7 +8,7 @@ describe('transformChecklistItems', () => {
         id: '1',
         checklist_id: 'c1',
         product_id: 'p1',
-        product_name: 'Hähnchenbrust',
+        product_name: 'Chicken Breast',
         min_stock_snapshot: 5,
         min_stock_max_snapshot: 10,
         current_stock: '3',
@@ -21,8 +21,8 @@ describe('transformChecklistItems', () => {
           {
             sort_order: 1,
             unit: 'kg',
-            storage_locations: [{ name: 'Kühlhaus', code: 'KH', sort_order: 1 }],
-            categories: [{ name: 'Fleisch', sort_order: 1 }],
+            storage_locations: [{ name: 'Cold Room', code: 'KH', sort_order: 1 }],
+            categories: [{ name: 'Meat', sort_order: 1 }],
           },
         ],
       },
@@ -32,8 +32,8 @@ describe('transformChecklistItems', () => {
     expect(result).toHaveLength(1);
     expect(result[0].products.sort_order).toBe(1);
     expect(result[0].products.unit).toBe('kg');
-    expect(result[0].products.storage_locations).toEqual({ name: 'Kühlhaus', code: 'KH', sort_order: 1 });
-    expect(result[0].products.categories).toEqual({ name: 'Fleisch', sort_order: 1 });
+    expect(result[0].products.storage_locations).toEqual({ name: 'Cold Room', code: 'KH', sort_order: 1 });
+    expect(result[0].products.categories).toEqual({ name: 'Meat', sort_order: 1 });
   });
 
   it('handles already-unwrapped single objects', () => {
@@ -53,15 +53,15 @@ describe('transformChecklistItems', () => {
         products: {
           sort_order: 2,
           unit: 'karton',
-          storage_locations: { name: 'Lager', code: 'LG', sort_order: 2 },
-          categories: { name: 'TK', sort_order: 2 },
+          storage_locations: { name: 'Storage', code: 'LG', sort_order: 2 },
+          categories: { name: 'Frozen', sort_order: 2 },
         },
       },
     ];
 
     const result = transformChecklistItems(items);
-    expect(result[0].products.storage_locations.name).toBe('Lager');
-    expect(result[0].products.categories.name).toBe('TK');
+    expect(result[0].products.storage_locations.name).toBe('Storage');
+    expect(result[0].products.categories.name).toBe('Frozen');
   });
 
   it('handles empty array', () => {
@@ -118,10 +118,12 @@ describe('transformOrders', () => {
           {
             id: 'oi1',
             product_id: 'p1',
-            quantity: 5,
+            quantity: '5.00',
             unit: 'koli',
             is_delivered: false,
-            products: [{ name: 'Hähnchenbrust' }],
+            is_ordered: true,
+            ordered_quantity: '4.00',
+            products: [{ name: 'Chicken Breast' }],
           },
         ],
       },
@@ -131,7 +133,10 @@ describe('transformOrders', () => {
     expect(result).toHaveLength(1);
     expect(result[0].suppliers).toEqual({ id: 's1', name: 'Metro' });
     expect(result[0].checklists).toEqual({ iso_year: 2025, iso_week: 1 });
-    expect(result[0].order_items[0].products).toEqual({ name: 'Hähnchenbrust' });
+    expect(result[0].order_items[0].products).toEqual({ name: 'Chicken Breast' });
+    expect(result[0].order_items[0].quantity).toBe(5);
+    expect(result[0].order_items[0].is_ordered).toBe(true);
+    expect(result[0].order_items[0].ordered_quantity).toBe(4);
   });
 
   it('handles empty order_items', () => {

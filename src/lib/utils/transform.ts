@@ -12,6 +12,15 @@ function unwrap<T>(value: T | T[]): T {
   return Array.isArray(value) ? value[0] : value;
 }
 
+function toNumber(value: number | string): number {
+  return typeof value === 'number' ? value : Number(value);
+}
+
+function toNumberOrNull(value: number | string | null | undefined): number | null {
+  if (value == null) return null;
+  return typeof value === 'number' ? value : Number(value);
+}
+
 // ── Checklist Items ──
 
 export interface TransformedChecklistItem {
@@ -65,6 +74,8 @@ export interface TransformedOrderItem {
   quantity: number;
   unit: string;
   is_delivered: boolean;
+  is_ordered: boolean;
+  ordered_quantity: number | null;
   products: { name: string };
 }
 
@@ -88,6 +99,8 @@ export function transformOrders(orders: any[]): TransformedOrder[] {
     checklists: unwrap(order.checklists),
     order_items: (order.order_items ?? []).map((item: any) => ({
       ...item,
+      quantity: toNumber(item.quantity),
+      ordered_quantity: toNumberOrNull(item.ordered_quantity),
       products: unwrap(item.products),
     })),
   }));

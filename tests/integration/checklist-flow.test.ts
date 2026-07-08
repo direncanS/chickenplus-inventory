@@ -3,10 +3,8 @@
  * Strategy: Mock (Supabase local unavailable)
  * Note: Should be re-verified with real DB after local Supabase setup
  */
-import { describe, it, expect, beforeEach } from 'vitest';
+import { beforeEach, describe, expect, it } from 'vitest';
 import { de } from '@/i18n/de';
-
-// -- Helpers that mirror server action logic without Supabase dependency --
 
 interface ChecklistItem {
   id: string;
@@ -19,15 +17,18 @@ interface ChecklistItem {
 }
 
 type ChecklistStatus = 'draft' | 'in_progress' | 'completed';
+type OrderGenerationStatus = 'idle' | 'pending' | 'running' | 'completed' | 'failed';
 
 interface Checklist {
   id: string;
   status: ChecklistStatus;
   completed_by: string | null;
+  order_generation_status: OrderGenerationStatus;
+  order_generation_orders_created: number;
+  order_generation_error: string | null;
   items: ChecklistItem[];
 }
 
-/** Simulates updateChecklistItem server action logic (redesigned) */
 function simulateItemUpdate(
   checklist: Checklist,
   itemId: string,
@@ -50,8 +51,6 @@ function simulateItemUpdate(
   };
 
   const newItems = checklist.items.map((i) => (i.id === itemId ? updatedItem : i));
-
-  // Auto-transition draft → in_progress
   const newStatus: ChecklistStatus = checklist.status === 'draft' ? 'in_progress' : checklist.status;
 
   return {
@@ -60,8 +59,12 @@ function simulateItemUpdate(
   };
 }
 
-/** Simulates completeChecklist server action logic */
-function simulateComplete(checklist: Checklist): { success: boolean; error?: string; checklist: Checklist } {
+function simulateComplete(checklist: Checklist): {
+  success: boolean;
+  error?: string;
+  orderGenerationStatus?: OrderGenerationStatus;
+  checklist: Checklist;
+} {
   if (checklist.items.length === 0) {
     return { success: false, error: de.errors.notFound, checklist };
   }
@@ -73,11 +76,53 @@ function simulateComplete(checklist: Checklist): { success: boolean; error?: str
 
   return {
     success: true,
-    checklist: { ...checklist, status: 'completed', completed_by: 'user-1' },
+    orderGenerationStatus: 'pending',
+    checklist: {
+      ...checklist,
+      status: 'completed',
+      completed_by: 'user-1',
+      order_generation_status: 'pending',
+      order_generation_orders_created: 0,
+      order_generation_error: null,
+    },
   };
 }
 
-// -- Tests --
+function simulateBackgroundOrderGeneration(
+  checklist: Checklist,
+  input: { ordersCreated?: number; error?: string }
+): Checklist {
+  if (checklist.status !== 'completed' || checklist.order_generation_status !== 'pending') {
+    return checklist;
+  }
+
+  if (input.error) {
+    return {
+      ...checklist,
+      order_generation_status: 'failed',
+      order_generation_orders_created: input.ordersCreated ?? 0,
+      order_generation_error: input.error,
+    };
+  }
+
+  return {
+    ...checklist,
+    order_generation_status: 'completed',
+    order_generation_orders_created: input.ordersCreated ?? 0,
+    order_generation_error: null,
+  };
+}
+
+function simulateReopen(checklist: Checklist): Checklist {
+  return {
+    ...checklist,
+    status: 'in_progress',
+    completed_by: null,
+    order_generation_status: 'idle',
+    order_generation_orders_created: 0,
+    order_generation_error: null,
+  };
+}
 
 describe('Checklist lifecycle flow (mock)', () => {
   let checklist: Checklist;
@@ -87,6 +132,9 @@ describe('Checklist lifecycle flow (mock)', () => {
       id: 'cl-1',
       status: 'draft',
       completed_by: null,
+      order_generation_status: 'idle',
+      order_generation_orders_created: 0,
+      order_generation_error: null,
       items: [
         {
           id: 'item-1',
@@ -110,8 +158,7 @@ describe('Checklist lifecycle flow (mock)', () => {
     };
   });
 
-  it('full flow: create → update items → complete', () => {
-    // Step 1: Update item 1 - stock as free text, mark as missing
+  it('full flow: create -> update items -> complete', () => {
     let result = simulateItemUpdate(checklist, 'item-1', {
       currentStock: '2 koli',
       isMissing: true,
@@ -120,13 +167,11 @@ describe('Checklist lifecycle flow (mock)', () => {
     expect(result.success).toBe(true);
     checklist = result.checklist;
 
-    // Auto-transition: draft → in_progress
     expect(checklist.status).toBe('in_progress');
     expect(checklist.items[0].current_stock).toBe('2 koli');
     expect(checklist.items[0].is_missing).toBe(true);
     expect(checklist.items[0].is_checked).toBe(true);
 
-    // Step 2: Update item 2 - stock ok, not missing
     result = simulateItemUpdate(checklist, 'item-2', {
       currentStock: 'voll',
       isChecked: true,
@@ -138,11 +183,12 @@ describe('Checklist lifecycle flow (mock)', () => {
     expect(checklist.items[1].is_missing).toBe(false);
     expect(checklist.items[1].is_checked).toBe(true);
 
-    // Step 3: Complete
     const completeResult = simulateComplete(checklist);
     expect(completeResult.success).toBe(true);
+    expect(completeResult.orderGenerationStatus).toBe('pending');
     expect(completeResult.checklist.status).toBe('completed');
     expect(completeResult.checklist.completed_by).toBe('user-1');
+    expect(completeResult.checklist.order_generation_status).toBe('pending');
   });
 
   it('rejects complete when not all items are checked', () => {
@@ -172,6 +218,47 @@ describe('Checklist lifecycle flow (mock)', () => {
     const completeResult = simulateComplete(checklist);
     expect(completeResult.success).toBe(true);
     expect(completeResult.checklist.status).toBe('completed');
+    expect(completeResult.checklist.order_generation_status).toBe('pending');
+  });
+
+  it('marks background order generation as completed after completion returns', () => {
+    checklist.items = checklist.items.map((item) => ({ ...item, is_checked: true }));
+
+    const completed = simulateComplete(checklist).checklist;
+    const finalChecklist = simulateBackgroundOrderGeneration(completed, { ordersCreated: 2 });
+
+    expect(completed.order_generation_status).toBe('pending');
+    expect(finalChecklist.order_generation_status).toBe('completed');
+    expect(finalChecklist.order_generation_orders_created).toBe(2);
+    expect(finalChecklist.order_generation_error).toBeNull();
+  });
+
+  it('marks background order generation as failed without undoing checklist completion', () => {
+    checklist.items = checklist.items.map((item) => ({ ...item, is_checked: true }));
+
+    const completed = simulateComplete(checklist).checklist;
+    const finalChecklist = simulateBackgroundOrderGeneration(completed, {
+      ordersCreated: 1,
+      error: 'supplier rpc failed',
+    });
+
+    expect(finalChecklist.status).toBe('completed');
+    expect(finalChecklist.order_generation_status).toBe('failed');
+    expect(finalChecklist.order_generation_orders_created).toBe(1);
+    expect(finalChecklist.order_generation_error).toBe('supplier rpc failed');
+  });
+
+  it('aborts background order generation after checklist is reopened', () => {
+    checklist.items = checklist.items.map((item) => ({ ...item, is_checked: true }));
+
+    const completed = simulateComplete(checklist).checklist;
+    const reopened = simulateReopen(completed);
+    const afterAbort = simulateBackgroundOrderGeneration(reopened, { ordersCreated: 3 });
+
+    expect(reopened.status).toBe('in_progress');
+    expect(reopened.order_generation_status).toBe('idle');
+    expect(afterAbort.order_generation_status).toBe('idle');
+    expect(afterAbort.order_generation_orders_created).toBe(0);
   });
 
   it('rejects update on completed checklist', () => {
@@ -185,7 +272,6 @@ describe('Checklist lifecycle flow (mock)', () => {
   });
 
   it('is_missing toggle works correctly', () => {
-    // Toggle missing on
     let result = simulateItemUpdate(checklist, 'item-1', {
       currentStock: 'leer',
       isMissing: true,
@@ -194,7 +280,6 @@ describe('Checklist lifecycle flow (mock)', () => {
     expect(result.success).toBe(true);
     expect(result.checklist.items[0].is_missing).toBe(true);
 
-    // Toggle missing off
     result = simulateItemUpdate(result.checklist, 'item-1', {
       isMissing: false,
     });

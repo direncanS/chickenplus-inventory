@@ -5,6 +5,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { de } from '@/i18n/de';
 import { ChecklistItemRow } from './checklist-item-row';
+import { OrderGenerationStatusBanner } from './order-generation-status-banner';
 import { completeChecklist, reopenChecklist } from '@/app/(app)/checklist/actions';
 import { toast } from 'sonner';
 import { formatDateGerman } from '@/lib/utils/date';
@@ -57,6 +58,9 @@ interface ChecklistViewProps {
     iso_week: number;
     checklist_date?: string;
     status: 'draft' | 'in_progress' | 'completed';
+    order_generation_status?: 'idle' | 'pending' | 'running' | 'completed' | 'failed' | null;
+    order_generation_orders_created?: number | null;
+    order_generation_error?: string | null;
   };
   items: ChecklistItem[];
   isAdmin: boolean;
@@ -77,6 +81,16 @@ export function ChecklistView({ checklist, items, isAdmin }: ChecklistViewProps)
   const [completing, setCompleting] = useState(false);
   const [reopening, setReopening] = useState(false);
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [localChecklistStatus, setLocalChecklistStatus] = useState(checklist.status);
+  const [localOrderGenerationStatus, setLocalOrderGenerationStatus] = useState(
+    checklist.order_generation_status ?? 'idle'
+  );
+  const [localOrdersCreated, setLocalOrdersCreated] = useState(
+    checklist.order_generation_orders_created ?? 0
+  );
+  const [localOrderGenerationError, setLocalOrderGenerationError] = useState<string | null>(
+    checklist.order_generation_error ?? null
+  );
 
   // Track local check state for progress
   const [localCheckedState, setLocalCheckedState] = useState<Record<string, boolean>>(() => {
@@ -89,7 +103,7 @@ export function ChecklistView({ checklist, items, isAdmin }: ChecklistViewProps)
 
   const checkedCount = Object.values(localCheckedState).filter(Boolean).length;
   const totalCount = items.length;
-  const isCompleted = checklist.status === 'completed';
+  const isCompleted = localChecklistStatus === 'completed';
   const isReadOnly = isCompleted;
 
   // Header text: show date + KW if checklist_date exists, otherwise KW/year
@@ -150,9 +164,13 @@ export function ChecklistView({ checklist, items, isAdmin }: ChecklistViewProps)
       toast.error(result.error);
     } else {
       toast.success(de.checklist.completionSuccess);
-      if (result.ordersCreated && result.ordersCreated > 0) {
-        toast.success(de.checklist.ordersAutoCreated);
+      if (result.orderGenerationStatus === 'pending') {
+        toast.info(de.checklist.orderGenerationPending);
       }
+      setLocalChecklistStatus('completed');
+      setLocalOrderGenerationStatus('pending');
+      setLocalOrdersCreated(0);
+      setLocalOrderGenerationError(null);
     }
     setCompleting(false);
     setDialogOpen(false);
@@ -165,6 +183,10 @@ export function ChecklistView({ checklist, items, isAdmin }: ChecklistViewProps)
       toast.error(result.error);
     } else {
       toast.success(de.checklist.reopenSuccess);
+      setLocalChecklistStatus('in_progress');
+      setLocalOrderGenerationStatus('idle');
+      setLocalOrdersCreated(0);
+      setLocalOrderGenerationError(null);
     }
     setReopening(false);
   }
@@ -177,6 +199,12 @@ export function ChecklistView({ checklist, items, isAdmin }: ChecklistViewProps)
 
   return (
     <div className="space-y-4">
+      <OrderGenerationStatusBanner
+        status={localOrderGenerationStatus}
+        ordersCreated={localOrdersCreated}
+        error={localOrderGenerationError}
+      />
+
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
         <div className="flex items-center gap-2">
@@ -184,7 +212,7 @@ export function ChecklistView({ checklist, items, isAdmin }: ChecklistViewProps)
             {headerText}
           </h2>
           <Badge variant={isCompleted ? 'outline' : 'default'}>
-            {statusLabels[checklist.status]}
+            {statusLabels[localChecklistStatus]}
           </Badge>
         </div>
         <div className="flex items-center gap-2">

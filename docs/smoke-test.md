@@ -135,9 +135,9 @@ Amac: Uygulamayi gelistirici olarak, gercek Supabase ve gercek browser ile uctan
 | A2-13 | `[BLOCKER]` | Override kaydi calisir | `Pommesbox`, hesaplanan Fehlt=2 iken manual `3` gir | `is_missing_overridden = true` olur; sayfayi yenileyince `3` kalir | `NOT RUN` | |
 | A2-14 | `[NON-BLOCKER]` | Override temizleme calisir | Override'i kaldir | Hesaplanan missing degerine (2) geri doner | `NOT RUN` | |
 | A2-15 | `[BLOCKER]` | Tamamlama, unchecked item varken bloklanir | Birkac item unchecked birak, "Abschliessen" tikla | Reddedilir; hata mesaji goruntulenir | `NOT RUN` | |
-| A2-16 | `[BLOCKER]` | Tamamlama, null stock varken bloklanir | Birkac item stock bos birak, "Abschliessen" tikla | Reddedilir; hata mesaji goruntulenir | `NOT RUN` | |
-| A2-17 | `[BLOCKER]` | Tum itemlar tamamlaninca checklist complete olur | Tum 126 item checked + stock dolu | Status `completed` olur | `NOT RUN` | |
-| A2-17b | `[BLOCKER]` | Staff kullanici checklist tamamlayabiliyor (runtime dogrulama) | Staff session ile aktif checklist'i tamamla | HYPOTHESIS: `completeChecklist` user client (RLS'e tabi) ile `SET status='completed'` yapar. `checklists_update` policy'nin WITH CHECK'i (`status != 'completed' OR get_user_role() = 'admin'`) yeni satir degerini kontrol eder; staff icin her iki kosul da FALSE olacagindan UPDATE reddedilebilir. Runtime'da dogrulanmasi zorunlu. FAIL olursa: ya RLS policy duzeltilmeli ya da `completeChecklist` admin client kullanmali | `NOT RUN` | HYPOTHESIS testi |
+| A2-16 | `[BLOCKER]` | Tamamlama, stock bos olsa da calisir | Birkac item stock bos birak ama hepsini checked yap, "Abschliessen" tikla | Checklist tamamlanir; `Bestand` opsiyoneldir | `NOT RUN` | |
+| A2-17 | `[BLOCKER]` | Tum itemlar checked oldugunda checklist complete olur | Tum 126 item checked; stock alanlari dolu olmak zorunda degil | Status `completed` olur | `NOT RUN` | |
+| A2-17b | `[BLOCKER]` | Staff kullanici checklist tamamlayabiliyor (runtime dogrulama) | Staff session ile aktif checklist'i tamamla; tum itemlar checked olsun, stock bos olabilir | Checklist tamamlanir; response hizli doner, otomatik siparis hazirligi arkaplanda devam eder | `NOT RUN` | |
 | A2-18 | `[NON-BLOCKER]` | Completed badge / gorunum dogru | Completed checklist | Read-only durum ve tamamlandi metni gorunur | `NOT RUN` | |
 | A2-19 | `[BLOCKER]` | Completed checklist read-only | Completed checklist'te input degistirme denemesi | Guncelleme yapilamaz; inputlar disabled | `NOT RUN` | |
 | A2-20 | `[NON-BLOCKER]` | Refresh sonrasi read-only devam eder | Page reload | Tamamlanmis checklist editable olmaz | `NOT RUN` | |
@@ -164,7 +164,7 @@ On Kosul: A-P03b tamamlanmis olmali (supplier ve mapping verisi hazir).
 | A3-08b | `[BLOCKER]` | Ayni checklist'ten ikinci supplier'a bagimsiz siparis | Farkli supplier grubundan ikinci siparis olustur | Ikinci draft order olusur; birinci siparis etkilenmez | `NOT RUN` | |
 | A3-09 | `[BLOCKER]` | Order number format dogru | Yeni order olustur | `ORD-YYYY-WXX-SEQ` formatinda benzersiz numara (ornek: `ORD-2026-W14-1`) | `NOT RUN` | |
 | A3-10 | `[NON-BLOCKER]` | Draft order listede gorunur | Orders sayfasi | Open orders altinda listelenir | `NOT RUN` | |
-| A3-11 | `[BLOCKER]` | Mark ordered calisir | Draft order > "Als bestellt markieren" | Status `ordered` olur | `NOT RUN` | |
+| A3-11 | `[BLOCKER]` | Mark ordered calisir | Draft order > opsiyonel `Bestellt` + `Bestellte Menge` gir, sonra "Als bestellt markieren" | Status `ordered` olur; girilen item-level siparis miktarlari korunur | `NOT RUN` | |
 | A3-12 | `[BLOCKER]` | Partial delivery calisir | En az 2 itemli order, 1 item delivered isaretle | Status `partially_delivered` olur | `NOT RUN` | |
 | A3-13 | `[BLOCKER]` | Full delivery calisir | Tum itemlari delivered isaretle | Status `delivered` olur | `NOT RUN` | |
 | A3-14 | `[NON-BLOCKER]` | `delivered_at` timestamp dolu | Fully delivered order | Delivery tarihi gorunur | `NOT RUN` | |

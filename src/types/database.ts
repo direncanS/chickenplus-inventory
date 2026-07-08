@@ -71,6 +71,11 @@ export interface Checklist {
   status: 'draft' | 'in_progress' | 'completed';
   created_by: string;
   completed_by: string | null;
+  order_generation_status: 'idle' | 'pending' | 'running' | 'completed' | 'failed';
+  order_generation_started_at: string | null;
+  order_generation_finished_at: string | null;
+  order_generation_orders_created: number;
+  order_generation_error: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -113,6 +118,8 @@ export interface OrderItem {
   quantity: number;
   unit: string;
   is_delivered: boolean;
+  is_ordered: boolean;
+  ordered_quantity: number | null;
   created_at: string;
   updated_at: string;
 }
