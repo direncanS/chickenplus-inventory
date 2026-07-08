@@ -5,12 +5,14 @@ import {
   buildOrderSummary,
   buildSupplierPerformance,
   buildTopMissingProducts,
+  buildOrderedProducts,
 } from '@/lib/utils/report-aggregation';
 import type {
   RawChecklist,
   RawChecklistItem,
   RawOrder,
   RawOrderItem,
+  RawOrderedProduct,
 } from '@/types/reports';
 
 // ── Test data factories ──
@@ -21,6 +23,7 @@ function makeChecklist(overrides: Partial<RawChecklist> = {}): RawChecklist {
     iso_year: 2026,
     iso_week: 10,
     status: 'completed',
+    checklist_date: '2026-03-02',
     created_at: '2026-03-02T10:00:00Z',
     ...overrides,
   };
@@ -45,6 +48,9 @@ function makeOrder(overrides: Partial<RawOrder> = {}): RawOrder {
     ordered_at: '2026-03-02T10:00:00Z',
     delivered_at: '2026-03-04T10:00:00Z',
     created_at: '2026-03-02T10:00:00Z',
+    checklist_date: '2026-03-02',
+    iso_year: 2026,
+    iso_week: 10,
     supplier_name: 'Lieferant A',
     ...overrides,
   };
@@ -55,6 +61,22 @@ function makeOrderItem(overrides: Partial<RawOrderItem> = {}): RawOrderItem {
     id: 'oi-1',
     order_id: 'ord-1',
     is_delivered: true,
+    ...overrides,
+  };
+}
+
+function makeOrderedProduct(overrides: Partial<RawOrderedProduct> = {}): RawOrderedProduct {
+  return {
+    record_id: 'record-1',
+    source: 'unassigned_capture',
+    ordered_at: '2026-03-05T09:30:00Z',
+    checklist_date: '2026-03-02',
+    iso_year: 2026,
+    iso_week: 10,
+    supplier_name: 'Nicht zugeordnet',
+    product_name: 'Cola',
+    ordered_quantity: null,
+    unit: 'koli',
     ...overrides,
   };
 }
@@ -176,6 +198,21 @@ describe('buildStockTrend', () => {
     const result = buildStockTrend(checklists, items);
     expect(result[0].missingCount).toBe(2);
     expect(result[0].totalItems).toBe(3);
+    expect(result[0].date).toBe('2026-03-02');
+  });
+
+  it('uses operational checklist_date instead of created_at for trend date', () => {
+    const checklists = [
+      makeChecklist({
+        id: 'cl-1',
+        checklist_date: '2026-03-10',
+        created_at: '2026-03-02T10:00:00Z',
+      }),
+    ];
+
+    const result = buildStockTrend(checklists, []);
+
+    expect(result[0].date).toBe('2026-03-10');
   });
 });
 
@@ -211,13 +248,31 @@ describe('buildOrderSummary', () => {
 
   it('sorts results chronologically', () => {
     const orders = [
-      makeOrder({ id: 'o2', status: 'draft', created_at: '2026-03-16T10:00:00Z' }),
-      makeOrder({ id: 'o1', status: 'draft', created_at: '2026-03-02T10:00:00Z' }),
+      makeOrder({ id: 'o2', status: 'draft', iso_week: 12, checklist_date: '2026-03-16', created_at: '2026-03-16T10:00:00Z' }),
+      makeOrder({ id: 'o1', status: 'draft', iso_week: 10, checklist_date: '2026-03-02', created_at: '2026-03-02T10:00:00Z' }),
     ];
     const result = buildOrderSummary(orders);
     expect(result).toHaveLength(2);
     expect(result[0].weekLabel).toBe('KW 10');
     expect(result[1].weekLabel).toBe('KW 12');
+  });
+
+  it('groups by checklist operational week instead of order created_at week', () => {
+    const orders = [
+      makeOrder({
+        id: 'o1',
+        status: 'ordered',
+        iso_year: 2026,
+        iso_week: 10,
+        checklist_date: '2026-03-02',
+        created_at: '2026-04-15T10:00:00Z',
+      }),
+    ];
+
+    const result = buildOrderSummary(orders);
+
+    expect(result).toHaveLength(1);
+    expect(result[0].weekLabel).toBe('KW 10');
   });
 });
 
@@ -343,5 +398,51 @@ describe('buildTopMissingProducts', () => {
     const result = buildTopMissingProducts(items);
     expect(result).toHaveLength(1);
     expect(result[0].count).toBe(1);
+  });
+});
+
+// —— buildOrderedProducts ——
+
+describe('buildOrderedProducts', () => {
+  it('returns empty array for no ordered products', () => {
+    expect(buildOrderedProducts([])).toEqual([]);
+  });
+
+  it('sorts newest ordered products first', () => {
+    const result = buildOrderedProducts([
+      makeOrderedProduct({
+        record_id: 'record-1',
+        ordered_at: '2026-03-01T09:00:00Z',
+        product_name: 'Pommes',
+      }),
+      makeOrderedProduct({
+        record_id: 'record-2',
+        ordered_at: '2026-03-06T09:00:00Z',
+        product_name: 'Cola',
+        source: 'supplier_order',
+      }),
+    ]);
+
+    expect(result.map((item) => item.recordId)).toEqual(['record-2', 'record-1']);
+  });
+
+  it('preserves optional ordered quantity for reporting', () => {
+    const result = buildOrderedProducts([
+      makeOrderedProduct({
+        record_id: 'record-3',
+        ordered_quantity: 12,
+        unit: 'karton',
+        supplier_name: 'Metro Test',
+        source: 'supplier_order',
+      }),
+    ]);
+
+    expect(result[0]).toMatchObject({
+      recordId: 'record-3',
+      source: 'supplier_order',
+      supplierName: 'Metro Test',
+      orderedQuantity: 12,
+      unit: 'karton',
+    });
   });
 });

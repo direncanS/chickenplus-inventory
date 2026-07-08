@@ -4,10 +4,12 @@ import type {
   OrderSummaryPoint,
   SupplierPerformance,
   MissingProduct,
+  OrderedProductRecord,
   RawChecklist,
   RawChecklistItem,
   RawOrder,
   RawOrderItem,
+  RawOrderedProduct,
 } from '@/types/reports';
 
 /**
@@ -68,7 +70,7 @@ export function buildStockTrend(
       const items = itemsByChecklist.get(cl.id) ?? [];
       return {
         weekLabel: `KW ${cl.iso_week}`,
-        date: cl.created_at,
+        date: cl.checklist_date,
         missingCount: items.filter((i) => i.is_missing).length,
         totalItems: items.length,
       };
@@ -79,24 +81,25 @@ export function buildStockTrend(
  * Build order summary by week (grouped by ISO week).
  */
 export function buildOrderSummary(orders: RawOrder[]): OrderSummaryPoint[] {
-  const weekMap = new Map<string, OrderSummaryPoint>();
+  const weekMap = new Map<string, { sortKey: string; point: OrderSummaryPoint }>();
 
   for (const order of orders) {
-    const date = new Date(order.created_at);
-    const weekInfo = getISOWeekInfo(date);
-    const key = `${weekInfo.year}-${weekInfo.week}`;
+    const key = `${order.iso_year}-${String(order.iso_week).padStart(2, '0')}`;
 
     if (!weekMap.has(key)) {
       weekMap.set(key, {
-        weekLabel: `KW ${weekInfo.week}`,
-        draft: 0,
-        ordered: 0,
-        delivered: 0,
-        cancelled: 0,
+        sortKey: key,
+        point: {
+          weekLabel: `KW ${order.iso_week}`,
+          draft: 0,
+          ordered: 0,
+          delivered: 0,
+          cancelled: 0,
+        },
       });
     }
 
-    const point = weekMap.get(key)!;
+    const point = weekMap.get(key)!.point;
     if (order.status === 'draft') point.draft++;
     else if (order.status === 'ordered' || order.status === 'partially_delivered') point.ordered++;
     else if (order.status === 'delivered') point.delivered++;
@@ -104,8 +107,8 @@ export function buildOrderSummary(orders: RawOrder[]): OrderSummaryPoint[] {
   }
 
   return Array.from(weekMap.entries())
-    .sort(([a], [b]) => a.localeCompare(b))
-    .map(([, v]) => v);
+    .sort(([, a], [, b]) => a.sortKey.localeCompare(b.sortKey))
+    .map(([, value]) => value.point);
 }
 
 /**
@@ -201,12 +204,27 @@ export function buildTopMissingProducts(
 }
 
 /**
- * Get ISO week number and year from a date.
+ * Build a flat, date-sorted list of actually ordered products for reporting.
  */
-function getISOWeekInfo(date: Date): { year: number; week: number } {
-  const d = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
-  d.setUTCDate(d.getUTCDate() + 4 - (d.getUTCDay() || 7));
-  const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
-  const week = Math.ceil(((d.getTime() - yearStart.getTime()) / 86400000 + 1) / 7);
-  return { year: d.getUTCFullYear(), week };
+export function buildOrderedProducts(
+  orderedProducts: RawOrderedProduct[]
+): OrderedProductRecord[] {
+  return [...orderedProducts]
+    .sort((a, b) => {
+      const dateDiff = new Date(b.ordered_at).getTime() - new Date(a.ordered_at).getTime();
+      if (dateDiff !== 0) return dateDiff;
+      return a.product_name.localeCompare(b.product_name);
+    })
+    .map((item) => ({
+      recordId: item.record_id,
+      source: item.source,
+      orderedAt: item.ordered_at,
+      checklistDate: item.checklist_date,
+      isoYear: item.iso_year,
+      isoWeek: item.iso_week,
+      supplierName: item.supplier_name,
+      productName: item.product_name,
+      orderedQuantity: item.ordered_quantity,
+      unit: item.unit,
+    }));
 }

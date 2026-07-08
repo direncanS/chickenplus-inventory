@@ -1,6 +1,6 @@
 # Chickenplus Bestandskontrolle
 
-Restoran zinciri icin haftalik envanter kontrol ve siparis yonetim sistemi. Personel haftalik kontrol listeleri olusturur, mevcut stoklari girer, eksik miktarlar otomatik hesaplanir ve tedarikcilere siparis onerileri uretilir.
+Restoran zinciri icin haftalik envanter kontrol ve siparis yonetim sistemi. Personel haftalik kontrol listeleri olusturur, stok bilgisini serbest metin olarak kaydeder, eksik urunleri manuel isaretler ve tedarikci bazli siparis akislarini takip eder. Checklist tamamlandiginda tercih edilen tedarikcilere gore arkaplanda draft siparisler hazirlanir; Orders ekraninda kalan urunler supplier bazli islenebilir.
 
 ## Tech Stack
 
@@ -48,7 +48,7 @@ npm install
 npm run dev
 ```
 
-Tarayicida [http://localhost:3000](http://localhost:3000) aciniz. Ilk kullanici kaydolur ve `/setup` sayfasindan admin olarak bootstrap edilir.
+Tarayicida [http://localhost:3000](http://localhost:3000) aciniz. Uygulama ici signup yoktur; test kullanicisini Supabase Auth uzerinden olusturun. Ilk login yapan kullanici, henuz admin yoksa `/setup` sayfasindan admin olarak bootstrap edilir.
 
 ## Komutlar
 

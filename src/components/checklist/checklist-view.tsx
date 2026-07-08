@@ -1,12 +1,17 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, useTransition } from 'react';
+import { useRouter } from 'next/navigation';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { de } from '@/i18n/de';
 import { ChecklistItemRow } from './checklist-item-row';
 import { OrderGenerationStatusBanner } from './order-generation-status-banner';
-import { completeChecklist, reopenChecklist } from '@/app/(app)/checklist/actions';
+import {
+  completeChecklist,
+  reopenChecklist,
+  updateChecklistItemsBatch,
+} from '@/app/(app)/checklist/actions';
 import { toast } from 'sonner';
 import { formatDateGerman } from '@/lib/utils/date';
 import {
@@ -25,6 +30,19 @@ import {
   DialogTitle,
   DialogTrigger,
 } from '@/components/ui/dialog';
+import { AUTOSAVE_DEBOUNCE_MS } from '@/lib/constants';
+import {
+  collectDirtyChecklistItems,
+  countCheckedChecklistItems,
+  createChecklistItemDraftState,
+  hasChecklistSaveError,
+  hasDirtyChecklistItems,
+  isChecklistSavePending,
+  markChecklistItemsSaving,
+  patchChecklistItemDraft,
+  reconcileChecklistBatchError,
+  reconcileChecklistBatchSuccess,
+} from '@/lib/utils/checklist-batch';
 
 interface ChecklistItem {
   id: string;
@@ -78,6 +96,8 @@ interface GroupedItems {
 }
 
 export function ChecklistView({ checklist, items, isAdmin }: ChecklistViewProps) {
+  const router = useRouter();
+  const [, startSyncTransition] = useTransition();
   const [completing, setCompleting] = useState(false);
   const [reopening, setReopening] = useState(false);
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -91,27 +111,267 @@ export function ChecklistView({ checklist, items, isAdmin }: ChecklistViewProps)
   const [localOrderGenerationError, setLocalOrderGenerationError] = useState<string | null>(
     checklist.order_generation_error ?? null
   );
+  const [itemStates, setItemStates] = useState(() => createChecklistItemDraftState(items));
 
-  // Track local check state for progress
-  const [localCheckedState, setLocalCheckedState] = useState<Record<string, boolean>>(() => {
-    const state: Record<string, boolean> = {};
-    items.forEach((item) => {
-      state[item.id] = item.is_checked;
+  const itemStatesRef = useRef(itemStates);
+  const isMountedRef = useRef(true);
+  const flushTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const flushPromiseRef = useRef<Promise<boolean> | null>(null);
+  const flushPendingChangesRef = useRef<(() => Promise<boolean>) | null>(null);
+
+  useEffect(() => {
+    itemStatesRef.current = itemStates;
+  }, [itemStates]);
+
+  const applyItemStates = useCallback(
+    (
+      updater: (
+        current: Record<string, ReturnType<typeof createChecklistItemDraftState>[string]>
+      ) => Record<string, ReturnType<typeof createChecklistItemDraftState>[string]>
+    ) => {
+      const next = updater(itemStatesRef.current);
+      itemStatesRef.current = next;
+
+      if (isMountedRef.current) {
+        setItemStates(next);
+      }
+    },
+    []
+  );
+
+  useEffect(() => {
+    setLocalChecklistStatus(checklist.status);
+    setLocalOrderGenerationStatus(checklist.order_generation_status ?? 'idle');
+    setLocalOrdersCreated(checklist.order_generation_orders_created ?? 0);
+    setLocalOrderGenerationError(checklist.order_generation_error ?? null);
+  }, [
+    checklist.id,
+    checklist.status,
+    checklist.order_generation_status,
+    checklist.order_generation_orders_created,
+    checklist.order_generation_error,
+  ]);
+
+  const itemsSyncKey = useMemo(
+    () =>
+      items
+        .map(
+          (item) =>
+            `${item.id}:${item.current_stock ?? ''}:${item.is_missing ? 1 : 0}:${item.is_checked ? 1 : 0}`
+        )
+        .join('|'),
+    [items]
+  );
+
+  useEffect(() => {
+    if (hasDirtyChecklistItems(itemStatesRef.current)) {
+      return;
+    }
+
+    const nextState = createChecklistItemDraftState(items);
+    itemStatesRef.current = nextState;
+    setItemStates(nextState);
+  }, [checklist.id, itemsSyncKey, items]);
+
+  useEffect(() => {
+    return () => {
+      isMountedRef.current = false;
+
+      if (flushTimerRef.current) {
+        clearTimeout(flushTimerRef.current);
+        flushTimerRef.current = null;
+      }
+
+      // Internal route transitions can unmount the checklist before the debounce fires.
+      // This best-effort flush closes that common gap without pretending to cover every tab/browser lifecycle.
+      if (hasDirtyChecklistItems(itemStatesRef.current) || flushPromiseRef.current) {
+        void flushPendingChangesRef.current?.();
+      }
+    };
+  }, []);
+
+  const flushPendingChanges = useCallback(async function flushPendingChangesInternal(): Promise<boolean> {
+    if (flushTimerRef.current) {
+      clearTimeout(flushTimerRef.current);
+      flushTimerRef.current = null;
+    }
+
+    if (flushPromiseRef.current) {
+      const inFlightSucceeded = await flushPromiseRef.current;
+      if (!inFlightSucceeded) {
+        return false;
+      }
+
+      if (!hasDirtyChecklistItems(itemStatesRef.current)) {
+        return true;
+      }
+    }
+
+    const batch = collectDirtyChecklistItems(itemStatesRef.current);
+    if (batch.items.length === 0) {
+      return true;
+    }
+
+    applyItemStates((current) => markChecklistItemsSaving(current, batch.itemIds));
+
+    const flushPromise = (async () => {
+      const result = await updateChecklistItemsBatch({
+        checklistId: checklist.id,
+        items: batch.items,
+      });
+
+      if (result.error) {
+        applyItemStates((current) => reconcileChecklistBatchError(current, batch.itemRevisions));
+        toast.error(result.error);
+        return false;
+      }
+
+      applyItemStates((current) => reconcileChecklistBatchSuccess(current, batch.itemRevisions));
+
+      if (result.checklistStatus && isMountedRef.current) {
+        setLocalChecklistStatus(result.checklistStatus);
+      }
+
+      return true;
+    })().finally(() => {
+      flushPromiseRef.current = null;
     });
-    return state;
-  });
 
-  const checkedCount = Object.values(localCheckedState).filter(Boolean).length;
+    flushPromiseRef.current = flushPromise;
+    const success = await flushPromise;
+
+    if (success && hasDirtyChecklistItems(itemStatesRef.current)) {
+      return flushPendingChangesInternal();
+    }
+
+    return success;
+  }, [applyItemStates, checklist.id]);
+
+  useEffect(() => {
+    flushPendingChangesRef.current = flushPendingChanges;
+  }, [flushPendingChanges]);
+
+  const scheduleFlush = useCallback(() => {
+    if (flushTimerRef.current) {
+      clearTimeout(flushTimerRef.current);
+    }
+
+    flushTimerRef.current = setTimeout(() => {
+      void flushPendingChanges();
+    }, AUTOSAVE_DEBOUNCE_MS);
+  }, [flushPendingChanges]);
+
+  useEffect(() => {
+    function handleVisibilityChange() {
+      if (document.visibilityState === 'hidden') {
+        void flushPendingChanges();
+      }
+    }
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
+  }, [flushPendingChanges]);
+
+  function queueLocalItemChange(
+    itemId: string,
+    patch: Partial<{
+      currentStock: string;
+      isMissing: boolean;
+      isChecked: boolean;
+    }>
+  ) {
+    applyItemStates((current) => patchChecklistItemDraft(current, itemId, patch));
+    scheduleFlush();
+  }
+
+  async function handleComplete() {
+    const flushed = await flushPendingChanges();
+    if (!flushed) {
+      return;
+    }
+
+    const previousStatus = localChecklistStatus;
+    const previousOrderGenerationStatus = localOrderGenerationStatus;
+    const previousOrdersCreated = localOrdersCreated;
+    const previousOrderGenerationError = localOrderGenerationError;
+
+    setCompleting(true);
+    setLocalChecklistStatus('completed');
+    setLocalOrderGenerationStatus('pending');
+    setLocalOrdersCreated(0);
+    setLocalOrderGenerationError(null);
+
+    const result = await completeChecklist({ checklistId: checklist.id });
+    if (result.error) {
+      toast.error(result.error);
+      setLocalChecklistStatus(previousStatus);
+      setLocalOrderGenerationStatus(previousOrderGenerationStatus);
+      setLocalOrdersCreated(previousOrdersCreated);
+      setLocalOrderGenerationError(previousOrderGenerationError);
+    } else {
+      toast.success(de.checklist.completionSuccess);
+      if (result.orderGenerationStatus === 'pending') {
+        toast.info(de.checklist.orderGenerationPending);
+      }
+      setDialogOpen(false);
+      startSyncTransition(() => {
+        router.refresh();
+      });
+    }
+    setCompleting(false);
+  }
+
+  async function handleReopen() {
+    const flushed = await flushPendingChanges();
+    if (!flushed) {
+      return;
+    }
+
+    const previousStatus = localChecklistStatus;
+    const previousOrderGenerationStatus = localOrderGenerationStatus;
+    const previousOrdersCreated = localOrdersCreated;
+    const previousOrderGenerationError = localOrderGenerationError;
+
+    setReopening(true);
+    setLocalChecklistStatus('in_progress');
+    setLocalOrderGenerationStatus('idle');
+    setLocalOrdersCreated(0);
+    setLocalOrderGenerationError(null);
+
+    const result = await reopenChecklist({ checklistId: checklist.id });
+    if (result.error) {
+      toast.error(result.error);
+      setLocalChecklistStatus(previousStatus);
+      setLocalOrderGenerationStatus(previousOrderGenerationStatus);
+      setLocalOrdersCreated(previousOrdersCreated);
+      setLocalOrderGenerationError(previousOrderGenerationError);
+    } else {
+      toast.success(de.checklist.reopenSuccess);
+      startSyncTransition(() => {
+        router.refresh();
+      });
+    }
+    setReopening(false);
+  }
+
+  const checkedCount = countCheckedChecklistItems(itemStates);
   const totalCount = items.length;
   const isCompleted = localChecklistStatus === 'completed';
   const isReadOnly = isCompleted;
+  const hasSaveError = hasChecklistSaveError(itemStates);
+  const isSavePending = isChecklistSavePending(itemStates);
+  const saveStatusMessage = hasSaveError
+    ? de.checklist.saveFailed
+    : isSavePending
+      ? de.checklist.savingInProgress
+      : null;
 
-  // Header text: show date + KW if checklist_date exists, otherwise KW/year
   const headerText = checklist.checklist_date
     ? `${formatDateGerman(checklist.checklist_date)} - KW ${checklist.iso_week}`
     : `KW ${checklist.iso_week} / ${checklist.iso_year}`;
 
-  // Group items by storage location → category
   const grouped = useMemo<GroupedItems[]>(() => {
     const locationMap = new Map<string, GroupedItems>();
 
@@ -129,7 +389,7 @@ export function ChecklistView({ checklist, items, isAdmin }: ChecklistViewProps)
       }
 
       const group = locationMap.get(loc.code)!;
-      let catGroup = group.categories.find((c) => c.categoryName === cat.name);
+      let catGroup = group.categories.find((entry) => entry.categoryName === cat.name);
       if (!catGroup) {
         catGroup = {
           categoryName: cat.name,
@@ -141,55 +401,16 @@ export function ChecklistView({ checklist, items, isAdmin }: ChecklistViewProps)
       catGroup.items.push(item);
     }
 
-    // Sort
     const result = Array.from(locationMap.values());
     result.sort((a, b) => a.locationSortOrder - b.locationSortOrder);
-    for (const loc of result) {
-      loc.categories.sort((a, b) => a.categorySortOrder - b.categorySortOrder);
-      for (const cat of loc.categories) {
-        cat.items.sort((a, b) => a.products.sort_order - b.products.sort_order);
+    for (const location of result) {
+      location.categories.sort((a, b) => a.categorySortOrder - b.categorySortOrder);
+      for (const category of location.categories) {
+        category.items.sort((a, b) => a.products.sort_order - b.products.sort_order);
       }
     }
     return result;
   }, [items]);
-
-  function handleCheckChange(itemId: string, checked: boolean) {
-    setLocalCheckedState((prev) => ({ ...prev, [itemId]: checked }));
-  }
-
-  async function handleComplete() {
-    setCompleting(true);
-    const result = await completeChecklist({ checklistId: checklist.id });
-    if (result.error) {
-      toast.error(result.error);
-    } else {
-      toast.success(de.checklist.completionSuccess);
-      if (result.orderGenerationStatus === 'pending') {
-        toast.info(de.checklist.orderGenerationPending);
-      }
-      setLocalChecklistStatus('completed');
-      setLocalOrderGenerationStatus('pending');
-      setLocalOrdersCreated(0);
-      setLocalOrderGenerationError(null);
-    }
-    setCompleting(false);
-    setDialogOpen(false);
-  }
-
-  async function handleReopen() {
-    setReopening(true);
-    const result = await reopenChecklist({ checklistId: checklist.id });
-    if (result.error) {
-      toast.error(result.error);
-    } else {
-      toast.success(de.checklist.reopenSuccess);
-      setLocalChecklistStatus('in_progress');
-      setLocalOrderGenerationStatus('idle');
-      setLocalOrdersCreated(0);
-      setLocalOrderGenerationError(null);
-    }
-    setReopening(false);
-  }
 
   const statusLabels: Record<string, string> = {
     draft: de.checklist.draft,
@@ -205,29 +426,28 @@ export function ChecklistView({ checklist, items, isAdmin }: ChecklistViewProps)
         error={localOrderGenerationError}
       />
 
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex items-center gap-2">
-          <h2 className="text-lg font-semibold">
-            {headerText}
-          </h2>
+          <h2 className="text-lg font-semibold">{headerText}</h2>
           <Badge variant={isCompleted ? 'outline' : 'default'}>
             {statusLabels[localChecklistStatus]}
           </Badge>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center justify-end gap-2">
+          {saveStatusMessage && (
+            <span
+              className={`text-xs ${hasSaveError ? 'text-destructive' : 'text-muted-foreground'}`}
+            >
+              {saveStatusMessage}
+            </span>
+          )}
           <span className="text-sm text-muted-foreground">
             {de.checklist.progress
               .replace('{checked}', String(checkedCount))
               .replace('{total}', String(totalCount))}
           </span>
           {isCompleted && isAdmin && (
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={handleReopen}
-              disabled={reopening}
-            >
+            <Button variant="outline" size="sm" onClick={handleReopen} disabled={reopening}>
               {reopening ? de.common.loading : de.checklist.reopen}
             </Button>
           )}
@@ -264,7 +484,6 @@ export function ChecklistView({ checklist, items, isAdmin }: ChecklistViewProps)
         </div>
       </div>
 
-      {/* Progress bar */}
       <div className="w-full bg-muted rounded-full h-2">
         <div
           className="bg-primary h-2 rounded-full transition-all"
@@ -274,7 +493,6 @@ export function ChecklistView({ checklist, items, isAdmin }: ChecklistViewProps)
         />
       </div>
 
-      {/* Column headers */}
       <div className="grid grid-cols-[1fr_80px_40px_40px] sm:grid-cols-[1fr_100px_48px_48px] items-center gap-2 px-2 text-xs text-muted-foreground font-medium">
         <div>{de.checklist.product}</div>
         <div className="text-center">{de.checklist.stock}</div>
@@ -282,8 +500,7 @@ export function ChecklistView({ checklist, items, isAdmin }: ChecklistViewProps)
         <div className="text-center">{de.checklist.checked}</div>
       </div>
 
-      {/* Items grouped by location */}
-      <Accordion multiple defaultValue={grouped.map((g) => g.locationCode)}>
+      <Accordion multiple defaultValue={grouped.map((group) => group.locationCode)}>
         {grouped.map((location) => (
           <AccordionItem key={location.locationCode} value={location.locationCode}>
             <AccordionTrigger className="text-base font-semibold">
@@ -307,8 +524,22 @@ export function ChecklistView({ checklist, items, isAdmin }: ChecklistViewProps)
                       <ChecklistItemRow
                         key={item.id}
                         item={item}
+                        state={itemStates[item.id]}
                         isReadOnly={isReadOnly}
-                        onCheckChange={handleCheckChange}
+                        onStockChange={(value) => {
+                          queueLocalItemChange(item.id, { currentStock: value });
+                        }}
+                        onStockBlur={() => {
+                          void flushPendingChanges();
+                        }}
+                        onMissingToggle={() => {
+                          queueLocalItemChange(item.id, {
+                            isMissing: !itemStatesRef.current[item.id]?.isMissing,
+                          });
+                        }}
+                        onCheckToggle={(checked) => {
+                          queueLocalItemChange(item.id, { isChecked: checked });
+                        }}
                       />
                     ))}
                   </div>

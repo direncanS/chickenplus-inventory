@@ -1,18 +1,11 @@
-import { createServerClient } from '@/lib/supabase/server';
 import { de } from '@/i18n/de';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { requireAppViewer } from '@/lib/supabase/app-viewer';
 import { LogoutButton } from './logout-button';
 
 export default async function SettingsPage() {
-  const supabase = await createServerClient();
-  const { data: { user } } = await supabase.auth.getUser();
-
-  const { data: profile } = await supabase
-    .from('profiles')
-    .select('display_name, role')
-    .eq('id', user!.id)
-    .single();
+  const { user, profile } = await requireAppViewer();
 
   return (
     <div className="space-y-4 max-w-md">
@@ -23,7 +16,7 @@ export default async function SettingsPage() {
         <CardContent className="space-y-3">
           <div className="flex justify-between">
             <span className="text-sm text-muted-foreground">{de.auth.email}</span>
-            <span className="text-sm">{user!.email}</span>
+            <span className="text-sm">{user.email}</span>
           </div>
           <div className="flex justify-between">
             <span className="text-sm text-muted-foreground">{de.settings.displayName}</span>

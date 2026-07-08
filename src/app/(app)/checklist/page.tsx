@@ -3,6 +3,7 @@ import { de } from '@/i18n/de';
 import { getTodayVienna, getCurrentMonthRange } from '@/lib/utils/date';
 import { CreateChecklistButton } from '@/components/checklist/create-checklist-button';
 import { ChecklistView } from '@/components/checklist/checklist-view';
+import { requireAppViewer } from '@/lib/supabase/app-viewer';
 import { transformChecklistItems } from '@/lib/utils/transform';
 
 export default async function ChecklistPage() {
@@ -10,26 +11,20 @@ export default async function ChecklistPage() {
   const todayDate = getTodayVienna();
   const { minDate, maxDate } = getCurrentMonthRange();
 
-  // Fetch active checklist
-  const { data: activeChecklist } = await supabase
-    .from('checklists')
-    .select(`
-      id, iso_year, iso_week, checklist_date, status, created_by, completed_by, created_at,
-      order_generation_status, order_generation_started_at, order_generation_finished_at,
-      order_generation_orders_created, order_generation_error
-    `)
-    .in('status', ['draft', 'in_progress'])
-    .single();
+  const [viewer, { data: activeChecklist }] = await Promise.all([
+    requireAppViewer(),
+    supabase
+      .from('checklists')
+      .select(`
+        id, iso_year, iso_week, checklist_date, status, created_by, completed_by, created_at,
+        order_generation_status, order_generation_started_at, order_generation_finished_at,
+        order_generation_orders_created, order_generation_error
+      `)
+      .in('status', ['draft', 'in_progress'])
+      .maybeSingle(),
+  ]);
 
-  // Fetch user profile for role check
-  const { data: { user } } = await supabase.auth.getUser();
-  const { data: profile } = await supabase
-    .from('profiles')
-    .select('role')
-    .eq('id', user!.id)
-    .single();
-
-  const isAdmin = profile?.role === 'admin';
+  const isAdmin = viewer.isAdmin;
 
   if (!activeChecklist) {
     // Check for latest completed checklist for today
@@ -42,7 +37,7 @@ export default async function ChecklistPage() {
       `)
       .eq('checklist_date', todayDate)
       .eq('status', 'completed')
-      .single();
+      .maybeSingle();
 
     if (completedToday) {
       // Show completed checklist with reopen option (admin only)

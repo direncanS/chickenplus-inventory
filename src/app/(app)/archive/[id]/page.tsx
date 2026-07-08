@@ -1,6 +1,7 @@
 import { createServerClient } from '@/lib/supabase/server';
 import { notFound } from 'next/navigation';
 import { ChecklistView } from '@/components/checklist/checklist-view';
+import { requireAppViewer } from '@/lib/supabase/app-viewer';
 import { transformChecklistItems } from '@/lib/utils/transform';
 
 export default async function ArchiveDetailPage({
@@ -10,21 +11,14 @@ export default async function ArchiveDetailPage({
 }) {
   const { id } = await params;
   const supabase = await createServerClient();
-
-  const { data: { user } } = await supabase.auth.getUser();
-  const { data: profile } = await supabase
-    .from('profiles')
-    .select('role')
-    .eq('id', user!.id)
-    .single();
-
-  const isAdmin = profile?.role === 'admin';
-
-  const { data: checklist } = await supabase
-    .from('checklists')
-    .select('id, iso_year, iso_week, checklist_date, status')
-    .eq('id', id)
-    .single();
+  const [viewer, { data: checklist }] = await Promise.all([
+    requireAppViewer(),
+    supabase
+      .from('checklists')
+      .select('id, iso_year, iso_week, checklist_date, status')
+      .eq('id', id)
+      .maybeSingle(),
+  ]);
 
   if (!checklist) notFound();
 
@@ -49,7 +43,7 @@ export default async function ArchiveDetailPage({
     <ChecklistView
       checklist={checklist as { id: string; iso_year: number; iso_week: number; checklist_date?: string; status: 'draft' | 'in_progress' | 'completed' }}
       items={transformChecklistItems(items ?? [])}
-      isAdmin={isAdmin}
+      isAdmin={viewer.isAdmin}
     />
   );
 }

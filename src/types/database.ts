@@ -93,6 +93,11 @@ export interface ChecklistItem {
   is_missing_overridden: boolean;
   is_missing: boolean;
   is_checked: boolean;
+  is_ordered: boolean;
+  ordered_quantity: number | null;
+  ordered_supplier_id: string | null;
+  ordered_supplier_name: string | null;
+  ordered_recorded_at: string | null;
   created_at: string;
   updated_at: string;
 }

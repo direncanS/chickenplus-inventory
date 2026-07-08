@@ -17,6 +17,7 @@ const emptyData: ReportData = {
   orderSummary: [],
   supplierPerformance: [],
   topMissingProducts: [],
+  orderedProducts: [],
 };
 
 export default async function ReportsPage() {

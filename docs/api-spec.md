@@ -2,9 +2,9 @@
 
 ## Server Action Pattern
 
-Tum Server Action'lar ayni pattern'i izler:
+Tum Server Action'lar ayni genel pattern'i izler:
 
-```
+```text
 1. Auth check:    supabase.auth.getUser() -> user yoksa error
 2. Profile check: getActiveProfile(supabase, userId) -> inactive ise error
 3. Role check:    Gerekirse admin kontrolu
@@ -21,25 +21,50 @@ Tum Server Action'lar ayni pattern'i izler:
 
 **Dosya:** `src/app/(app)/checklist/actions.ts`
 
-### createChecklist()
-- **Input:** Yok (hafta otomatik hesaplanir)
+### createChecklist(input)
+- **Input:** `{ checklistDate: 'YYYY-MM-DD' }`
 - **Output:** `{ success: true, checklistId }` | `{ error }`
 - **Yetki:** Tum roller (admin + staff)
-- **RPC:** `rpc_create_checklist_with_snapshot(p_iso_year, p_iso_week, p_created_by)`
-- **Hata durumlari:**
-  - `active_checklist_exists`: Aktif checklist zaten var
-  - `duplicate_week`: Bu hafta icin checklist zaten olusturulmus
+- **RPC:** `rpc_create_checklist_with_snapshot(p_iso_year, p_iso_week, p_created_by, p_checklist_date)`
+- **Kisitlar:**
+  - Yalnizca mevcut ay icindeki tarih secilebilir
+  - Ayni anda tek aktif checklist olabilir
+  - Ayni ISO hafta icin ikinci checklist olusturulamaz
 - **Revalidation:** `/checklist`, `/dashboard`
 
 ### updateChecklistItem(input)
-- **Input:** `{ checklistItemId: UUID, currentStock?: number|null, isChecked?: boolean, isMissingOverridden?: boolean, missingAmountFinal?: number|null }`
-- **Output:** `{ success: true, data: ChecklistItem }` | `{ error, fieldErrors? }`
+- **Durum:** Legacy single-item action; mevcut UI'nin birincil yolu degildir
+- **Input:** `{ checklistItemId: UUID, currentStock?: string|null, isMissing?: boolean, isChecked?: boolean }`
+- **Output:** `{ success: true, data }` | `{ error, fieldErrors? }`
 - **Yetki:** Tum roller
 - **Kisitlar:**
   - Completed checklist guncellenemez
-  - `missing_amount_calculated` server tarafinda hesaplanir (client input kabul edilmez)
   - Draft -> in_progress otomatik gecis
-- **Revalidation:** Yok (auto-save, revalidate yapilmaz)
+  - `currentStock` serbest metin olarak kabul edilir
+- **Revalidation:** Yok
+
+### updateChecklistItemsBatch(input)
+- **Durum:** Mevcut checklist UI'nin birincil save yolu
+- **Input:**
+  ```typescript
+  {
+    checklistId: UUID,
+    items: Array<{
+      checklistItemId: UUID,
+      currentStock: string | null,
+      isMissing: boolean,
+      isChecked: boolean
+    }>
+  }
+  ```
+- **Output:** `{ success: true, updatedItemIds, checklistStatus }` | `{ error, failedItemIds?, errorCode? }`
+- **Yetki:** Tum roller
+- **RPC:** `rpc_update_checklist_items_batch(p_checklist_id, p_items)`
+- **Kisitlar:**
+  - Batch all-or-nothing davranir
+  - Completed checklist batch update reddedilir
+  - Item-checklist mismatch reddedilir
+- **Revalidation:** Yok
 
 ### completeChecklist(input)
 - **Input:** `{ checklistId: UUID }`
@@ -48,8 +73,8 @@ Tum Server Action'lar ayni pattern'i izler:
 - **Kisitlar:**
   - Tum item'lar checked olmali
   - `current_stock` tamamlamada zorunlu degildir
-- **Arkaplan isleri:** Tamamlama sonrasi otomatik siparis olusturma `after()` ile arkaplanda baslatilir; completion response'u bunu beklemez
-- **Revalidation:** `/checklist`, `/dashboard`
+- **Arkaplan isleri:** Tamamlama sonrasi otomatik draft order olusturma `after()` ile arkaplanda baslatilir; response bunu beklemez
+- **Revalidation:** `/checklist`, `/dashboard`, `/orders`
 
 ### reopenChecklist(input)
 - **Input:** `{ checklistId: UUID }`
@@ -69,32 +94,85 @@ Tum Server Action'lar ayni pattern'i izler:
 - **Output:** `{ success: true, data: SuggestionGroup[] }` | `{ error }`
 - **Yetki:** Tum roller
 - **Mantik:**
-  1. `missing_amount_final > 0` olan checklist item'lari al
-  2. Her urun icin preferred supplier bul
-  3. Mevcut acik siparisleri kontrol et (draft, ordered, partially_delivered)
-  4. Preferred supplier'a gore grupla (yoksa "Nicht zugewiesen")
-  5. `suggestedOrderQuantity()` ile siparis miktarini hesapla
+  1. `is_missing = true` ve `is_ordered = false` olan checklist item'lari alir
+  2. Ayni checklist icin acik order'larda bulunan urunleri listeden cikarir
+  3. Preferred supplier bulur
+  4. Aktif supplier'a gore gruplar; supplier yoksa/inactive ise `Nicht zugeordnet`
+  5. Quantity/placeholder icin snapshot hedef seviyesini pozitif tam sayiya yuvarlar
 - **Donus formati:**
   ```typescript
   {
     supplierId: string,
     supplierName: string,
-    items: [{
-      productId, productName, quantity, unit, hasOpenOrder
-    }]
+    items: Array<{
+      checklistItemId: string,
+      productId: string,
+      productName: string,
+      quantity: number,
+      unit: string,
+      isOrdered: boolean,
+      orderedQuantity: number | null
+    }>
   }[]
   ```
 
+### finalizeSuggestionGroup(input)
+- **Input:**
+  ```typescript
+  {
+    checklistId: UUID,
+    supplierId: UUID | null,
+    supplierName: string,
+    items: Array<{
+      checklistItemId: UUID,
+      isOrdered: boolean,
+      orderedQuantity: number | null
+    }>
+  }
+  ```
+- **Output:** `{ success: true }` | `{ error }`
+- **Yetki:** Tum roller
+- **RPC:** `rpc_finalize_suggestion_group(...)`
+- **Davranis:**
+  - `supplierId` doluysa checklist-side ordered capture + gercek `ordered` order creation atomik olarak birlikte yapilir
+  - `supplierId = null` (`Nicht zugeordnet`) ise supplier order olusturulmadan checklist-side ordered capture kaydi tutulur
+- **Revalidation:** `/orders`, `/dashboard`, `/reports`
+
 ### createOrder(input)
-- **Input:** `{ supplierId: UUID, checklistId: UUID, items: [{ productId: UUID, quantity: number, unit: string }] }`
+- **Input:**
+  ```typescript
+  {
+    supplierId: UUID,
+    checklistId: UUID,
+    initialStatus?: 'draft' | 'ordered',
+    items: Array<{
+      productId: UUID,
+      quantity: number,
+      unit: string,
+      isOrdered?: boolean,
+      orderedQuantity?: number | null
+    }>
+  }
+  ```
 - **Output:** `{ success: true, orderNumber }` | `{ error }`
 - **Yetki:** Tum roller
-- **RPC:** `rpc_create_order_with_items(p_supplier_id, p_checklist_id, p_created_by, p_items)`
-- **Kisitlar:** Supplier aktif olmali, en az 1 item
+- **RPC:** `rpc_create_order_with_items(p_supplier_id, p_checklist_id, p_created_by, p_initial_status, p_items)`
+- **Kisitlar:** Supplier aktif olmali, en az 1 item olmali
 - **Revalidation:** `/orders`, `/dashboard`
 
+### updateOrderItems(input)
+- **Input:** `{ orderId: UUID, orderedItems: [{ orderItemId: UUID, isOrdered: boolean, orderedQuantity: number|null }] }`
+- **Output:** `{ success: true }` | `{ error }`
+- **Yetki:** Tum roller
+- **Kisitlar:**
+  - Sadece draft siparisler
+  - `orderedQuantity` sadece `isOrdered = true` iken verilebilir
+  - UI tarafinda tam sayi > 0 beklenir
+- **RPC:** `rpc_update_order_items_ordered(p_order_id, p_ordered_items, false)`
+- **Revalidation:** `/orders`
+
 ### updateOrderStatus(input)
-- **Input:** `{ orderId: UUID, status?: 'ordered'|'cancelled', orderedItems?: [{ orderItemId: UUID, isOrdered: boolean, orderedQuantity: number|null }], itemDeliveries?: [{ orderItemId: UUID, isDelivered: boolean }], notes?: string }`
+- **Input:** `{ orderId: UUID, status?: 'ordered'|'cancelled', orderedItems?: [...], itemDeliveries?: [...], notes?: string }`
 - **Output:** `{ success: true, status? }` | `{ error }`
 - **Yetki:**
   - Cancel: sadece admin
@@ -106,16 +184,6 @@ Tum Server Action'lar ayni pattern'i izler:
   - `orderedItems` verilirse draft order item metadata'si kaydedilip ayni istekte status `ordered` yapilir
 - **RPC (ordered items):** `rpc_update_order_items_ordered(p_order_id, p_ordered_items, p_mark_ordered)`
 - **RPC (deliveries):** `rpc_update_order_delivery(p_order_id, p_item_deliveries)`
-- **Revalidation:** `/orders`
-
-### updateOrderItems(input)
-- **Input:** `{ orderId: UUID, orderedItems: [{ orderItemId: UUID, isOrdered: boolean, orderedQuantity: number|null }] }`
-- **Output:** `{ success: true }` | `{ error }`
-- **Yetki:** Tum roller
-- **Kisitlar:**
-  - Sadece draft siparisler
-  - `orderedQuantity` sadece `isOrdered = true` iken ve `> 0` oldugunda gecerli
-- **RPC:** `rpc_update_order_items_ordered(p_order_id, p_ordered_items, false)`
 - **Revalidation:** `/orders`
 
 ---
@@ -135,7 +203,7 @@ Tum Server Action'lar ayni pattern'i izler:
 - **Input:** `{ supplierId: UUID, name?, contactName?, phone?, email?, address?, isActive? }`
 - **Output:** `{ success: true }` | `{ error }`
 - **Yetki:** Sadece admin
-- **Kisitlar:** Deactivation icin acik siparis kontrolu
+- **Kisitlar:** Deactivation icin acik siparis kontrolu uygulama katmaninda yapilir
 - **Revalidation:** `/suppliers`
 
 ### setProductSupplier(input)
@@ -174,6 +242,7 @@ Tum Server Action'lar ayni pattern'i izler:
   - Content-Disposition: `attachment; filename="Bestandskontrolle_KWXX_YYYY.xlsx"`
 - **Hata response'lari:**
   - 401: Oturum acilmamis
+  - 403: Kullanici deaktive
   - 404: Checklist bulunamadi veya item'lar yok
   - 500: Export islemi basarisiz
 
@@ -181,41 +250,55 @@ Tum Server Action'lar ayni pattern'i izler:
 
 ## RPC Functions
 
-**Dosya:** `supabase/migrations/20250101000002_rpc_functions.sql`
+**Canli migration seti icindeki public SQL function'lar**
 
-### rpc_bootstrap_admin(user_id)
-- Ilk kullaniciyi admin yapar
-- Zaten admin varsa basarisiz olur
+### App-facing
+- `rpc_bootstrap_admin(user_id)`
+  - Ilk kullaniciyi admin yapar
+  - Zaten admin varsa basarisiz olur
 
-### rpc_create_checklist_with_snapshot(p_iso_year, p_iso_week, p_created_by)
-- Checklist olusturur ve tum aktif urunleri snapshot olarak ekler
-- Atomik islem (transaction)
-- Donus: `{ success, checklist_id, item_count }`
+- `rpc_create_checklist_with_snapshot(p_iso_year, p_iso_week, p_created_by, p_checklist_date)`
+  - Checklist olusturur ve tum aktif urunleri snapshot olarak ekler
+  - Atomik islem
+  - Donus: `{ success, checklist_id, item_count }`
 
-### rpc_create_order_with_items(p_supplier_id, p_checklist_id, p_created_by, p_items)
-- Siparis olusturur, benzersiz siparis numarasi uretir (ORD-YYYY-WXX-SEQ)
-- Conflict retry loop ile numara cakismasi cozer
-- Donus: `{ success, order_id, order_number }`
+- `rpc_create_order_with_items(p_supplier_id, p_checklist_id, p_created_by, p_initial_status, p_items)`
+  - Siparis olusturur, benzersiz siparis numarasi uretir (`ORD-YYYY-WXX-SEQ`)
+  - Conflict retry loop ile numara cakismasi cozer
+  - Donus: `{ success, order_id, order_number }`
 
-### rpc_update_order_delivery(p_order_id, p_item_deliveries)
-- Item teslimat durumlarini gunceller
-- Tum item'lar teslim edildiyse otomatik delivered, kismen ise partially_delivered
-- Donus: `{ success, order_id, status, delivered_items, total_items }`
+- `rpc_update_order_delivery(p_order_id, p_item_deliveries)`
+  - Item teslimat durumlarini gunceller
+  - Tum item'lar teslim edildiyse otomatik delivered, kismen ise partially_delivered
+  - Donus: `{ success, order_id, status, delivered_items, total_items }`
+
+- `rpc_update_order_items_ordered(p_order_id, p_ordered_items, p_mark_ordered)`
+  - Draft order item'larinin `is_ordered` / `ordered_quantity` metadata'sini yazar
+  - `p_mark_ordered = true` ise ayni istekte order status'u `ordered` yapar
+
+- `rpc_update_checklist_items_batch(p_checklist_id, p_items)`
+  - Checklist item batch update yapar
+  - Checklist tamamlandiysa veya item mismatch varsa tum batch'i reddeder
+
+- `rpc_finalize_suggestion_group(...)`
+  - Suggestion group finalize akisinda checklist-side ordered capture ile supplier order creation'i tek write boundary icinde yapar
+
+### Maintenance
+- `rpc_cleanup_old_data(p_months default 4)`
+  - Eski checklist/order verisini temizlemek icin maintenance yardimci fonksiyonudur
+  - Ana UI akislarinin parcası degildir
 
 ---
 
-## Hesaplama Fonksiyonlari
+## Helper Notes
 
-**Dosya:** `src/lib/utils/calculations.ts`
+### Order suggestion quantity helper
+- **Dosya:** `src/lib/utils/order-items.ts`
+- `normalizeSuggestedOrderCount(value)`
+  - Pozitif olmayan veya gecersiz degerlerde `1`
+  - Gecerli degerlerde `ceil(value)` ve minimum `1`
 
-### calculateMissing(currentStock, minStock)
-- `max(0, minStock - currentStock)`
-- null girislerde 0 doner
-
-### isBelowMinimum(currentStock, minStock)
-- `currentStock < minStock`
-- null girislerde false doner
-
-### suggestedOrderQuantity(currentStock, minStock, minStockMax)
-- `max(0, target - currentStock)` where `target = minStockMax ?? minStock`
-- null girislerde 0 doner
+### Excel export sanitization
+- **Dosya:** `src/lib/utils/excel-export.ts`
+- `sanitizeExcelValue(value)`
+  - `=`, `+`, `-`, `@` ile baslayan hucreleri `'` prefix ile yazar

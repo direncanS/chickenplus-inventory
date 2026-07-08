@@ -1,260 +1,241 @@
-/**
- * Integration test: Order suggestion grouping logic
- * Strategy: Mock (Supabase local unavailable)
- * Note: Should be re-verified with real DB after local Supabase setup
- */
-import { describe, it, expect } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { OPEN_ORDER_STATUSES } from '@/lib/constants';
+import { getOrderSuggestions } from '@/lib/server/order-suggestions';
 
-// -- Types mirroring the data structures in generateOrderSuggestions --
+vi.mock('server-only', () => ({}));
 
-interface ChecklistItem {
-  id: string;
-  product_id: string;
-  product_name: string;
-  min_stock_snapshot: number;
-  min_stock_max_snapshot: number | null;
-  is_missing: boolean;
-  unit: string;
-}
+type QueryResponse = {
+  data: unknown;
+  error: { message: string } | null;
+};
 
-interface PreferredSupplier {
-  product_id: string;
-  supplier_id: string;
-  supplier_name: string;
-  is_active: boolean;
-}
+type QueryTrace = {
+  selection: string | null;
+  eq: Array<[string, unknown]>;
+  in: Array<[string, unknown[]]>;
+};
 
-interface ExistingOrderItem {
-  product_id: string;
-  checklist_id: string;
-  order_status: string;
-}
+function createSupabaseStub(responses: Record<string, QueryResponse>) {
+  const traces = new Map<string, QueryTrace>();
 
-interface SuggestionGroup {
-  supplierId: string;
-  supplierName: string;
-  items: Array<{
-    productId: string;
-    productName: string;
-    quantity: number;
-    unit: string;
-    hasOpenOrder: boolean;
-  }>;
-}
-
-const NOT_ASSIGNED = 'Nicht zugewiesen';
-
-/**
- * Simulates generateOrderSuggestions logic without Supabase (redesigned)
- * - Filter: is_missing === true (instead of missing_amount_final > 0)
- * - Quantity: min_stock_max_snapshot ?? min_stock_snapshot ?? 1
- */
-function simulateOrderSuggestions(
-  checklistId: string,
-  items: ChecklistItem[],
-  preferredSuppliers: PreferredSupplier[],
-  existingOrderItems: ExistingOrderItem[]
-): SuggestionGroup[] {
-  // Filter items marked as missing
-  const missingItems = items.filter((i) => i.is_missing);
-  if (missingItems.length === 0) return [];
-
-  // Determine products with open orders
-  const productsWithOpenOrders = new Set(
-    existingOrderItems
-      .filter(
-        (o) =>
-          o.checklist_id === checklistId &&
-          OPEN_ORDER_STATUSES.includes(o.order_status as never)
-      )
-      .map((o) => o.product_id)
-  );
-
-  // Group by supplier
-  const supplierMap = new Map<string, SuggestionGroup>();
-
-  for (const item of missingItems) {
-    const preferred = preferredSuppliers.find(
-      (ps) => ps.product_id === item.product_id
-    );
-
-    const supplierId = preferred?.is_active ? preferred.supplier_id : 'unassigned';
-    const supplierName = preferred?.is_active ? preferred.supplier_name : NOT_ASSIGNED;
-
-    if (!supplierMap.has(supplierId)) {
-      supplierMap.set(supplierId, {
-        supplierId,
-        supplierName,
-        items: [],
-      });
+  const from = vi.fn((table: string) => {
+    const response = responses[table];
+    if (!response) {
+      throw new Error(`Unexpected table query: ${table}`);
     }
 
-    const quantity = item.min_stock_max_snapshot ?? item.min_stock_snapshot ?? 1;
+    const trace: QueryTrace = {
+      selection: null,
+      eq: [],
+      in: [],
+    };
+    traces.set(table, trace);
 
-    supplierMap.get(supplierId)!.items.push({
-      productId: item.product_id,
-      productName: item.product_name,
-      quantity,
-      unit: item.unit,
-      hasOpenOrder: productsWithOpenOrders.has(item.product_id),
-    });
-  }
+    const query = {
+      select: vi.fn((selection: string) => {
+        trace.selection = selection;
+        return query;
+      }),
+      eq: vi.fn((column: string, value: unknown) => {
+        trace.eq.push([column, value]);
+        return query;
+      }),
+      in: vi.fn((column: string, values: unknown[]) => {
+        trace.in.push([column, values]);
+        return query;
+      }),
+      then: (onFulfilled?: (value: QueryResponse) => unknown, onRejected?: (reason: unknown) => unknown) =>
+        Promise.resolve(response).then(onFulfilled, onRejected),
+    };
 
-  return Array.from(supplierMap.values());
+    return query;
+  });
+
+  return {
+    supabase: { from } as never,
+    from,
+    traces,
+  };
 }
 
-// -- Tests --
+describe('getOrderSuggestions', () => {
+  it('does not re-suggest products that already belong to an open order for the same checklist', async () => {
+    const checklistId = 'checklist-1';
+    const { supabase, traces } = createSupabaseStub({
+      checklist_items: {
+        data: [
+          {
+            id: 'item-1',
+            product_id: 'product-1',
+            product_name: 'Cola',
+            min_stock_snapshot: 2,
+            min_stock_max_snapshot: 5,
+            products: { unit: 'koli', is_active: true },
+          },
+          {
+            id: 'item-2',
+            product_id: 'product-2',
+            product_name: 'Pommesbox',
+            min_stock_snapshot: 1,
+            min_stock_max_snapshot: 4,
+            products: { unit: 'karton', is_active: true },
+          },
+        ],
+        error: null,
+      },
+      orders: {
+        data: [{ id: 'order-1' }],
+        error: null,
+      },
+      order_items: {
+        data: [{ product_id: 'product-1' }],
+        error: null,
+      },
+      product_suppliers: {
+        data: [
+          {
+            product_id: 'product-2',
+            suppliers: { id: 'supplier-1', name: 'Metro', is_active: true },
+          },
+        ],
+        error: null,
+      },
+    });
 
-describe('Order suggestion grouping (mock)', () => {
-  const checklistId = 'cl-1';
+    const result = await getOrderSuggestions(supabase, checklistId);
 
-  it('groups items by preferred supplier', () => {
-    const items: ChecklistItem[] = [
-      { id: 'i1', product_id: 'p1', product_name: 'Hähnchenbrust', min_stock_snapshot: 5, min_stock_max_snapshot: 10, is_missing: true, unit: 'kg' },
-      { id: 'i2', product_id: 'p2', product_name: 'Pommes', min_stock_snapshot: 3, min_stock_max_snapshot: null, is_missing: true, unit: 'karton' },
-    ];
+    expect(result).toEqual([
+      {
+        supplierId: 'supplier-1',
+        supplierName: 'Metro',
+        items: [
+          {
+            checklistItemId: 'item-2',
+            productId: 'product-2',
+            productName: 'Pommesbox',
+            quantity: 4,
+            unit: 'karton',
+            isOrdered: false,
+            orderedQuantity: null,
+          },
+        ],
+      },
+    ]);
 
-    const preferredSuppliers: PreferredSupplier[] = [
-      { product_id: 'p1', supplier_id: 's1', supplier_name: 'Metro', is_active: true },
-      { product_id: 'p2', supplier_id: 's1', supplier_name: 'Metro', is_active: true },
-    ];
-
-    const result = simulateOrderSuggestions(checklistId, items, preferredSuppliers, []);
-
-    expect(result).toHaveLength(1);
-    expect(result[0].supplierName).toBe('Metro');
-    expect(result[0].items).toHaveLength(2);
-    expect(result[0].items[0].quantity).toBe(10); // min_stock_max_snapshot
-    expect(result[0].items[1].quantity).toBe(3); // min_stock_snapshot (no max)
+    expect(traces.get('orders')?.eq).toContainEqual(['checklist_id', checklistId]);
+    expect(traces.get('orders')?.in).toContainEqual(['status', OPEN_ORDER_STATUSES]);
+    expect(traces.get('order_items')?.in).toContainEqual(['order_id', ['order-1']]);
+    expect(traces.get('order_items')?.in).toContainEqual(['product_id', ['product-1', 'product-2']]);
   });
 
-  it('puts unassigned products in "Nicht zugewiesen" group', () => {
-    const items: ChecklistItem[] = [
-      { id: 'i1', product_id: 'p1', product_name: 'Hähnchenbrust', min_stock_snapshot: 5, min_stock_max_snapshot: null, is_missing: true, unit: 'kg' },
-    ];
+  it('keeps valid suggestions and supplier grouping when no open order exists', async () => {
+    const { supabase, from } = createSupabaseStub({
+      checklist_items: {
+        data: [
+          {
+            id: 'item-1',
+            product_id: 'product-1',
+            product_name: 'Cola',
+            min_stock_snapshot: 2,
+            min_stock_max_snapshot: 5,
+            products: { unit: 'koli', is_active: true },
+          },
+        ],
+        error: null,
+      },
+      orders: {
+        data: [],
+        error: null,
+      },
+      product_suppliers: {
+        data: [
+          {
+            product_id: 'product-1',
+            suppliers: { id: 'supplier-1', name: 'Metro', is_active: true },
+          },
+        ],
+        error: null,
+      },
+    });
 
-    const result = simulateOrderSuggestions(checklistId, items, [], []);
+    const result = await getOrderSuggestions(supabase, 'checklist-1');
 
-    expect(result).toHaveLength(1);
-    expect(result[0].supplierId).toBe('unassigned');
-    expect(result[0].supplierName).toBe(NOT_ASSIGNED);
-    expect(result[0].items).toHaveLength(1);
+    expect(result).toEqual([
+      {
+        supplierId: 'supplier-1',
+        supplierName: 'Metro',
+        items: [
+          {
+            checklistItemId: 'item-1',
+            productId: 'product-1',
+            productName: 'Cola',
+            quantity: 5,
+            unit: 'koli',
+            isOrdered: false,
+            orderedQuantity: null,
+          },
+        ],
+      },
+    ]);
+
+    expect(from).not.toHaveBeenCalledWith('order_items');
   });
 
-  it('separates items across multiple suppliers', () => {
-    const items: ChecklistItem[] = [
-      { id: 'i1', product_id: 'p1', product_name: 'Hähnchenbrust', min_stock_snapshot: 5, min_stock_max_snapshot: null, is_missing: true, unit: 'kg' },
-      { id: 'i2', product_id: 'p2', product_name: 'Pommes', min_stock_snapshot: 5, min_stock_max_snapshot: null, is_missing: true, unit: 'karton' },
-    ];
+  it('preserves Nicht zugeordnet fallback after excluding products with open orders', async () => {
+    const { supabase } = createSupabaseStub({
+      checklist_items: {
+        data: [
+          {
+            id: 'item-1',
+            product_id: 'product-1',
+            product_name: 'Cola',
+            min_stock_snapshot: 1,
+            min_stock_max_snapshot: null,
+            products: { unit: 'koli', is_active: true },
+          },
+          {
+            id: 'item-2',
+            product_id: 'product-2',
+            product_name: 'Papertasche',
+            min_stock_snapshot: 2,
+            min_stock_max_snapshot: null,
+            products: { unit: 'karton', is_active: true },
+          },
+        ],
+        error: null,
+      },
+      orders: {
+        data: [{ id: 'order-1' }],
+        error: null,
+      },
+      order_items: {
+        data: [{ product_id: 'product-1' }],
+        error: null,
+      },
+      product_suppliers: {
+        data: [],
+        error: null,
+      },
+    });
 
-    const preferredSuppliers: PreferredSupplier[] = [
-      { product_id: 'p1', supplier_id: 's1', supplier_name: 'Metro', is_active: true },
-      { product_id: 'p2', supplier_id: 's2', supplier_name: 'Transgourmet', is_active: true },
-    ];
+    const result = await getOrderSuggestions(supabase, 'checklist-1');
 
-    const result = simulateOrderSuggestions(checklistId, items, preferredSuppliers, []);
-
-    expect(result).toHaveLength(2);
-    const metro = result.find((g) => g.supplierName === 'Metro');
-    const trans = result.find((g) => g.supplierName === 'Transgourmet');
-    expect(metro).toBeDefined();
-    expect(trans).toBeDefined();
-    expect(metro!.items).toHaveLength(1);
-    expect(trans!.items).toHaveLength(1);
-  });
-
-  it('falls back to unassigned when preferred supplier is inactive', () => {
-    const items: ChecklistItem[] = [
-      { id: 'i1', product_id: 'p1', product_name: 'Hähnchenbrust', min_stock_snapshot: 5, min_stock_max_snapshot: null, is_missing: true, unit: 'kg' },
-    ];
-
-    const preferredSuppliers: PreferredSupplier[] = [
-      { product_id: 'p1', supplier_id: 's1', supplier_name: 'Metro', is_active: false },
-    ];
-
-    const result = simulateOrderSuggestions(checklistId, items, preferredSuppliers, []);
-
-    expect(result).toHaveLength(1);
-    expect(result[0].supplierId).toBe('unassigned');
-    expect(result[0].supplierName).toBe(NOT_ASSIGNED);
-  });
-
-  it('marks products with existing open orders', () => {
-    const items: ChecklistItem[] = [
-      { id: 'i1', product_id: 'p1', product_name: 'Hähnchenbrust', min_stock_snapshot: 5, min_stock_max_snapshot: null, is_missing: true, unit: 'kg' },
-      { id: 'i2', product_id: 'p2', product_name: 'Pommes', min_stock_snapshot: 5, min_stock_max_snapshot: null, is_missing: true, unit: 'karton' },
-    ];
-
-    const existingOrderItems: ExistingOrderItem[] = [
-      { product_id: 'p1', checklist_id: checklistId, order_status: 'ordered' },
-    ];
-
-    const result = simulateOrderSuggestions(checklistId, items, [], existingOrderItems);
-
-    expect(result).toHaveLength(1);
-    const p1 = result[0].items.find((i) => i.productId === 'p1');
-    const p2 = result[0].items.find((i) => i.productId === 'p2');
-    expect(p1!.hasOpenOrder).toBe(true);
-    expect(p2!.hasOpenOrder).toBe(false);
-  });
-
-  it('does not mark closed orders as open', () => {
-    const items: ChecklistItem[] = [
-      { id: 'i1', product_id: 'p1', product_name: 'Hähnchenbrust', min_stock_snapshot: 5, min_stock_max_snapshot: null, is_missing: true, unit: 'kg' },
-    ];
-
-    const existingOrderItems: ExistingOrderItem[] = [
-      { product_id: 'p1', checklist_id: checklistId, order_status: 'delivered' },
-      { product_id: 'p1', checklist_id: checklistId, order_status: 'cancelled' },
-    ];
-
-    const result = simulateOrderSuggestions(checklistId, items, [], existingOrderItems);
-
-    expect(result[0].items[0].hasOpenOrder).toBe(false);
-  });
-
-  it('ignores orders from different checklists', () => {
-    const items: ChecklistItem[] = [
-      { id: 'i1', product_id: 'p1', product_name: 'Hähnchenbrust', min_stock_snapshot: 5, min_stock_max_snapshot: null, is_missing: true, unit: 'kg' },
-    ];
-
-    const existingOrderItems: ExistingOrderItem[] = [
-      { product_id: 'p1', checklist_id: 'other-checklist', order_status: 'ordered' },
-    ];
-
-    const result = simulateOrderSuggestions(checklistId, items, [], existingOrderItems);
-
-    expect(result[0].items[0].hasOpenOrder).toBe(false);
-  });
-
-  it('returns empty array when no items are marked as missing', () => {
-    const items: ChecklistItem[] = [
-      { id: 'i1', product_id: 'p1', product_name: 'Hähnchenbrust', min_stock_snapshot: 5, min_stock_max_snapshot: null, is_missing: false, unit: 'kg' },
-    ];
-
-    const result = simulateOrderSuggestions(checklistId, items, [], []);
-
-    expect(result).toEqual([]);
-  });
-
-  it('uses min_stock_max_snapshot for quantity when available', () => {
-    const items: ChecklistItem[] = [
-      { id: 'i1', product_id: 'p1', product_name: 'Hähnchenbrust', min_stock_snapshot: 5, min_stock_max_snapshot: 10, is_missing: true, unit: 'kg' },
-    ];
-
-    const result = simulateOrderSuggestions(checklistId, items, [], []);
-
-    expect(result[0].items[0].quantity).toBe(10);
-  });
-
-  it('uses min_stock_snapshot for quantity when min_stock_max is null', () => {
-    const items: ChecklistItem[] = [
-      { id: 'i1', product_id: 'p1', product_name: 'Hähnchenbrust', min_stock_snapshot: 5, min_stock_max_snapshot: null, is_missing: true, unit: 'kg' },
-    ];
-
-    const result = simulateOrderSuggestions(checklistId, items, [], []);
-
-    expect(result[0].items[0].quantity).toBe(5);
+    expect(result).toEqual([
+      {
+        supplierId: 'unassigned',
+        supplierName: 'Nicht zugeordnet',
+        items: [
+          {
+            checklistItemId: 'item-2',
+            productId: 'product-2',
+            productName: 'Papertasche',
+            quantity: 2,
+            unit: 'karton',
+            isOrdered: false,
+            orderedQuantity: null,
+          },
+        ],
+      },
+    ]);
   });
 });

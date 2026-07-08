@@ -9,6 +9,22 @@ export const updateChecklistItemSchema = z.object({
 
 export type UpdateChecklistItemInput = z.infer<typeof updateChecklistItemSchema>;
 
+export const updateChecklistItemsBatchSchema = z.object({
+  checklistId: z.string().uuid(),
+  items: z
+    .array(
+      z.object({
+        checklistItemId: z.string().uuid(),
+        currentStock: z.string().max(100).nullable(),
+        isMissing: z.boolean(),
+        isChecked: z.boolean(),
+      })
+    )
+    .min(1),
+});
+
+export type UpdateChecklistItemsBatchInput = z.infer<typeof updateChecklistItemsBatchSchema>;
+
 export const createChecklistSchema = z.object({
   checklistDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
 });

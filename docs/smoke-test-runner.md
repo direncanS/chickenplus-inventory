@@ -135,7 +135,7 @@ ORDER BY s.name, p.name;
    WHERE routine_schema = 'public' AND routine_type = 'FUNCTION'
    ORDER BY routine_name;
    ```
-   `rpc_bootstrap_admin`, `rpc_create_checklist_with_snapshot`, `rpc_create_order_with_items`, `rpc_update_order_delivery` mevcut olmali
+   `rpc_bootstrap_admin`, `rpc_create_checklist_with_snapshot`, `rpc_create_order_with_items`, `rpc_update_order_delivery`, `rpc_update_order_items_ordered`, `rpc_update_checklist_items_batch`, `rpc_finalize_suggestion_group`, `rpc_cleanup_old_data` mevcut olmali
 4. **A1-02b** `[SQL]` + `[UI]`: `handle_new_user`, `get_user_role`, `update_updated_at_column` var mi kontrol et
 5. **A1-03** `[SQL]`: `SELECT COUNT(*) FROM storage_locations;` → 7
 6. **A1-04** `[SQL]`: `SELECT COUNT(*) FROM categories;` → 16
@@ -233,13 +233,13 @@ ORDER BY s.name, p.name;
 1. **A2-05**: Yeni checklist → `draft` badge/durumu gorunur
 2. **A2-06**: `Cola` icin stock `8` gir → checklist status `in_progress` olur; dashboard badge guncellenir
 3. **A2-07**: `Rotezwiebel` icin stock `24.5` gir, 2 sn bekle, sayfayi yenile → `24.5` korunur
-4. **A2-08**: `Cola`: min_stock=10, current_stock=8 → `Fehlt = 2`
-5. **A2-09**: `Pommesbox`: min=3, max=4, stock=1 → checklist'te `Fehlt = 2` (max(0, 3-1)). **NOT**: max_stock siparis onerisinde kullanilir, checklist'te degil
-6. **A2-10**: Herhangi bir item, `-1` gir → validation engeli; deger kaydedilmez
+4. **A2-08**: `Cola` satirinda `F` toggle'ini ac, sayfayi yenile → missing durumu korunur
+5. **A2-09**: `Pommesbox`: min=3, max=4 → item alt bilgisinde `3-4` araligi gorunur
+6. **A2-10**: Herhangi bir item, `-1` veya `2 Kiste` gir → deger metin olarak kaydolur; numeric validation beklenmez
 7. **A2-11**: Checkbox tikla, sayfayi yenile → checked durumu korunur
-8. **A2-12**: Stock degistir, 800ms+ bekle → autosave calisir, ayrica save butonu gerekmez
-9. **A2-13**: `Pommesbox`, Fehlt=2 iken manual `3` gir → `is_missing_overridden = true`. Sayfayi yenileyince `3` kalir
-10. **A2-14**: Override'i kaldir → hesaplanan missing (2) geri doner
+8. **A2-12**: Stock degistir, 600ms+ bekle → autosave calisir, ayrica save butonu gerekmez
+9. **A2-13**: `Pommesbox` icin `F` toggle'ini ac → sayfayi yenileyince aktif kalir
+10. **A2-14**: `F` toggle'ini tekrar kapat → sayfayi yenileyince kapanmis kalir
 
 ### A2-15 ~ A2-17b: Tamamlama (4 test)
 
@@ -285,10 +285,10 @@ ORDER BY s.name, p.name;
 
 ### Baslamadan once
 - A-P03b fixture tamamlanmis (Bolum 3)
-- A2'de olusturulan checklist'te en az su stok degerleri girilmis olmali (siparis onerileri icin):
-  - `Cola` stock = `8` (min=10 → missing=2)
-  - `Pommesbox` stock = `1` (min=3 → missing=2)
-  - `Rotezwiebel` stock = `20` (min=25 → missing=5)
+- A2'de olusturulan checklist'te en az su item'lar `is_missing = true` olacak sekilde hazirlanmis olmali:
+  - `Cola` (`Metro Test` preferred mapping)
+  - `Pommesbox` (`Metro Test` preferred mapping)
+  - `Rotezwiebel` (mapping'siz)
 - Completed checklist mevcut (A2'den)
 - Admin ve staff profilleri acik
 
@@ -296,25 +296,25 @@ ORDER BY s.name, p.name;
 
 **Yontem**: `[UI]`
 
-1. **A3-01**: Completed checklist sonrasi siparis onerilerini goruntule → yalnizca `missing_amount_final > 0` olan itemlar listelenir
+1. **A3-01**: Orders sayfasini ac → yalnizca `is_missing = true` ve `is_ordered = false` olan itemlar listelenir; acik order'daki urunler suggestion'a tekrar girmez
 2. **A3-02**: `Cola` icin `Metro Test` preferred → oneri Metro Test altinda toplanir
 3. **A3-03**: Metro Test'i gecici deaktive et:
    - Admin > Suppliers > Metro Test > deaktive et
-   - Onerilere don → Cola ve Pommesbox `Nicht zugewiesen` grubunda
+   - Onerilere don → Cola ve Pommesbox `Nicht zugeordnet` grubunda
    - Metro Test'i tekrar aktive et (geri don)
-4. **A3-04**: `Rotezwiebel` (mapping'siz) → `Nicht zugewiesen` grubunda
-5. **A3-05**: `Pommesbox`: stock=1, min=3, max=4 → siparis onerisi `3` (max(0, 4-1))
-6. **A3-06**: `Cola`: stock=8, min=10, max=null → siparis onerisi `2` (max(0, 10-8))
-7. **A3-07**: Ayni urun icin zaten acik order varsa → uyari/badge gorunur
+4. **A3-04**: `Rotezwiebel` (mapping'siz) → `Nicht zugeordnet` grubunda
+5. **A3-05**: `Pommesbox`: min=3, max=4 → suggestion satirindaki miktar placeholder'i `4`
+6. **A3-06**: `Cola`: min=10, max=null → suggestion satirindaki miktar placeholder'i `10`
+7. **A3-07**: Ayni urun icin zaten acik order varsa → urun suggestion listesinde gorunmez
 
 ### A3-08 ~ A3-18: Siparis Yasam Dongusu (11 test)
 
 **Yontem**: `[UI]`
 
-1. **A3-08**: Mapped supplier grubundan siparis olustur → draft order yaratilir
-2. **A3-08b**: Farkli supplier grubundan ikinci siparis olustur → ikinci draft order; birinci etkilenmez
+1. **A3-08**: Mapped supplier grubundan finalize et → checklist-side ordered capture kaydolur, supplier bagli `ordered` order olusur
+2. **A3-08b**: Farkli supplier grubundan ikinci finalize → ikinci supplier icin ayri order/capture olusur; birinci etkilenmez
 3. **A3-09**: Order number → `ORD-YYYY-WXX-SEQ` formati (ornek: `ORD-2026-W14-1`)
-4. **A3-10**: Orders sayfasi → open orders altinda listelenir
+4. **A3-10**: Orders sayfasi → olusan supplier order open orders altinda uygun status ile listelenir
 5. **A3-11**: Draft order > opsiyonel `Bestellt` checkbox + `Bestellte Menge` gir > "Als bestellt markieren" → status `ordered`, girilen actual miktarlar read-only kalir
 6. **A3-12**: En az 2 itemli order, 1 item delivered isaretle → status `partially_delivered`
 7. **A3-13**: Tum itemlari delivered isaretle → status `delivered`
@@ -338,7 +338,7 @@ ORDER BY s.name, p.name;
 3. **A3-21**: Contact, phone, email, address guncelle, sayfayi yenile → degerler korunur
 4. **A3-22**: Acik siparisi olmayan supplier'i deactivate → `inactive` olur, badge gorunur
 5. **A3-23**: Acik siparisi olan supplier'i deactivate → hata doner; supplier aktif kalir
-6. **A3-24**: Inactive supplier → siparis onerisinde gorulmez, urunler Nicht zugewiesen'e duser
+6. **A3-24**: Inactive supplier → siparis onerisinde gorulmez, urunler `Nicht zugeordnet` grubuna duser
 7. **A3-25**: Admin > `Lieferdienst Test` > Produkt hinzufugen > `Rotezwiebel` → mapping olusur
 8. **A3-26**: `Cola` icin ikinci supplier'i preferred yap → eski preferred temizlenir; tek preferred kalir
 9. **A3-27**: Var olan mapping > kaldir → mapping silinir
@@ -825,7 +825,7 @@ SELECT iso_year, iso_week FROM checklists ORDER BY created_at DESC LIMIT 1;
 
 **Yontem**: `[UI]`
 
-126 item checklist ile normal kullanim. Sayfa yukleme kabul edilebilir; autosave debounce (800ms) calisir; Network tab'da duplicate write gorunmez.
+126 item checklist ile normal kullanim. Sayfa yukleme kabul edilebilir; autosave debounce (~600ms) calisir; hizli internal navigation sonrasi best-effort flush ile son degisiklikler sessizce kaybolmaz; Network tab'da duplicate write gorunmez.
 
 ### A5-19 ~ A5-20: Deaktive Kullanici (3 test)
 
@@ -841,9 +841,9 @@ SELECT iso_year, iso_week FROM checklists ORDER BY created_at DESC LIMIT 1;
    UPDATE profiles SET is_active = true WHERE role = 'staff';
    ```
 
-2. **A5-19b** `[UI]`: Deaktive kullanici dashboard, checklist, orders, suppliers sayfalarini ac → sayfalar render edilir, veri gorunur (sayfa katmaninda is_active gate'i yok). Bilinen sinir.
+2. **A5-19b** `[UI]`: Deaktive kullanici dashboard, checklist, orders, suppliers sayfalarini ac → kullanici `/deactivated` sayfasina yonlenir; app sayfalari ve veri render edilmez.
 
-3. **A5-20** `[UI]`: Deaktive kullanici logout edip tekrar login → login basarili ama islem yapamaz.
+3. **A5-20** `[UI]`: Deaktive kullanici logout edip tekrar login → login olabilir ama uygulamaya girince `/deactivated` sayfasina yonlenir; veri/mutation erisimi alamaz.
 
 ---
 

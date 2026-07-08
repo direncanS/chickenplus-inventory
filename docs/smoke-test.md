@@ -40,7 +40,7 @@ Bu dokumanda "kullanici olusturma" ifadesi her zaman Supabase Auth uzerinden hes
 | Staff kullanici | Supabase Auth uzerinden olusturulmus ikinci test kullanicisi |
 | Ornek urunler | `Cola` (min 10), `Pommesbox` (min 3, max 4), `Rotezwiebel` |
 | Ornek tedarikciler | `Metro Test`, `Transgourmet Test` (manuel olusturulacak; seed'de yok) |
-| Nicht zugewiesen | Preferred supplier'i olmayan urunlerin dustugu fallback grup; gercek bir supplier degil |
+| Nicht zugeordnet | Preferred supplier'i olmayan veya inactive supplier'e bagli urunlerin dustugu fallback grup; gercek bir supplier degil |
 | Ornek cihazlar | Desktop Chrome, iPhone Safari 390px, Android Chrome 414px |
 | Ornek tarih siniri | Aralik sonu / Ocak basi ISO week gecisi |
 
@@ -50,9 +50,9 @@ Bu dokumanda "kullanici olusturma" ifadesi her zaman Supabase Auth uzerinden hes
 |-----|------------------|----------------|-------|-----|
 | A / B / C oncesi | `npm run type-check` | 0 hata | `PASS` | 0 hata |
 | A / B / C oncesi | `npm run lint` | 0 hata | `PASS` | 0 hata |
-| A / B / C oncesi | `npm run test` | Tum Vitest testleri gecer | `PASS` | 8 dosya, 112 test |
+| A / B / C oncesi | `npm run test` | Tum Vitest testleri gecer | `PASS` | Son test suiti gecti |
 | A / B / C oncesi | `npm run build` | Production build basarili | `PASS` | Next.js 16.2.1 Turbopack |
-| A oncesi | Supabase migrations uygulanmis | 11 tablo + 4 RPC mevcut | `PASS` | supabase db push basarili |
+| A oncesi | Supabase migrations uygulanmis | 11 tablo + 8 public SQL function mevcut | `PASS` | supabase db push basarili |
 | A oncesi | Seed data yuklenmis | 7 storage location, 16 category, 126 product (suppliers seed'de yok) | `PASS` | SQL Editor ile yuklendi |
 | B oncesi | Vercel/staging deploy | HTTPS erisimi var, env degiskenleri dogru | `NOT RUN` | |
 | C oncesi | Monitoring / logs erisimi | Vercel logs + audit log erisilebilir | `NOT RUN` | |
@@ -68,9 +68,9 @@ Amac: Uygulamayi gelistirici olarak, gercek Supabase ve gercek browser ile uctan
 | ID | Oncelik | On Kosul | Veri / Kurulum | Beklenen Sonuc | Durum | Not |
 |----|---------|----------|----------------|----------------|-------|-----|
 | A-P01 | `[BLOCKER]` | Supabase staging project hazir | Hosted veya local remote project | Erisilebilir proje mevcut | `PASS` | chickenplus-staging, eu-central-1, ref: ivrhgfosktnyczlwqurj |
-| A-P02 | `[BLOCKER]` | Tum migration'lar uygulanmis | `supabase/migrations/*.sql` | 11 tablo ve 4 RPC yuklu | `PASS` | supabase db push basarili (get_user_role siralama fix sonrasi) |
+| A-P02 | `[BLOCKER]` | Tum migration'lar uygulanmis | `supabase/migrations/*.sql` | 11 tablo ve 8 public SQL function yuklu | `PASS` | supabase db push basarili |
 | A-P03 | `[BLOCKER]` | Seed yuklenmis | `supabase/seed.sql` | 7 storage location, 16 category, 126 product yuklendi. NOT: Seed yalnizca bu 3 tabloyu icerir; `suppliers` ve `product_suppliers` tablolari seed'de YOKTUR | `PASS` | SQL Editor ile yuklendi |
-| A-P03b | `[BLOCKER]` | Test supplier ve mapping verisi hazir | Manuel olusturma (Supabase Dashboard veya SQL) | En az 3 test supplier, 5+ product mapping, 1+ preferred mapping, 1+ mapping'siz urun mevcut. **Fixture**: `Metro Test` (preferred supplier: `Cola`, `Pommesbox`), `Transgourmet Test` (secondary: `Cola`), `Backer Test` (secondary: `Pommes`, `Mayo 10kg`). `Rotezwiebel` mapping'siz (unmapped, Nicht zugewiesen'e duser). `Lieferdienst Test` henuz yok (A3-19'da olusturulacak) | `PASS` | test-suppliers.sql ile yuklendi |
+| A-P03b | `[BLOCKER]` | Test supplier ve mapping verisi hazir | Manuel olusturma (Supabase Dashboard veya SQL) | En az 3 test supplier, 5+ product mapping, 1+ preferred mapping, 1+ mapping'siz urun mevcut. **Fixture**: `Metro Test` (preferred supplier: `Cola`, `Pommesbox`), `Transgourmet Test` (secondary: `Cola`), `Backer Test` (secondary: `Pommes`, `Mayo 10kg`). `Rotezwiebel` mapping'siz (unmapped, `Nicht zugeordnet` grubuna duser). `Lieferdienst Test` henuz yok (A3-19'da olusturulacak) | `PASS` | test-suppliers.sql ile yuklendi |
 | A-P04 | `[BLOCKER]` | Vercel / staging env'leri set | `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY` | App auth + DB baglantisi calisiyor | `NOT RUN` | |
 | A-P04b | `[BLOCKER]` | Email confirmation ayari kontrol edildi | Supabase Dashboard > Auth > Providers > Email | "Confirm email" OFF veya SMTP gercekten calisiyor; Supabase Auth uzerinden olusturulan kullanici login yapabiliyor | `NOT RUN` | |
 | A-P04c | `[BLOCKER]` | Auth provisioning modeli tanimli | Dokumante edilmis karar | Kullanici olusturma yontemi net: manual (Dashboard/API), invite, veya controlled signup. Secilen model yazili | `PASS` | Manuel model, docs/deployment.md'ye yazildi |
@@ -78,7 +78,7 @@ Amac: Uygulamayi gelistirici olarak, gercek Supabase ve gercek browser ile uctan
 | A-P05 | `[BLOCKER]` | Deployment candidate commit sabitlenmis | Test edilecek branch/commit | Test boyunca kod sabit | `PASS` | cf55686, GitHub push basarili |
 | A-P06 | `[BLOCKER]` | `type-check` temiz | `npm run type-check` | 0 hata | `PASS` | 0 hata |
 | A-P07 | `[BLOCKER]` | `lint` temiz | `npm run lint` | 0 hata | `PASS` | 0 hata |
-| A-P08 | `[BLOCKER]` | `test` temiz | `npm run test` | Tum testler gecer | `PASS` | 112 test, 8 dosya |
+| A-P08 | `[BLOCKER]` | `test` temiz | `npm run test` | Tum testler gecer | `PASS` | Son test suiti gecti |
 | A-P09 | `[BLOCKER]` | `build` temiz | `npm run build` | Production build basarili | `PASS` | Next.js 16.2.1 Turbopack |
 | A-P10 | `[BLOCKER]` | Iki test hesabi hazir | Supabase Auth uzerinden 1 admin adayi + 1 staff adayi olusturuldu | Her iki kullanici login yapabiliyor | `NOT RUN` | |
 | A-P11 | `[BLOCKER]` | Staging ve production env ayrilmis | Env degiskenleri karsilastirma | Staging ve prod farkli Supabase project'e bakar; preview deploy prod DB'ye yonlenmez; service role key yalnizca server'da | `NOT RUN` | |
@@ -89,7 +89,7 @@ Amac: Uygulamayi gelistirici olarak, gercek Supabase ve gercek browser ile uctan
 |----|---------|------|------|----------------|-------|-----|
 | A1-01 | `[BLOCKER]` | 11 tablo mevcut | Supabase Table Editor | `profiles`, `storage_locations`, `categories`, `products`, `suppliers`, `product_suppliers`, `checklists`, `checklist_items`, `orders`, `order_items`, `audit_log` gorunur | `NOT RUN` | |
 | A1-01b | `[BLOCKER]` | Tum tablolarda RLS enabled ve policy mevcut | Supabase Dashboard > Auth > Policies | 11 tablonun hepsinde RLS acik; `profiles`, `checklists`, `orders`, `suppliers` tablolarinda en az 1 SELECT + 1 UPDATE policy mevcut | `NOT RUN` | |
-| A1-02 | `[BLOCKER]` | 4 RPC mevcut | Supabase SQL / Functions list | `rpc_bootstrap_admin`, `rpc_create_checklist_with_snapshot`, `rpc_create_order_with_items`, `rpc_update_order_delivery` gorunur | `NOT RUN` | |
+| A1-02 | `[BLOCKER]` | Public SQL function seti mevcut | Supabase SQL / Functions list | `rpc_bootstrap_admin`, `rpc_create_checklist_with_snapshot`, `rpc_create_order_with_items`, `rpc_update_order_delivery`, `rpc_update_order_items_ordered`, `rpc_update_checklist_items_batch`, `rpc_finalize_suggestion_group`, `rpc_cleanup_old_data` gorunur | `NOT RUN` | |
 | A1-02b | `[BLOCKER]` | Helper function ve trigger'lar mevcut | Supabase Functions / Triggers listesi | `handle_new_user` (auth.users AFTER INSERT trigger), `get_user_role` (STABLE SECURITY DEFINER), `update_updated_at_column` (timestamp trigger) gorunur ve aktif | `NOT RUN` | |
 | A1-03 | `[BLOCKER]` | Storage location seed sayisi dogru | `SELECT COUNT(*) FROM storage_locations` | 7 kayit | `NOT RUN` | |
 | A1-04 | `[BLOCKER]` | Category seed sayisi dogru | `SELECT COUNT(*) FROM categories` | 16 kayit | `NOT RUN` | |
@@ -127,13 +127,13 @@ Amac: Uygulamayi gelistirici olarak, gercek Supabase ve gercek browser ile uctan
 | A2-05 | `[NON-BLOCKER]` | Draft gorunumu dogru | Yeni checklist sayfasi | `draft` badge'i veya durumu gorunur | `NOT RUN` | |
 | A2-06 | `[BLOCKER]` | Ilk item update draft->in_progress yapar | `Cola`, stock `8` gir | Checklist status `in_progress` olur; dashboard badge guncellenir | `NOT RUN` | |
 | A2-07 | `[BLOCKER]` | Decimal stock autosave olur | `Rotezwiebel`, stock `24.5` gir, 2 saniye bekle, sayfayi yenile | Deger `24.5` olarak korunur | `NOT RUN` | |
-| A2-08 | `[BLOCKER]` | Missing hesaplama dogru | `Cola`: min_stock=10, current_stock=8 | `Fehlt = 2` (server tarafindan hesaplanan: max(0, 10-8)) | `NOT RUN` | |
-| A2-09 | `[BLOCKER]` | Min/max urunde checklist missing min'e gore hesaplanir | `Pommesbox`: min=3, max=4, stock=1 | Checklist'te `Fehlt = 2` (max(0, 3-1)). NOT: max_stock siparis onerisinde kullanilir, checklist'te degil | `NOT RUN` | |
-| A2-10 | `[BLOCKER]` | Negatif stock reddedilir | Herhangi bir item, `-1` gir | Validation engeli; deger kaydedilmez | `NOT RUN` | |
+| A2-08 | `[BLOCKER]` | Missing toggle kaydolur | `Cola` satirinda `F` toggle'ini ac, sayfayi yenile | `F` durumu korunur; current implementasyonda checklist missing durumu numeric hesap yerine manual `is_missing` ile tutulur | `NOT RUN` | |
+| A2-09 | `[BLOCKER]` | Min/max bilgi satiri gorunur | `Pommesbox`: min=3, max=4 | Item alt bilgisinde `3-4` araligi ve birim gorunur | `NOT RUN` | |
+| A2-10 | `[BLOCKER]` | Stock alani serbest metin kaydeder | Herhangi bir item, `-1` veya `2 Kiste` gibi bir deger gir | Deger metin olarak kaydolur; mevcut implementasyonda numeric validation yoktur | `NOT RUN` | |
 | A2-11 | `[NON-BLOCKER]` | `is_checked` toggle kaydolur | Herhangi bir item checkbox'ini tikla, sayfayi yenile | Checked durumu korunur | `NOT RUN` | |
-| A2-12 | `[NON-BLOCKER]` | Manual save gerekmiyor | Stock degisimi yap, 800ms+ bekle | Ayrica save butonu gerekmeksizin deger kaydolur (autosave) | `NOT RUN` | |
-| A2-13 | `[BLOCKER]` | Override kaydi calisir | `Pommesbox`, hesaplanan Fehlt=2 iken manual `3` gir | `is_missing_overridden = true` olur; sayfayi yenileyince `3` kalir | `NOT RUN` | |
-| A2-14 | `[NON-BLOCKER]` | Override temizleme calisir | Override'i kaldir | Hesaplanan missing degerine (2) geri doner | `NOT RUN` | |
+| A2-12 | `[NON-BLOCKER]` | Manual save gerekmiyor | Stock degisimi yap, 600ms+ bekle | Ayrica save butonu gerekmeksizin deger kaydolur (autosave) | `NOT RUN` | |
+| A2-13 | `[BLOCKER]` | Missing toggle aktif kalir | `Pommesbox` icin `F` toggle'ini ac | Sayfayi yenileyince `is_missing = true` korunur | `NOT RUN` | |
+| A2-14 | `[NON-BLOCKER]` | Missing toggle geri alinabilir | `F` toggle'ini tekrar kapat | Sayfayi yenileyince `is_missing = false` olur | `NOT RUN` | |
 | A2-15 | `[BLOCKER]` | Tamamlama, unchecked item varken bloklanir | Birkac item unchecked birak, "Abschliessen" tikla | Reddedilir; hata mesaji goruntulenir | `NOT RUN` | |
 | A2-16 | `[BLOCKER]` | Tamamlama, stock bos olsa da calisir | Birkac item stock bos birak ama hepsini checked yap, "Abschliessen" tikla | Checklist tamamlanir; `Bestand` opsiyoneldir | `NOT RUN` | |
 | A2-17 | `[BLOCKER]` | Tum itemlar checked oldugunda checklist complete olur | Tum 126 item checked; stock alanlari dolu olmak zorunda degil | Status `completed` olur | `NOT RUN` | |
@@ -145,7 +145,7 @@ Amac: Uygulamayi gelistirici olarak, gercek Supabase ve gercek browser ile uctan
 | A2-22 | `[BLOCKER]` | Staff reopen yapamaz | Staff > Completed checklist | "Erneut offnen" butonu yok; direct istek yetki hatasi doner | `NOT RUN` | |
 | A2-23 | `[NON-BLOCKER]` | Reopen sonrasi tekrar editable | Admin reopen sonra item degistir | Degisiklik kaydolur | `NOT RUN` | |
 | A2-24 | `[BLOCKER]` | Arsiv listesi completed checklist'i gosterir | Archive sayfasi | Hafta/yil, tamamlanma tarihi ve detay/export aksiyonlari gorunur | `NOT RUN` | |
-| A2-25 | `[BLOCKER]` | Archive detay sayfasi checklist ile uyumlu | Archive detay sayfasi | Item verileri, stok, missing degerleri checklist ile tutarli | `NOT RUN` | |
+| A2-25 | `[BLOCKER]` | Archive detay sayfasi checklist ile uyumlu | Archive detay sayfasi | Item verileri, stock metni, `is_missing` ve `is_checked` durumlari checklist ile tutarli | `NOT RUN` | |
 
 ### Session A3: Orders + Suppliers + Mapping + Staff Kisitlamalari (31 test)
 
@@ -153,18 +153,18 @@ On Kosul: A-P03b tamamlanmis olmali (supplier ve mapping verisi hazir).
 
 | ID | Oncelik | Test | Veri | Beklenen Sonuc | Durum | Not |
 |----|---------|------|------|----------------|-------|-----|
-| A3-01 | `[BLOCKER]` | Order suggestions sadece missing itemlar icin gelir | Completed checklist, missing items mevcut | Yalnizca `missing_amount_final > 0` olan itemlar listelenir | `NOT RUN` | |
+| A3-01 | `[BLOCKER]` | Order suggestions sadece uygun missing itemlar icin gelir | Aktif checklist, missing items mevcut | Yalnizca `is_missing = true` ve `is_ordered = false` olan itemlar listelenir; acik order'daki urunler tekrar suggestion'a girmez | `NOT RUN` | |
 | A3-02 | `[BLOCKER]` | Preferred supplier grouping calisir | `Cola` icin `Metro Test` preferred mapping | Oneri `Metro Test` altinda toplanir | `NOT RUN` | |
-| A3-03 | `[BLOCKER]` | Inactive preferred supplier fallback | Preferred supplier'i inactive yap | Urun `Nicht zugewiesen` grubuna duser (fallback, gercek supplier degil) | `NOT RUN` | |
-| A3-04 | `[BLOCKER]` | Mapping yoksa fallback | Mapping'siz urun (A-P03b'de hazirlanmis) | Urun `Nicht zugewiesen` grubuna duser | `NOT RUN` | |
-| A3-05 | `[BLOCKER]` | Suggested quantity max_stock kullanir | `Pommesbox`: stock=1, min=3, max=4 | Siparis onerisi `3` (max(0, 4-1)). NOT: Siparis onerisi min_stock_max kullanir, checklist missing degil | `NOT RUN` | |
-| A3-06 | `[BLOCKER]` | Suggested quantity min_stock kullanir (max yoksa) | `Cola`: stock=8, min=10, max=null | Siparis onerisi `2` (max(0, 10-8)) | `NOT RUN` | |
-| A3-07 | `[NON-BLOCKER]` | Open order duplicate warning gorunur | Ayni urun icin zaten acik order var | Oneride mevcut acik siparis uyarisi/badge gorunur | `NOT RUN` | |
-| A3-08 | `[BLOCKER]` | Suggestion'dan draft order olusturulur | Mapped supplier + item listesi | Draft order yaratilir, order sayfasinda gorunur | `NOT RUN` | |
-| A3-08b | `[BLOCKER]` | Ayni checklist'ten ikinci supplier'a bagimsiz siparis | Farkli supplier grubundan ikinci siparis olustur | Ikinci draft order olusur; birinci siparis etkilenmez | `NOT RUN` | |
+| A3-03 | `[BLOCKER]` | Inactive preferred supplier fallback | Preferred supplier'i inactive yap | Urun `Nicht zugeordnet` grubuna duser (fallback, gercek supplier degil) | `NOT RUN` | |
+| A3-04 | `[BLOCKER]` | Mapping yoksa fallback | Mapping'siz urun (A-P03b'de hazirlanmis) | Urun `Nicht zugeordnet` grubuna duser | `NOT RUN` | |
+| A3-05 | `[BLOCKER]` | Suggestion placeholder max stock snapshot kullanir | `Pommesbox`: min=3, max=4 | Suggestion satirindaki miktar placeholder'i / onerilen deger `4` olur | `NOT RUN` | |
+| A3-06 | `[BLOCKER]` | Suggestion placeholder min stock snapshot kullanir (max yoksa) | `Cola`: min=10, max=null | Suggestion satirindaki miktar placeholder'i / onerilen deger `10` olur | `NOT RUN` | |
+| A3-07 | `[NON-BLOCKER]` | Open order duplicate suggestion'a yeniden girmez | Ayni urun icin zaten acik order var | Urun yeni suggestion listesinde gorunmez | `NOT RUN` | |
+| A3-08 | `[BLOCKER]` | Mapped supplier suggestion finalize edilir | Mapped supplier + secili item listesi | Checklist-side ordered capture kaydolur; supplier bagli `ordered` order olusur; secilen itemlar suggestion listesinden kalkar | `NOT RUN` | |
+| A3-08b | `[BLOCKER]` | Ikinci supplier grubu bagimsiz finalize edilir | Farkli supplier grubundan ikinci suggestion finalize et | Ikinci supplier icin ayri order/capture olusur; birinci supplier etkilenmez | `NOT RUN` | |
 | A3-09 | `[BLOCKER]` | Order number format dogru | Yeni order olustur | `ORD-YYYY-WXX-SEQ` formatinda benzersiz numara (ornek: `ORD-2026-W14-1`) | `NOT RUN` | |
-| A3-10 | `[NON-BLOCKER]` | Draft order listede gorunur | Orders sayfasi | Open orders altinda listelenir | `NOT RUN` | |
-| A3-11 | `[BLOCKER]` | Mark ordered calisir | Draft order > opsiyonel `Bestellt` + `Bestellte Menge` gir, sonra "Als bestellt markieren" | Status `ordered` olur; girilen item-level siparis miktarlari korunur | `NOT RUN` | |
+| A3-10 | `[NON-BLOCKER]` | Olusan supplier order listede gorunur | Orders sayfasi | Open orders altinda uygun status ile listelenir (`draft` veya `ordered`) | `NOT RUN` | |
+| A3-11 | `[BLOCKER]` | Draft order mark ordered calisir | Arkaplanda veya manuel olusmus draft order > opsiyonel `Bestellt` + `Bestellte Menge` gir, sonra "Als bestellt markieren" | Status `ordered` olur; girilen item-level siparis miktarlari korunur | `NOT RUN` | |
 | A3-12 | `[BLOCKER]` | Partial delivery calisir | En az 2 itemli order, 1 item delivered isaretle | Status `partially_delivered` olur | `NOT RUN` | |
 | A3-13 | `[BLOCKER]` | Full delivery calisir | Tum itemlari delivered isaretle | Status `delivered` olur | `NOT RUN` | |
 | A3-14 | `[NON-BLOCKER]` | `delivered_at` timestamp dolu | Fully delivered order | Delivery tarihi gorunur | `NOT RUN` | |
@@ -177,7 +177,7 @@ On Kosul: A-P03b tamamlanmis olmali (supplier ve mapping verisi hazir).
 | A3-21 | `[NON-BLOCKER]` | Supplier edit kalici | Contact, phone, email, address guncelle, sayfayi yenile | Guncel degerler korunur | `NOT RUN` | |
 | A3-22 | `[BLOCKER]` | Open order yokken supplier deactivate calisir | Acik siparisi olmayan supplier | `inactive` olur, badge gorunur | `NOT RUN` | |
 | A3-23 | `[BLOCKER]` | Open order varken deactivate bloklanir | Acik siparisi olan supplier | Hata doner; supplier aktif kalir | `NOT RUN` | |
-| A3-24 | `[BLOCKER]` | Inactive supplier order hedefi olamaz | Inactive supplier | Siparis onerisinde bu supplier altinda urun gruplanmaz; urunler Nicht zugewiesen'e duser | `NOT RUN` | |
+| A3-24 | `[BLOCKER]` | Inactive supplier order hedefi olamaz | Inactive supplier | Siparis onerisinde bu supplier altinda urun gruplanmaz; urunler `Nicht zugeordnet` grubuna duser | `NOT RUN` | |
 | A3-25 | `[BLOCKER]` | Product mapping ekleme | Admin > `Lieferdienst Test` > Produkt hinzufugen > `Rotezwiebel` | Mapping olusur, supplier altinda gorunur | `NOT RUN` | |
 | A3-26 | `[BLOCKER]` | Preferred atama onceki preferred'i temizler | `Cola` icin ikinci supplier'i preferred yap | Eski preferred duser; tek preferred supplier kalir | `NOT RUN` | |
 | A3-27 | `[NON-BLOCKER]` | Product mapping silme | Var olan mapping > kaldir | Mapping silinir | `NOT RUN` | |
@@ -234,7 +234,7 @@ On Kosul: A-P03b tamamlanmis olmali (supplier ve mapping verisi hazir).
 | A5-15 | `[NON-BLOCKER]` | Checklist audit loglari yazilir | create, complete, export, reopen islemleri yap | `audit_log`'da `checklist_created`, `checklist_completed`, `checklist_exported`, `checklist_reopened` kayitlari bulunur | `NOT RUN` | |
 | A5-16 | `[NON-BLOCKER]` | Order ve supplier audit loglari yazilir | order create/status/deliver, supplier create/deactivate islemleri yap | `audit_log`'da `order_created`, `order_status_changed`, `order_delivered`, `supplier_created`, `supplier_deactivated` kayitlari bulunur | `NOT RUN` | |
 | A5-17 | `[BLOCKER]` | ISO week sinir durumu dogru | Aralik sonu / Ocak basi tarihinde checklist olustur (ornek: 29 Aralik 2025 = ISO 2026-W01) | `iso_year` ve `iso_week` beklenen ISO 8601 degerleri alir | `NOT RUN` | |
-| A5-18 | `[NON-BLOCKER]` | Performance sanity | 126 item checklist ile normal kullanim | Sayfa yukleme kabul edilebilir; autosave debounce (800ms) calisir; duplicate write gorunmez | `NOT RUN` | |
+| A5-18 | `[NON-BLOCKER]` | Performance sanity | 126 item checklist ile normal kullanim | Sayfa yukleme kabul edilebilir; autosave debounce (~600ms) ve internal-navigation best-effort flush calisir; duplicate write gorunmez | `NOT RUN` | |
 | A5-19 | `[BLOCKER]` | Deaktive kullanici mutation testi | 1) Aktif kullanici ile login yap. 2) Supabase SQL ile `profiles` tablosunda `is_active = false` yap. 3) Server Action cagir (checklist item update, order create, vb.) | `getActiveProfile()` null doner, istek reddedilir; deaktive kullanici mutation yapamaz | `NOT RUN` | |
 | A5-19b | `[BLOCKER]` | Deaktive kullanici sayfa erisim testi | Deaktive kullanici (A5-19 devami) dashboard, checklist, orders, suppliers sayfalarini ac | Kullanici `/deactivated` sayfasina yonlenir; uygulama sayfalari ve veri render edilmez | `NOT RUN` | |
 | A5-20 | `[NON-BLOCKER]` | Deaktive kullanici sonrasi yeniden login denemesi | Deaktive kullanici logout edip tekrar login yapar | Login olabilir ama uygulamaya girince `/deactivated` sayfasina yonlenir; mutation ve veri erisimi yapamaz | `NOT RUN` | |
@@ -276,12 +276,12 @@ Amac: Gercek kullanicilarla dusuk riskli pilot yapip, kafa karisikligi ve operas
 |----|---------|------|------|----------------|-------|-----|
 | B2-01 | `[BLOCKER]` | Haftalik checklist olusturulur | Pilot hafta | Checklist acilir, dogru KW numarasi | `NOT RUN` | |
 | B2-02 | `[BLOCKER]` | 20+ temsilci item girilir | Icecek, dondurulmus, kg, min-max urunler | Veri girisi rahat ve dogru olur | `NOT RUN` | |
-| B2-03 | `[NON-BLOCKER]` | En az 1 override kullanilir | `Pommesbox` veya benzeri | Override mantigi anlasilir ve uygulanir | `NOT RUN` | |
+| B2-03 | `[NON-BLOCKER]` | En az 1 item manuel missing olarak isaretlenir | `Pommesbox` veya benzeri | `F` toggle mantigi anlasilir ve uygulanir | `NOT RUN` | |
 | B2-04 | `[BLOCKER]` | Checklist tamamlanir | Tum itemlar gerekli kosullarda | Completed olur | `NOT RUN` | |
 | B2-05 | `[BLOCKER]` | Suggestions uretilir | Completed checklist | Supplier bazli oneriler olusur | `NOT RUN` | |
-| B2-06 | `[BLOCKER]` | En az 1 mapped supplier order yaratilir | Preferred supplier | Draft order olusur | `NOT RUN` | |
-| B2-07 | `[NON-BLOCKER]` | En az 1 unassigned urun gorulur | Mapping'siz urun | `Nicht zugewiesen` grubunda gorunur | `NOT RUN` | |
-| B2-08 | `[BLOCKER]` | Order `ordered` yapilir | Draft order | Status `ordered` olur | `NOT RUN` | |
+| B2-06 | `[BLOCKER]` | En az 1 mapped supplier suggestion finalize edilir | Preferred supplier | Checklist-side ordered capture kaydolur ve supplier bagli `ordered` order olusur | `NOT RUN` | |
+| B2-07 | `[NON-BLOCKER]` | En az 1 unassigned urun gorulur | Mapping'siz urun | `Nicht zugeordnet` grubunda gorunur | `NOT RUN` | |
+| B2-08 | `[BLOCKER]` | En az 1 draft order `ordered` yapilir | Arkaplanda veya manuel olusmus draft order | Status `ordered` olur | `NOT RUN` | |
 | B2-09 | `[BLOCKER]` | Kismi teslimat islenir | Siparis kalemlerinin bir kismi | `partially_delivered` olur | `NOT RUN` | |
 | B2-10 | `[BLOCKER]` | Tam teslimat islenir | Tum kalemler delivered | `delivered` olur | `NOT RUN` | |
 | B2-11 | `[BLOCKER]` | Export kullanilir | Completed checklist | Dosya indirilir ve paylasilabilir | `NOT RUN` | |
@@ -326,7 +326,7 @@ Amac: Mevcut manuel surecle paralel, kontrollu gercek kullanim yapip go/no-go ka
 | ID | Oncelik | Test | Veri | Beklenen Sonuc | Durum | Not |
 |----|---------|------|------|----------------|-------|-----|
 | C1-01 | `[BLOCKER]` | Ayni hafta manuel vs app checklist karsilastirmasi | Gercek hafta verisi | Item sayisi ve doldurulan kalemler uyusur | `NOT RUN` | |
-| C1-02 | `[BLOCKER]` | Missing miktarlar manuel surecle uyumlu | 10+ temsilci urun | Kritik sapma cikmaz | `NOT RUN` | |
+| C1-02 | `[BLOCKER]` | Manuel missing isaretleri ve oneriler manuel surecle uyumlu | 10+ temsilci urun | Kritik sapma cikmaz | `NOT RUN` | |
 | C1-03 | `[BLOCKER]` | Order onerileri manuel siparislerle uyumlu | Ayni hafta siparisleri | Kabul edilebilir fark disinda sapma olmaz | `NOT RUN` | |
 | C1-04 | `[BLOCKER]` | Delivery kayitlari manuel teslimlerle uyumlu | Gercek teslimatlar | Status ve adetler dogru yansir | `NOT RUN` | |
 | C1-05 | `[NON-BLOCKER]` | Export operasyonel olarak kullanisli | Gercek export dosyalari | Ekip tarafindan okunabilir ve paylasilabilir | `NOT RUN` | |

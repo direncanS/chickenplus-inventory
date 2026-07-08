@@ -27,11 +27,15 @@ npx supabase db push
 # Supabase Dashboard > SQL Editor > seed.sql icerigini calistir
 ```
 
-**Kontrol:** Migration sonrasi 4 RPC fonksiyonunun yuklendigini dogrula:
+**Kontrol:** Migration sonrasi public SQL function setinin guncel oldugunu dogrula:
 - `rpc_bootstrap_admin`
 - `rpc_create_checklist_with_snapshot`
 - `rpc_create_order_with_items`
 - `rpc_update_order_delivery`
+- `rpc_update_order_items_ordered`
+- `rpc_update_checklist_items_batch`
+- `rpc_finalize_suggestion_group`
+- `rpc_cleanup_old_data` (maintenance)
 
 ### 2. Vercel Deploy
 
@@ -50,9 +54,9 @@ npx vercel --prod
 
 Bu uygulama internal tool olarak tasarlanmistir. Kullanici kaydi (signup) uygulama icinde **yoktur**.
 
-**Supabase Dashboard > Auth > Settings:**
+**Supabase Dashboard > Auth > Settings / Providers > Email:**
 - **Allow new users to sign up** = **OFF** (public signup kapali)
-- **Confirm email** = **OFF** (Email provider ayarlarindan; SMTP yoksa login bloklar)
+- **Confirm email** = **OFF** (SMTP yoksa login bloklanmasin)
 
 **Kullanici olusturma:** Supabase Dashboard > Auth > Users > "Add user" ile manuel olusturulur.
 `handle_new_user` trigger otomatik olarak `staff` rolunde profil olusturur.
@@ -61,18 +65,18 @@ Bu uygulama internal tool olarak tasarlanmistir. Kullanici kaydi (signup) uygula
 
 1. Supabase Dashboard > Auth > Users > "Add user" ile ilk kullaniciyi olusturun
 2. Uygulamada bu kullanici ile login yapin
-3. `/setup` sayfasi acilir (henuz admin yok)
+3. Henuz admin yoksa `/setup` sayfasi acilir
 4. "Als Admin einrichten" butonuna tiklayin
 5. Ilk kullanici admin olarak bootstrap edilir
 
-**Not:** `rpc_bootstrap_admin` sadece henuz admin yokken calisir. Birden fazla admin olusturmak icin mevcut admin profiles tablosundan role degistirir.
+**Not:** `rpc_bootstrap_admin` sadece henuz admin yokken calisir. Sonraki admin atamalari mevcut admin tarafindan `profiles` tablosu uzerinden yapilir.
 
 ### 4. Post-Deploy Dogrulama
 
-`docs/smoke-test.md` kontrol listesindeki tum maddeleri gercek ortamda PASS/FAIL olarak dogrulayin:
+`docs/smoke-test.md` kontrol listesindeki maddeleri gercek ortamda PASS/FAIL olarak dogrulayin:
 - Login/logout
-- Checklist lifecycle (olustur → guncelle → tamamla)
-- Siparis akisi (oneri → olustur → siparis ver → teslimat)
+- Checklist lifecycle (olustur -> guncelle -> tamamla -> gerekirse yeniden ac)
+- Siparis akisi (arkaplan draft order'lar, suggestion group tamamlamasi, ordered/delivery lifecycle)
 - Excel export
 - Admin/staff yetki ayrimi
 - Mobile gorunum
@@ -90,30 +94,25 @@ Bu uygulama internal tool olarak tasarlanmistir. Kullanici kaydi (signup) uygula
 
 ## Known Limitations
 
-### Supabase Type Infrastructure (Session 7)
-- `src/types/supabase.ts` uretilmedi (Supabase instance baglantisi yoktu)
+### Supabase Type Infrastructure
+- `src/types/supabase.ts` uretilmedi
 - Supabase client'lar generic `Database` type parametresi kullanmiyor
 - `src/types/database.ts` manual type tanimlari ile calisiliyor
-- **Etki:** Sorgu sonuclarinda TypeScript inference sinirli, `any` cast gerekebilir
-- **Cozum:** Supabase instance baglaninca `npx supabase gen types typescript` calistirilmali
+- **Etki:** Bazi sorgu sonuclarinda TypeScript inference sinirli, `any` cast gerekebilir
 
-### Integration Test Kapsami (Session 8)
-- Integration testler mock stratejisi kullanildi (Supabase local yoktu)
-- Is mantigi dogrulandi ancak gercek DB interaction'lari test edilmedi
-- **Etki:** RLS policy, trigger ve RPC fonksiyon davranislari unit test kapsaminda degil
-- **Cozum:** Supabase local kuruldugunda mock testler gercek DB testlerine donusturulmeli
+### Integration Test Kapsami
+- Integration testler agirlikla mock stratejisi kullanir
+- Is mantigi dogrulansa da gercek DB interaction'lari tam kapsanmaz
+- **Etki:** RLS policy, trigger ve RPC runtime davranislari icin manual smoke test halen gereklidir
 
-### Smoke Test (Session 10)
-- Tum UI smoke testler NOT RUN (Supabase instance ve browser ortami yoktu)
-- **Etki:** Runtime UI davranisi production oncesi dogrulanmadi
-- **Cozum:** Production deploy sonrasi tum smoke test maddeleri gercek ortamda dogrulanmali
+### Smoke Test
+- `docs/smoke-test.md` canli davranisa gore guncel tutulur, ancak PASS/FAIL kayitlari ortam bazlidir
+- **Etki:** Production oncesi checklist yeniden kosulmadan eski PASS notlarina guvenilmemelidir
 
 ### Mevcut `any` Kullanimi
-- `src/lib/utils/transform.ts` (3 adet): Supabase `!inner` join type inference workaround
+- `src/lib/utils/transform.ts` icinde Supabase `!inner` join type inference workaround'lari bulunur
 - **Etki:** Type safety sinirli, runtime'da dogru calisiyor
-- **Cozum:** Session 7 type infrastructure kurulunca giderilebilir
 
-### Mobile Viewport Dogrulama (Session 4)
-- Gercek cihaz veya DevTools responsive mode testi yapilamadi
-- Code review ile layout uygunlugu dogrulandi
-- **Cozum:** Production'da gercek mobil cihazlarda test edilmeli
+### Mobile Viewport Dogrulama
+- Gercek cihaz testi ayrica yapilmalidir
+- **Etki:** Code review tek basina son operasyonel onay yerine gecmez

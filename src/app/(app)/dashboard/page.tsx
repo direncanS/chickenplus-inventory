@@ -9,34 +9,37 @@ import { formatDateTimeVienna, formatDateGerman } from '@/lib/utils/date';
 export default async function DashboardPage() {
   const supabase = await createServerClient();
 
-  // Fetch active checklist
-  const { data: activeChecklist } = await supabase
-    .from('checklists')
-    .select('id, iso_year, iso_week, checklist_date, status, created_at, updated_at')
-    .in('status', ['draft', 'in_progress'])
-    .single();
-
-  // Fetch checklist progress if active
   let progress = { checked: 0, total: 0 };
+  const [{ data: activeChecklist }, { count: openOrdersCount }] = await Promise.all([
+    supabase
+      .from('checklists')
+      .select('id, iso_year, iso_week, checklist_date, status, created_at, updated_at')
+      .in('status', ['draft', 'in_progress'])
+      .maybeSingle(),
+    supabase
+      .from('orders')
+      .select('id', { count: 'exact', head: true })
+      .in('status', ['draft', 'ordered', 'partially_delivered']),
+  ]);
+
   if (activeChecklist) {
-    const { data: items } = await supabase
-      .from('checklist_items')
-      .select('is_checked')
-      .eq('checklist_id', activeChecklist.id);
+    const [{ count: totalCount }, { count: checkedCount }] = await Promise.all([
+      supabase
+        .from('checklist_items')
+        .select('id', { count: 'exact', head: true })
+        .eq('checklist_id', activeChecklist.id),
+      supabase
+        .from('checklist_items')
+        .select('id', { count: 'exact', head: true })
+        .eq('checklist_id', activeChecklist.id)
+        .eq('is_checked', true),
+    ]);
 
-    if (items) {
-      progress = {
-        total: items.length,
-        checked: items.filter((i) => i.is_checked).length,
-      };
-    }
+    progress = {
+      total: totalCount ?? 0,
+      checked: checkedCount ?? 0,
+    };
   }
-
-  // Fetch open orders count
-  const { count: openOrdersCount } = await supabase
-    .from('orders')
-    .select('*', { count: 'exact', head: true })
-    .in('status', ['draft', 'ordered', 'partially_delivered']);
 
   const statusLabels: Record<string, string> = {
     draft: de.checklist.draft,

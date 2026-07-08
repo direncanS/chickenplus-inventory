@@ -7,6 +7,7 @@ import { StockTrendChart } from './stock-trend-chart';
 import { OrderSummaryChart } from './order-summary-chart';
 import { SupplierPerformanceChart } from './supplier-performance';
 import { TopMissingProducts } from './top-missing-products';
+import { OrderedProductsTable } from './ordered-products-table';
 import { getReportData } from '@/app/(app)/reports/actions';
 import type { ReportData, ReportPeriod, ReportDateRange } from '@/types/reports';
 
@@ -93,6 +94,8 @@ export function ReportsContent({ initialData }: ReportsContentProps) {
             <SupplierPerformanceChart data={data.supplierPerformance} />
             <TopMissingProducts data={data.topMissingProducts} />
           </div>
+
+          <OrderedProductsTable data={data.orderedProducts} />
         </div>
       </div>
     </div>

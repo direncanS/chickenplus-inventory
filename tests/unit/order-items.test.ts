@@ -31,6 +31,8 @@ describe('order item draft helpers', () => {
 
   it('prefills suggested quantity when field is empty', () => {
     expect(prefillOrderedQuantity('', 4)).toBe('4');
+    expect(prefillOrderedQuantity('', 0.14)).toBe('1');
+    expect(prefillOrderedQuantity('', 1.2)).toBe('2');
     expect(prefillOrderedQuantity('2', 4)).toBe('2');
   });
 
@@ -56,17 +58,28 @@ describe('order item draft helpers', () => {
     }
   });
 
-  it('rejects checked rows without quantity', () => {
+  it('allows checked rows without quantity', () => {
     const draft = createOrderedItemDraftState(items);
     draft['item-1'] = { isOrdered: true, orderedQuantity: '' };
 
     const result = buildOrderedItemUpdates(items, draft);
-    expect(result).toEqual({ success: false, error: 'ordered_quantity_required' });
+    expect(result).toEqual({
+      success: true,
+      data: [{ orderItemId: 'item-1', isOrdered: true, orderedQuantity: null }],
+    });
   });
 
   it('rejects invalid quantities', () => {
     const draft = createOrderedItemDraftState(items);
     draft['item-1'] = { isOrdered: true, orderedQuantity: '0' };
+
+    const result = buildOrderedItemUpdates(items, draft);
+    expect(result).toEqual({ success: false, error: 'ordered_quantity_invalid' });
+  });
+
+  it('rejects decimal quantities', () => {
+    const draft = createOrderedItemDraftState(items);
+    draft['item-1'] = { isOrdered: true, orderedQuantity: '0.14' };
 
     const result = buildOrderedItemUpdates(items, draft);
     expect(result).toEqual({ success: false, error: 'ordered_quantity_invalid' });

@@ -26,6 +26,11 @@ export function formatQuantityForInput(value: number | null | undefined): string
   return String(value);
 }
 
+export function normalizeSuggestedOrderCount(value: number): number {
+  if (!Number.isFinite(value) || value <= 0) return 1;
+  return Math.max(1, Math.ceil(value));
+}
+
 export function createOrderedItemDraftState(
   items: OrderedItemSource[]
 ): Record<string, OrderedItemDraftState> {
@@ -41,7 +46,9 @@ export function createOrderedItemDraftState(
 }
 
 export function prefillOrderedQuantity(currentValue: string, suggestedQuantity: number): string {
-  return currentValue.trim() === '' ? formatQuantityForInput(suggestedQuantity) : currentValue;
+  return currentValue.trim() === ''
+    ? formatQuantityForInput(normalizeSuggestedOrderCount(suggestedQuantity))
+    : currentValue;
 }
 
 function parseOrderedQuantity(rawValue: string): ParsedQuantity {
@@ -52,7 +59,7 @@ function parseOrderedQuantity(rawValue: string): ParsedQuantity {
   }
 
   const parsed = Number(normalized);
-  if (!Number.isFinite(parsed) || parsed <= 0) {
+  if (!Number.isFinite(parsed) || parsed <= 0 || !Number.isInteger(parsed)) {
     return { kind: 'invalid' };
   }
 
@@ -81,8 +88,11 @@ export function hasOrderedItemChanges(
     }
 
     const parsed = parseOrderedQuantity(draft.orderedQuantity);
-    if (parsed.kind !== 'value') {
+    if (parsed.kind === 'invalid') {
       return true;
+    }
+    if (parsed.kind === 'empty') {
+      return originalOrderedQuantity !== null;
     }
 
     return originalOrderedQuantity !== parsed.value;
@@ -94,7 +104,7 @@ export function buildOrderedItemUpdates(
   draftState: Record<string, OrderedItemDraftState>
 ):
   | { success: true; data: OrderedItemUpdate[] }
-  | { success: false; error: 'ordered_quantity_required' | 'ordered_quantity_invalid' } {
+  | { success: false; error: 'ordered_quantity_invalid' } {
   const updates: OrderedItemUpdate[] = [];
 
   for (const item of items) {
@@ -118,18 +128,17 @@ export function buildOrderedItemUpdates(
     }
 
     const parsed = parseOrderedQuantity(draft.orderedQuantity);
-    if (parsed.kind === 'empty') {
-      return { success: false, error: 'ordered_quantity_required' };
-    }
     if (parsed.kind === 'invalid') {
       return { success: false, error: 'ordered_quantity_invalid' };
     }
 
-    if (!originalIsOrdered || originalOrderedQuantity !== parsed.value) {
+    const nextOrderedQuantity = parsed.kind === 'value' ? parsed.value : null;
+
+    if (!originalIsOrdered || originalOrderedQuantity !== nextOrderedQuantity) {
       updates.push({
         orderItemId: item.id,
         isOrdered: true,
-        orderedQuantity: parsed.value,
+        orderedQuantity: nextOrderedQuantity,
       });
     }
   }
