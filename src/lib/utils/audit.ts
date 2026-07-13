@@ -13,7 +13,15 @@ type AuditAction =
   | 'order_delivered'
   | 'supplier_created'
   | 'supplier_deactivated'
-  | 'data_cleanup';
+  | 'data_cleanup'
+  | 'routine_order_created'
+  | 'routine_order_updated'
+  | 'routine_order_deleted'
+  | 'routine_order_item_added'
+  | 'routine_order_item_removed'
+  | 'routine_instances_generated'
+  | 'routine_instance_confirmed'
+  | 'routine_instance_skipped';
 
 interface AuditEntry {
   userId: string;

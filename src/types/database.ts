@@ -142,6 +142,52 @@ export interface AuditLog {
   created_at: string;
 }
 
+export interface RoutineOrder {
+  id: string;
+  supplier_id: string;
+  day_of_week: 'montag' | 'dienstag' | 'mittwoch' | 'donnerstag' | 'freitag' | 'samstag' | 'sonntag';
+  is_active: boolean;
+  notes: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface RoutineOrderItem {
+  id: string;
+  routine_order_id: string;
+  product_id: string;
+  default_quantity: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface RoutineOrderInstance {
+  id: string;
+  routine_order_id: string;
+  checklist_id: string | null;
+  order_id: string | null;
+  iso_year: number;
+  iso_week: number;
+  scheduled_date: string;
+  status: 'pending' | 'skipped';
+  confirmed_by: string | null;
+  confirmed_at: string | null;
+  notes: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface RoutineOrderInstanceItem {
+  id: string;
+  instance_id: string;
+  product_id: string;
+  default_quantity: number;
+  adjusted_quantity: number | null;
+  is_included: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
 // Extended types with joins
 export interface ChecklistItemWithProduct extends ChecklistItem {
   storage_location_name: string;
