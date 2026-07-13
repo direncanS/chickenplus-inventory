@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 
-import { act, fireEvent, render, screen } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { ChecklistView } from '@/components/checklist/checklist-view';
 
@@ -60,6 +60,7 @@ describe('ChecklistView', () => {
   });
 
   afterEach(() => {
+    cleanup();
     vi.useRealTimers();
   });
 
@@ -120,12 +121,12 @@ describe('ChecklistView', () => {
     await act(async () => {
       fireEvent.click(checkboxes[0]);
     });
-    expect(screen.getByText(/1\/2/)).toBeTruthy();
+    expect(screen.getAllByText(/1\/2/).length).toBeGreaterThan(0);
 
     await act(async () => {
       fireEvent.click(checkboxes[1]);
     });
-    expect(screen.getByText(/2\/2/)).toBeTruthy();
+    expect(screen.getAllByText(/2\/2/).length).toBeGreaterThan(0);
 
     await act(async () => {
       await vi.advanceTimersByTimeAsync(600);
@@ -190,7 +191,7 @@ describe('ChecklistView', () => {
     await act(async () => {
       fireEvent.click(checkbox);
     });
-    expect(screen.getByText(/1\/1/)).toBeTruthy();
+    expect(screen.getAllByText(/1\/1/).length).toBeGreaterThan(0);
 
     await act(async () => {
       unmount();

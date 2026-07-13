@@ -1,21 +1,37 @@
-import { createServerClient } from '@/lib/supabase/server';
-import { de } from '@/i18n/de';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import Link from 'next/link';
 import { Button } from '@/components/ui/button';
-import { formatDateTimeVienna, formatWeekRangeGerman } from '@/lib/utils/date';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { de } from '@/i18n/de';
+import { createServerClient } from '@/lib/supabase/server';
+import { formatDateTimeVienna, formatWeekRangeGerman, getCurrentWeekRange } from '@/lib/utils/date';
 import { Archive, BarChart3, FileSpreadsheet } from 'lucide-react';
+import Link from 'next/link';
 
 export default async function DashboardPage() {
   const supabase = await createServerClient();
+  const { startDate: currentWeekStart } = getCurrentWeekRange();
 
   let progress = { checked: 0, total: 0 };
-  const [{ data: activeChecklist }, { count: openOrdersCount }, { data: orderStatusBreakdown }] = await Promise.all([
+  let missingCount = 0;
+
+  const [
+    { data: currentWeekChecklist },
+    { data: previousActiveChecklist },
+    { count: openOrdersCount },
+    { data: orderStatusBreakdown },
+  ] = await Promise.all([
     supabase
       .from('checklists')
       .select('id, iso_year, iso_week, checklist_date, week_start_date, week_end_date, status, created_at, updated_at')
+      .eq('week_start_date', currentWeekStart)
+      .maybeSingle(),
+    supabase
+      .from('checklists')
+      .select('id, iso_year, iso_week, week_start_date, week_end_date, status')
+      .neq('week_start_date', currentWeekStart)
       .in('status', ['draft', 'in_progress'])
+      .order('week_start_date', { ascending: false })
+      .limit(1)
       .maybeSingle(),
     supabase
       .from('orders')
@@ -27,23 +43,29 @@ export default async function DashboardPage() {
       .in('status', ['draft', 'ordered', 'partially_delivered']),
   ]);
 
-  if (activeChecklist) {
-    const [{ count: totalCount }, { count: checkedCount }] = await Promise.all([
+  if (currentWeekChecklist) {
+    const [{ count: totalCount }, { count: checkedCount }, { count: missingItemsCount }] = await Promise.all([
       supabase
         .from('checklist_items')
         .select('id', { count: 'exact', head: true })
-        .eq('checklist_id', activeChecklist.id),
+        .eq('checklist_id', currentWeekChecklist.id),
       supabase
         .from('checklist_items')
         .select('id', { count: 'exact', head: true })
-        .eq('checklist_id', activeChecklist.id)
+        .eq('checklist_id', currentWeekChecklist.id)
         .eq('is_checked', true),
+      supabase
+        .from('checklist_items')
+        .select('id', { count: 'exact', head: true })
+        .eq('checklist_id', currentWeekChecklist.id)
+        .eq('is_missing', true),
     ]);
 
     progress = {
       total: totalCount ?? 0,
       checked: checkedCount ?? 0,
     };
+    missingCount = missingItemsCount ?? 0;
   }
 
   const statusLabels: Record<string, string> = {
@@ -60,37 +82,37 @@ export default async function DashboardPage() {
 
   const progressPercent = progress.total > 0 ? Math.round((progress.checked / progress.total) * 100) : 0;
 
-  // Count order statuses for breakdown
-  const orderBreakdown = (orderStatusBreakdown ?? []).reduce<Record<string, number>>((acc, o) => {
-    acc[o.status] = (acc[o.status] ?? 0) + 1;
+  const orderBreakdown = (orderStatusBreakdown ?? []).reduce<Record<string, number>>((acc, order) => {
+    acc[order.status] = (acc[order.status] ?? 0) + 1;
     return acc;
   }, {});
 
   const orderBreakdownParts: string[] = [];
-  if (orderBreakdown['draft']) orderBreakdownParts.push(`${orderBreakdown['draft']} ${de.orders.statusDraft}`);
-  if (orderBreakdown['ordered']) orderBreakdownParts.push(`${orderBreakdown['ordered']} ${de.orders.statusOrdered}`);
-  if (orderBreakdown['partially_delivered']) orderBreakdownParts.push(`${orderBreakdown['partially_delivered']} ${de.orders.statusPartiallyDelivered}`);
+  if (orderBreakdown.draft) orderBreakdownParts.push(`${orderBreakdown.draft} ${de.orders.statusDraft}`);
+  if (orderBreakdown.ordered) orderBreakdownParts.push(`${orderBreakdown.ordered} ${de.orders.statusOrdered}`);
+  if (orderBreakdown.partially_delivered) {
+    orderBreakdownParts.push(`${orderBreakdown.partially_delivered} ${de.orders.statusPartiallyDelivered}`);
+  }
 
   return (
     <div className="space-y-6">
-      {/* Active Checklist Card */}
       <Card>
         <CardHeader>
-          <CardTitle>{de.dashboard.activeChecklist}</CardTitle>
-          {activeChecklist && (
+          <CardTitle>{de.dashboard.currentWeekChecklist}</CardTitle>
+          {currentWeekChecklist && (
             <CardDescription>
-              {activeChecklist.week_start_date && activeChecklist.week_end_date
-                ? `${formatWeekRangeGerman(activeChecklist.week_start_date, activeChecklist.week_end_date)} - ${de.dashboard.weekLabel} ${activeChecklist.iso_week}`
-                : `${de.dashboard.weekLabel} ${activeChecklist.iso_week} / ${activeChecklist.iso_year}`}
+              {currentWeekChecklist.week_start_date && currentWeekChecklist.week_end_date
+                ? `${formatWeekRangeGerman(currentWeekChecklist.week_start_date, currentWeekChecklist.week_end_date)} - ${de.dashboard.weekLabel} ${currentWeekChecklist.iso_week}`
+                : `${de.dashboard.weekLabel} ${currentWeekChecklist.iso_week} / ${currentWeekChecklist.iso_year}`}
             </CardDescription>
           )}
         </CardHeader>
         <CardContent>
-          {activeChecklist ? (
+          {currentWeekChecklist ? (
             <div className="space-y-3">
               <div className="flex items-center gap-2">
-                <Badge variant="outline" className={statusBadgeClass[activeChecklist.status]}>
-                  {statusLabels[activeChecklist.status]}
+                <Badge variant="outline" className={statusBadgeClass[currentWeekChecklist.status]}>
+                  {statusLabels[currentWeekChecklist.status]}
                 </Badge>
                 <span className="text-sm text-muted-foreground">
                   {progressPercent}% ({progress.checked}/{progress.total})
@@ -100,34 +122,56 @@ export default async function DashboardPage() {
                 <div className="w-full bg-muted rounded-full h-3">
                   <div
                     className="bg-primary h-3 rounded-full transition-all"
-                    style={{
-                      width: `${progressPercent}%`,
-                    }}
+                    style={{ width: `${progressPercent}%` }}
                   />
                 </div>
               </div>
-              <p className="text-xs text-muted-foreground">
-                {formatDateTimeVienna(activeChecklist.updated_at)}
+              <p className={missingCount > 0 ? 'text-sm font-medium text-amber-700' : 'text-sm font-medium text-green-700'}>
+                {missingCount > 0
+                  ? de.dashboard.missingProducts.replace('{count}', String(missingCount))
+                  : de.dashboard.noMissingProducts}
               </p>
+              <p className="text-xs text-muted-foreground">
+                {formatDateTimeVienna(currentWeekChecklist.updated_at)}
+              </p>
+              <div className="flex flex-wrap gap-2">
+                <Link href="/checklist">
+                  <Button size="sm">
+                    {currentWeekChecklist.status === 'draft'
+                      ? de.dashboard.startChecklist
+                      : currentWeekChecklist.status === 'in_progress'
+                        ? de.dashboard.continueChecklist
+                        : de.dashboard.viewChecklist}
+                  </Button>
+                </Link>
+                {currentWeekChecklist.status === 'completed' && (
+                  <Link href={`/api/export/${currentWeekChecklist.id}`}>
+                    <Button variant="outline" size="sm">
+                      {de.dashboard.exportExcel}
+                    </Button>
+                  </Link>
+                )}
+              </div>
+            </div>
+          ) : previousActiveChecklist ? (
+            <div className="text-center py-6">
+              <p className="font-medium mb-1">{de.dashboard.previousWeekBlocking}</p>
               <Link href="/checklist">
-                <Button size="sm">
-                  {de.checklist.title}
-                </Button>
+                <Button>{de.dashboard.goToChecklist}</Button>
               </Link>
             </div>
           ) : (
             <div className="text-center py-6">
-              <p className="font-medium mb-1">{de.dashboard.noActiveChecklist}</p>
-              <p className="text-sm text-muted-foreground mb-3">{de.dashboard.noActiveChecklistDescription}</p>
+              <p className="font-medium mb-1">{de.dashboard.noChecklistYet}</p>
+              <p className="text-sm text-muted-foreground mb-3">{de.dashboard.noChecklistYetDescription}</p>
               <Link href="/checklist">
-                <Button>{de.dashboard.createNew}</Button>
+                <Button>{de.dashboard.goToChecklist}</Button>
               </Link>
             </div>
           )}
         </CardContent>
       </Card>
 
-      {/* Open Orders Card */}
       <Card>
         <CardHeader>
           <CardTitle>{de.dashboard.openOrders}</CardTitle>
@@ -151,21 +195,12 @@ export default async function DashboardPage() {
         </CardContent>
       </Card>
 
-      {/* Quick Actions Card */}
       <Card>
         <CardHeader>
           <CardTitle>{de.dashboard.quickActions}</CardTitle>
         </CardHeader>
         <CardContent>
           <div className="grid grid-cols-3 gap-3">
-            {activeChecklist && (
-              <Link href={`/api/export/${activeChecklist.id}`}>
-                <div className="flex flex-col items-center gap-2 p-3 rounded-lg hover:bg-muted transition-colors text-center">
-                  <FileSpreadsheet className="h-6 w-6 text-primary" />
-                  <span className="text-xs font-medium">{de.dashboard.exportExcel}</span>
-                </div>
-              </Link>
-            )}
             <Link href="/archive">
               <div className="flex flex-col items-center gap-2 p-3 rounded-lg hover:bg-muted transition-colors text-center">
                 <Archive className="h-6 w-6 text-primary" />
@@ -178,6 +213,14 @@ export default async function DashboardPage() {
                 <span className="text-xs font-medium">{de.nav.reports}</span>
               </div>
             </Link>
+            {currentWeekChecklist?.status === 'completed' && (
+              <Link href={`/api/export/${currentWeekChecklist.id}`}>
+                <div className="flex flex-col items-center gap-2 p-3 rounded-lg hover:bg-muted transition-colors text-center">
+                  <FileSpreadsheet className="h-6 w-6 text-primary" />
+                  <span className="text-xs font-medium">{de.dashboard.exportExcel}</span>
+                </div>
+              </Link>
+            )}
           </div>
         </CardContent>
       </Card>
