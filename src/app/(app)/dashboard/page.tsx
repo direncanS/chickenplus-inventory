@@ -1,5 +1,6 @@
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { CorrectChecklistWeekButton } from '@/components/checklist/correct-checklist-week-button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { de } from '@/i18n/de';
 import { createServerClient } from '@/lib/supabase/server';
@@ -9,7 +10,7 @@ import Link from 'next/link';
 
 export default async function DashboardPage() {
   const supabase = await createServerClient();
-  const { startDate: currentWeekStart } = getCurrentWeekRange();
+  const { startDate: currentWeekStart, endDate: currentWeekEnd } = getCurrentWeekRange();
 
   let progress = { checked: 0, total: 0 };
   let missingCount = 0;
@@ -156,9 +157,17 @@ export default async function DashboardPage() {
           ) : previousActiveChecklist ? (
             <div className="text-center py-6">
               <p className="font-medium mb-1">{de.dashboard.previousWeekBlocking}</p>
-              <Link href="/checklist">
-                <Button>{de.dashboard.goToChecklist}</Button>
-              </Link>
+              <p className="text-sm text-muted-foreground mb-3">{de.checklist.correctionHint}</p>
+              <div className="flex flex-wrap justify-center gap-2">
+                <Link href="/checklist">
+                  <Button>{de.dashboard.goToChecklist}</Button>
+                </Link>
+                <CorrectChecklistWeekButton
+                  sourceChecklistId={previousActiveChecklist.id}
+                  targetWeekStart={currentWeekStart}
+                  targetWeekEnd={currentWeekEnd}
+                />
+              </div>
             </div>
           ) : (
             <div className="text-center py-6">

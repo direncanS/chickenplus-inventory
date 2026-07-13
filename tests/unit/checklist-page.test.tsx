@@ -37,6 +37,10 @@ vi.mock('@/components/checklist/checklist-view', () => ({
   ),
 }));
 
+vi.mock('@/components/checklist/correct-checklist-week-button', () => ({
+  CorrectChecklistWeekButton: () => <button type="button">Für aktuelle Woche neu erstellen</button>,
+}));
+
 function createChecklistPageSupabaseStub(options: {
   currentWeekChecklist?: Record<string, unknown> | null;
   previousActiveChecklist?: Record<string, unknown> | null;
@@ -137,8 +141,9 @@ describe('ChecklistPage', () => {
     const { default: ChecklistPage } = await import('@/app/(app)/checklist/page');
     render(await ChecklistPage());
 
-    expect(screen.getByText(/Vorwoche/)).toBeTruthy();
+    expect(screen.getAllByText(/Vorwoche/).length).toBeGreaterThan(0);
     expect(screen.getByText(/KW 15/)).toBeTruthy();
+    expect(screen.getByText(/Für aktuelle Woche neu erstellen/)).toBeTruthy();
     expect(screen.getAllByTestId('checklist-view').at(-1)?.textContent).toContain('checklist-old:in_progress');
   });
 });
