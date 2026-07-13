@@ -7,7 +7,7 @@ import { createServerClient } from '@/lib/supabase/server';
 import { getActiveProfile } from '@/lib/supabase/auth-helpers';
 import { logAudit } from '@/lib/utils/audit';
 import { logger } from '@/lib/utils/logger';
-import { getISOWeekAndYear, isInCurrentMonth } from '@/lib/utils/date';
+import { getISOWeekAndYear } from '@/lib/utils/date';
 import {
   createChecklistSchema,
   updateChecklistItemSchema,
@@ -59,7 +59,7 @@ function unwrapRelation<T>(value: T | T[] | null | undefined): T | undefined {
   return value ?? undefined;
 }
 
-export async function createChecklist(input: { checklistDate: string }) {
+export async function createChecklist(input: { weekStartDate: string; weekEndDate: string }) {
   const supabase = await createServerClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return { error: de.auth.notLoggedIn };
@@ -69,21 +69,33 @@ export async function createChecklist(input: { checklistDate: string }) {
 
   try {
     const validated = createChecklistSchema.parse(input);
-    const date = validated.checklistDate;
+    const { weekStartDate, weekEndDate } = validated;
 
-    // Server-side validation: date must be in current month
-    if (!isInCurrentMonth(date)) {
+    // Server-side validation: weekStartDate must be a Sunday (DOW=0)
+    const startDate = new Date(weekStartDate + 'T12:00:00');
+    if (startDate.getDay() !== 0) {
       return { error: de.errors.invalidInput };
     }
 
-    // Calculate ISO week from the selected date
-    const { isoYear, isoWeek } = getISOWeekAndYear(new Date(date + 'T12:00:00'));
+    // weekEndDate must be exactly weekStartDate + 6 days (Saturday)
+    const expectedEnd = new Date(startDate);
+    expectedEnd.setDate(expectedEnd.getDate() + 6);
+    const expectedEndStr = expectedEnd.toISOString().slice(0, 10);
+    if (weekEndDate !== expectedEndStr) {
+      return { error: de.errors.invalidInput };
+    }
+
+    // Calculate ISO week from Monday (weekStartDate + 1 day)
+    const monday = new Date(startDate);
+    monday.setDate(monday.getDate() + 1);
+    const { isoYear, isoWeek } = getISOWeekAndYear(monday);
 
     const { data, error } = await supabase.rpc('rpc_create_checklist_with_snapshot', {
       p_iso_year: isoYear,
       p_iso_week: isoWeek,
       p_created_by: user.id,
-      p_checklist_date: date,
+      p_week_start_date: weekStartDate,
+      p_week_end_date: weekEndDate,
     });
 
     if (error) {
@@ -97,8 +109,8 @@ export async function createChecklist(input: { checklistDate: string }) {
       if (result.error === 'active_checklist_exists') {
         return { error: de.checklist.activeExists };
       }
-      if (result.error === 'monthly_limit_reached') {
-        return { error: de.checklist.monthlyLimitReached };
+      if (result.error === 'weekly_checklist_exists') {
+        return { error: de.checklist.weeklyChecklistExists };
       }
       return { error: de.errors.generic };
     }
@@ -108,10 +120,10 @@ export async function createChecklist(input: { checklistDate: string }) {
       action: 'checklist_created',
       entityType: 'checklist',
       entityId: result.checklist_id!,
-      details: { isoYear, isoWeek, checklistDate: date, itemCount: result.item_count },
+      details: { isoYear, isoWeek, weekStartDate, weekEndDate, itemCount: result.item_count },
     });
 
-    logger.info('Checklist created', { checklistId: result.checklist_id, week: `${isoYear}-W${isoWeek}`, date });
+    logger.info('Checklist created', { checklistId: result.checklist_id, week: `${isoYear}-W${isoWeek}`, weekStartDate, weekEndDate });
 
     revalidatePath('/checklist');
     revalidatePath('/dashboard');

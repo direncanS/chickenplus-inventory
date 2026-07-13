@@ -138,3 +138,62 @@ export function formatDateTimeVienna(date: Date | string): string {
     minute: '2-digit',
   });
 }
+
+/**
+ * Get the Sunday-Saturday week range containing the given date.
+ * Sunday = start, Saturday = end.
+ * @param date - a Date object
+ * @returns { startDate: 'YYYY-MM-DD', endDate: 'YYYY-MM-DD' }
+ */
+export function getWeekRange(date: Date): { startDate: string; endDate: string } {
+  // Convert to Vienna local date
+  const viennaDate = new Date(
+    date.toLocaleString('en-US', { timeZone: 'Europe/Vienna' })
+  );
+  const dow = viennaDate.getDay(); // 0=Sunday
+  const sunday = new Date(viennaDate);
+  sunday.setDate(viennaDate.getDate() - dow);
+  const saturday = new Date(sunday);
+  saturday.setDate(sunday.getDate() + 6);
+
+  const fmt = (d: Date) => {
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${y}-${m}-${day}`;
+  };
+
+  return { startDate: fmt(sunday), endDate: fmt(saturday) };
+}
+
+/**
+ * Get the Sunday-Saturday week range for the current date in Vienna timezone.
+ */
+export function getCurrentWeekRange(): { startDate: string; endDate: string } {
+  return getWeekRange(new Date());
+}
+
+/**
+ * Check if a given date string falls within a week range.
+ */
+export function isDateInWeekRange(dateStr: string, weekStart: string, weekEnd: string): boolean {
+  return dateStr >= weekStart && dateStr <= weekEnd;
+}
+
+/**
+ * Check if a week range represents the current week (Vienna timezone).
+ */
+export function isCurrentWeek(weekStart: string, weekEnd: string): boolean {
+  const today = getTodayVienna();
+  return isDateInWeekRange(today, weekStart, weekEnd);
+}
+
+/**
+ * Format a week range as "DD.MM - DD.MM.YYYY" for German display.
+ * e.g. "12.04 - 18.04.2026"
+ */
+export function formatWeekRangeGerman(startDate: string, endDate: string): string {
+  const [, sm, sd] = startDate.split('-');
+  const [ey, em, ed] = endDate.split('-');
+  return `${sd}.${sm} - ${ed}.${em}.${ey}`;
+}

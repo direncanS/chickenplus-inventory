@@ -20,56 +20,56 @@ const validUUID2 = '660e8400-e29b-41d4-a716-446655440001';
 // ── createChecklistSchema ──
 
 describe('createChecklistSchema', () => {
-  it('accepts valid date string', () => {
+  it('accepts valid week start and end dates', () => {
     const result = createChecklistSchema.safeParse({
-      checklistDate: '2026-04-04',
+      weekStartDate: '2026-04-12',
+      weekEndDate: '2026-04-18',
     });
     expect(result.success).toBe(true);
   });
 
-  it('accepts first day of month', () => {
+  it('rejects invalid format for weekStartDate', () => {
     const result = createChecklistSchema.safeParse({
-      checklistDate: '2026-01-01',
-    });
-    expect(result.success).toBe(true);
-  });
-
-  it('accepts last day of month', () => {
-    const result = createChecklistSchema.safeParse({
-      checklistDate: '2026-12-31',
-    });
-    expect(result.success).toBe(true);
-  });
-
-  it('rejects invalid format (DD.MM.YYYY)', () => {
-    const result = createChecklistSchema.safeParse({
-      checklistDate: '04.04.2026',
+      weekStartDate: '12.04.2026',
+      weekEndDate: '2026-04-18',
     });
     expect(result.success).toBe(false);
   });
 
-  it('rejects invalid format (no dashes)', () => {
+  it('rejects invalid format for weekEndDate', () => {
     const result = createChecklistSchema.safeParse({
-      checklistDate: '20260404',
+      weekStartDate: '2026-04-12',
+      weekEndDate: '18.04.2026',
     });
     expect(result.success).toBe(false);
   });
 
-  it('rejects empty string', () => {
+  it('rejects empty weekStartDate', () => {
     const result = createChecklistSchema.safeParse({
-      checklistDate: '',
+      weekStartDate: '',
+      weekEndDate: '2026-04-18',
     });
     expect(result.success).toBe(false);
   });
 
-  it('rejects missing checklistDate', () => {
-    const result = createChecklistSchema.safeParse({});
+  it('rejects missing weekStartDate', () => {
+    const result = createChecklistSchema.safeParse({
+      weekEndDate: '2026-04-18',
+    });
     expect(result.success).toBe(false);
   });
 
-  it('rejects non-string value', () => {
+  it('rejects missing weekEndDate', () => {
     const result = createChecklistSchema.safeParse({
-      checklistDate: 20260404,
+      weekStartDate: '2026-04-12',
+    });
+    expect(result.success).toBe(false);
+  });
+
+  it('rejects non-string values', () => {
+    const result = createChecklistSchema.safeParse({
+      weekStartDate: 20260412,
+      weekEndDate: 20260418,
     });
     expect(result.success).toBe(false);
   });

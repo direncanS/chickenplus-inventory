@@ -49,6 +49,7 @@ export const de = {
     archive: 'Archiv',
     reports: 'Berichte',
     settings: 'Einstellungen',
+    more: 'Mehr',
   },
 
   // Dashboard
@@ -60,6 +61,8 @@ export const de = {
     noActiveChecklistDescription: 'Erstellen Sie eine neue Kontrollliste, um mit der Bestandskontrolle zu beginnen.',
     createNew: 'Neue Kontrollliste erstellen',
     weekLabel: 'KW',
+    quickActions: 'Schnellzugriff',
+    exportExcel: 'Excel Export',
   },
 
   // Checklist
@@ -96,8 +99,9 @@ export const de = {
     overrideActive: 'Override aktiv - klicken zum Zurücksetzen',
     product: 'Produkt',
     selectDate: 'Datum auswählen',
-    createForDate: 'Kontrollliste für {date} - KW {week} erstellen',
-    monthlyLimitReached: 'Für diesen Monat wurden bereits 5 Kontrolllisten erstellt.',
+    createForDate: 'Kontrollliste für {startDate}-{endDate} - KW {week} erstellen',
+    weekRange: '{startDate} - {endDate}',
+    weeklyChecklistExists: 'Für diese Woche existiert bereits eine Kontrollliste.',
     completeConfirmTitle: 'Kontrollliste abschließen',
     completeConfirmDescription: 'Möchten Sie die Kontrollliste wirklich abschließen? Nach dem Abschluss können keine Änderungen mehr vorgenommen werden.',
     completeConfirmButton: 'Abschließen',
