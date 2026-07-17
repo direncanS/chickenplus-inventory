@@ -1,4 +1,5 @@
 import { getReportData } from './actions';
+import { PageIntro } from '@/components/layout/page-intro';
 import { ReportsContent } from '@/components/reports/reports-content';
 import type { ReportData } from '@/types/reports';
 
@@ -28,6 +29,11 @@ export default async function ReportsPage() {
 
   return (
     <div className="space-y-4">
+      <PageIntro
+        eyebrow="Analyse"
+        title="Berichte"
+        description="Verfolgen Sie Bestand, Bestellungen, Lieferleistung und wiederkehrende Lücken in einer klareren Wochenansicht."
+      />
       {'error' in result && (
         <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-3 text-sm text-destructive">
           {result.error}

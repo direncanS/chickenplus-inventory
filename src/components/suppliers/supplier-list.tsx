@@ -61,14 +61,19 @@ export function SupplierList({ suppliers, isAdmin }: { suppliers: Supplier[]; is
         />
       )}
 
-      <div className="grid gap-3">
+      <div className="grid gap-4">
         {suppliers.map((supplier) => {
           const isExpanded = expandedSupplier === supplier.id;
           return (
             <Card key={supplier.id} className={!supplier.is_active ? 'opacity-60' : ''}>
               <CardHeader className="pb-2">
                 <div className="flex items-center justify-between">
-                  <CardTitle className="text-base">{supplier.name}</CardTitle>
+                  <div className="space-y-1">
+                    <CardTitle className="text-lg">{supplier.name}</CardTitle>
+                    <p className="text-sm text-muted-foreground">
+                      {supplier.contact_name ?? 'Kein Ansprechpartner'}
+                    </p>
+                  </div>
                   <div className="flex items-center gap-2">
                     <Badge variant={supplier.is_active ? 'default' : 'secondary'}>
                       {supplier.is_active ? de.suppliers.active : de.suppliers.inactive}
@@ -95,27 +100,27 @@ export function SupplierList({ suppliers, isAdmin }: { suppliers: Supplier[]; is
                 </div>
               </CardHeader>
               <CardContent>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-1 text-sm text-muted-foreground">
+                <div className="grid grid-cols-1 gap-2 text-sm text-muted-foreground sm:grid-cols-2">
                   {supplier.contact_name && (
-                    <div className="flex items-center gap-1.5">
+                    <div className="flex items-center gap-2 rounded-2xl bg-muted/40 px-3 py-2">
                       <User className="h-3.5 w-3.5" />
                       {supplier.contact_name}
                     </div>
                   )}
                   {supplier.phone && (
-                    <div className="flex items-center gap-1.5">
+                    <div className="flex items-center gap-2 rounded-2xl bg-muted/40 px-3 py-2">
                       <Phone className="h-3.5 w-3.5" />
                       {supplier.phone}
                     </div>
                   )}
                   {supplier.email && (
-                    <div className="flex items-center gap-1.5">
+                    <div className="flex items-center gap-2 rounded-2xl bg-muted/40 px-3 py-2">
                       <Mail className="h-3.5 w-3.5" />
                       {supplier.email}
                     </div>
                   )}
                   {supplier.address && (
-                    <div className="flex items-center gap-1.5">
+                    <div className="flex items-center gap-2 rounded-2xl bg-muted/40 px-3 py-2">
                       <MapPin className="h-3.5 w-3.5" />
                       {supplier.address}
                     </div>
@@ -128,7 +133,7 @@ export function SupplierList({ suppliers, isAdmin }: { suppliers: Supplier[]; is
                     <Separator className="my-3" />
                     <button
                       type="button"
-                      className="flex items-center gap-2 text-sm font-medium w-full text-left"
+                      className="flex w-full items-center gap-2 rounded-2xl bg-muted/35 px-3 py-3 text-left text-sm font-medium"
                       onClick={() => toggleExpanded(supplier.id)}
                     >
                       <Package className="h-4 w-4" />
@@ -151,7 +156,7 @@ export function SupplierList({ suppliers, isAdmin }: { suppliers: Supplier[]; is
           );
         })}
         {suppliers.length === 0 && (
-          <div className="text-center py-8">
+          <div className="surface-subtle py-10 text-center">
             <p className="font-medium mb-1">{de.suppliers.noSuppliers}</p>
             <p className="text-sm text-muted-foreground mb-3">{de.suppliers.noSuppliersDescription}</p>
             {isAdmin && (

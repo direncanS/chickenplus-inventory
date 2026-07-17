@@ -1,4 +1,5 @@
 import { de } from '@/i18n/de';
+import { PageIntro } from '@/components/layout/page-intro';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { requireAppViewer } from '@/lib/supabase/app-viewer';
@@ -8,7 +9,12 @@ export default async function SettingsPage() {
   const { user, profile } = await requireAppViewer();
 
   return (
-    <div className="space-y-4 max-w-md">
+    <div className="max-w-3xl space-y-4">
+      <PageIntro
+        eyebrow="Konto"
+        title={de.nav.settings}
+        description="Zeigen Sie Kontodetails an und halten Sie den täglichen Zugriff bewusst einfach."
+      />
       <Card>
         <CardHeader>
           <CardTitle className="text-base">{de.settings.profile}</CardTitle>
@@ -16,7 +22,7 @@ export default async function SettingsPage() {
         <CardContent className="space-y-3">
           <div className="flex justify-between">
             <span className="text-sm text-muted-foreground">{de.auth.email}</span>
-            <span className="text-sm">{user.email}</span>
+            <span className="max-w-[14rem] text-right text-sm">{user.email}</span>
           </div>
           <div className="flex justify-between">
             <span className="text-sm text-muted-foreground">{de.settings.displayName}</span>

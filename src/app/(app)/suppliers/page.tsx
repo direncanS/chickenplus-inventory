@@ -1,4 +1,5 @@
 import { createServerClient } from '@/lib/supabase/server';
+import { PageIntro } from '@/components/layout/page-intro';
 import { SupplierList } from '@/components/suppliers/supplier-list';
 import { requireAppViewer } from '@/lib/supabase/app-viewer';
 
@@ -14,6 +15,11 @@ export default async function SuppliersPage() {
 
   return (
     <div className="space-y-4">
+      <PageIntro
+        eyebrow="Verwaltung"
+        title="Lieferanten"
+        description="Verwalten Sie Lieferantendaten, bevorzugte Zuordnungen und Produktbeziehungen in einer klareren Admin-Oberfläche."
+      />
       <SupplierList suppliers={suppliers ?? []} isAdmin={viewer.isAdmin} />
     </div>
   );

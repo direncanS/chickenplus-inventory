@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { BrandMark } from '@/components/layout/brand-mark';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { de } from '@/i18n/de';
@@ -29,16 +30,23 @@ export function SetupForm() {
   }
 
   return (
-    <Card className="w-full max-w-sm">
-      <CardHeader className="text-center">
-        <CardTitle className="text-2xl">{de.auth.setupTitle}</CardTitle>
-        <CardDescription>{de.auth.setupDescription}</CardDescription>
+    <Card className="w-full max-w-[28rem]">
+      <CardHeader className="space-y-6 text-center">
+        <div className="mx-auto lg:hidden">
+          <BrandMark compact />
+        </div>
+        <div className="space-y-2">
+          <CardTitle className="text-3xl">{de.auth.setupTitle}</CardTitle>
+          <CardDescription>{de.auth.setupDescription}</CardDescription>
+        </div>
       </CardHeader>
       <CardContent className="space-y-4">
         {error && (
-          <p className="text-sm text-destructive">{error}</p>
+          <p className="rounded-2xl border border-destructive/15 bg-destructive/8 px-4 py-3 text-sm text-destructive">
+            {error}
+          </p>
         )}
-        <Button onClick={handleSetup} className="w-full" disabled={loading}>
+        <Button onClick={handleSetup} size="lg" className="w-full" disabled={loading}>
           {loading ? de.common.loading : de.auth.setupButton}
         </Button>
       </CardContent>

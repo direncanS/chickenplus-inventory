@@ -70,9 +70,12 @@ export function ReportsContent({ initialData }: ReportsContentProps) {
   }
 
   return (
-    <div className="space-y-4">
-      <div className="flex items-center justify-between">
+    <div className="space-y-5">
+      <div className="surface-subtle flex flex-col gap-3 px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
         <PeriodSelector value={period} onChange={handlePeriodChange} />
+        <p className="text-sm text-muted-foreground">
+          Filtern Sie den Zeitraum, um Fehlmengen, Bestellungen und Lieferverhalten gezielt zu vergleichen.
+        </p>
       </div>
 
       {error && (
@@ -82,7 +85,7 @@ export function ReportsContent({ initialData }: ReportsContentProps) {
       )}
 
       <div className={isPending ? 'opacity-60 pointer-events-none transition-opacity' : ''}>
-        <div className="space-y-4">
+        <div className="space-y-5">
           <KPICards kpis={data.kpis} />
 
           <div className="grid gap-4 lg:grid-cols-2">
