@@ -47,3 +47,25 @@ export const AUTOSAVE_DEBOUNCE_MS = 600;
 export const MAX_CHECKLISTS_PER_MONTH = 5;
 
 export const TIMEZONE = 'Europe/Vienna';
+
+export const DAYS_OF_WEEK = [
+  'montag',
+  'dienstag',
+  'mittwoch',
+  'donnerstag',
+  'freitag',
+  'samstag',
+  'sonntag',
+] as const;
+
+export type DayOfWeek = (typeof DAYS_OF_WEEK)[number];
+
+export const DAY_OF_WEEK_LABELS: Record<DayOfWeek, string> = {
+  montag: 'Montag',
+  dienstag: 'Dienstag',
+  mittwoch: 'Mittwoch',
+  donnerstag: 'Donnerstag',
+  freitag: 'Freitag',
+  samstag: 'Samstag',
+  sonntag: 'Sonntag',
+};

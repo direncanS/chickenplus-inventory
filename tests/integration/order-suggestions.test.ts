@@ -44,6 +44,9 @@ function createSupabaseStub(responses: Record<string, QueryResponse>) {
         trace.in.push([column, values]);
         return query;
       }),
+      neq: vi.fn(() => query),
+      is: vi.fn(() => query),
+      single: vi.fn().mockResolvedValue(response),
       then: (onFulfilled?: (value: QueryResponse) => unknown, onRejected?: (reason: unknown) => unknown) =>
         Promise.resolve(response).then(onFulfilled, onRejected),
     };
@@ -62,6 +65,14 @@ describe('getOrderSuggestions', () => {
   it('does not re-suggest products that already belong to an open order for the same checklist', async () => {
     const checklistId = 'checklist-1';
     const { supabase, traces } = createSupabaseStub({
+      checklists: {
+        data: { iso_year: 2026, iso_week: 16 },
+        error: null,
+      },
+      routine_order_instance_items: {
+        data: [],
+        error: null,
+      },
       checklist_items: {
         data: [
           {
@@ -130,6 +141,14 @@ describe('getOrderSuggestions', () => {
 
   it('keeps valid suggestions and supplier grouping when no open order exists', async () => {
     const { supabase, from } = createSupabaseStub({
+      checklists: {
+        data: { iso_year: 2026, iso_week: 16 },
+        error: null,
+      },
+      routine_order_instance_items: {
+        data: [],
+        error: null,
+      },
       checklist_items: {
         data: [
           {
@@ -183,6 +202,14 @@ describe('getOrderSuggestions', () => {
 
   it('preserves Nicht zugeordnet fallback after excluding products with open orders', async () => {
     const { supabase } = createSupabaseStub({
+      checklists: {
+        data: { iso_year: 2026, iso_week: 16 },
+        error: null,
+      },
+      routine_order_instance_items: {
+        data: [],
+        error: null,
+      },
       checklist_items: {
         data: [
           {
