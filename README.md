@@ -1,106 +1,197 @@
-# Chickenplus Inventory Management
+# Chickenplus Inventory
 
-Internal inventory and supplier-order management platform built for restaurant operations.
+> Full-stack inventory management and supplier ordering platform for restaurant operations, replacing manual stock-control workflows with a structured digital system.
 
-This application replaces manual weekly stock-control workflows with a structured digital process: staff complete inventory checklists, flag missing items, generate supplier-based order suggestions, track order delivery, export operational data, and review historical records.
+Built with **Next.js 16** | **React 19** | **TypeScript** | **Supabase** | **PostgreSQL**
 
-## Why this project matters
+---
 
-Restaurant inventory work is often handled through paper checklists, ad-hoc supplier communication, and fragmented order tracking. This project turns that workflow into a single internal system with role-based access, operational reporting, and exportable records.
+## Overview
 
-## Key Features
+Chickenplus Inventory is an internal operations platform designed for a restaurant chain. It digitizes weekly stock control, automates supplier order generation, and provides operational reporting — all behind a role-based access model.
 
-- Weekly inventory checklists with free-text stock entries and missing-item flags
-- Background generation of supplier-based draft orders
-- Admin-managed supplier and product-supplier mapping
-- Order lifecycle tracking from draft to delivered
-- Reports for checklist activity, stock trends, and supplier performance
-- Excel export for completed checklists
-- Archive view for historical checklist review
-- Admin/Staff access model enforced with Supabase RLS
+The system manages the full lifecycle: staff complete weekly inventory checklists, flag missing items, generate supplier-grouped draft orders, track deliveries, and review historical data through reports and Excel exports.
 
-## Technical Highlights
+## Features
 
-- Built with **Next.js 16**, **TypeScript**, **Supabase**, and **PostgreSQL**
-- Uses **Server Actions** and **SQL RPC functions** for core workflows
-- Transactional order finalization to prevent half-written order states
-- Batched optimistic autosave for faster checklist editing
-- Reporting tied to **operational checklist dates** instead of raw record timestamps
-- Export flow hardened against Excel formula injection
-- Unit and integration test coverage with **Vitest**
+### Inventory Control
+- Weekly checklists with per-item stock entry, check-off tracking, and missing-item flags
+- Batched optimistic autosave for responsive editing without network lag
+- Progress tracking with real-time completion percentage on the dashboard
+
+### Order Management
+- Automatic draft order generation grouped by supplier based on missing items
+- Order lifecycle tracking: `Draft` → `Ordered` → `Partially Delivered` → `Delivered`
+- Recurring routine orders with weekly scheduling
+- Duplicate-order prevention (items in open orders are excluded from suggestions)
+- Transactional order finalization to prevent half-written states
+
+### Reporting & Analytics
+- KPI dashboard with checklist completion rates and order volume
+- Stock trend visualization and order summary charts (Recharts)
+- Supplier performance analysis and top missing products breakdown
+- Configurable time period filtering (4 weeks / 1 month / 3 months)
+
+### Operations
+- Excel export with formula-injection protection
+- Checklist archive with historical review
+- Supplier and product-supplier mapping management
+- Admin/Staff role model enforced via Supabase Row Level Security
+
+## Tech Stack
+
+| Layer | Technology |
+|---|---|
+| Framework | Next.js 16.2 (App Router, Server Components, Server Actions) |
+| Language | TypeScript (strict mode) |
+| UI | React 19, shadcn/ui v4 (Base UI), Tailwind CSS 4 |
+| Database | PostgreSQL via Supabase |
+| Auth | Supabase Auth with RLS policies |
+| Charts | Recharts 3 |
+| Validation | Zod 4 |
+| Export | ExcelJS |
+| Testing | Vitest, Testing Library, jsdom |
+| Linting | ESLint 9, TypeScript type-checking |
 
 ## Architecture
 
-The application follows a server-first architecture built around Next.js App Router and Supabase.
-
-```text
-Client UI
-   ↓
-Next.js App Router / Server Components
-   ↓
-Server Actions / SQL RPC Functions
-   ↓
-Supabase PostgreSQL Database
-   ↓
-Auth / Row Level Security / Storage
+```
+┌─────────────────────────────────────────────┐
+│                 Client UI                    │
+│         React 19 · shadcn/ui · Recharts      │
+└──────────────────┬──────────────────────────┘
+                   │
+┌──────────────────▼──────────────────────────┐
+│         Next.js App Router                   │
+│    Server Components · Server Actions        │
+└──────────────────┬──────────────────────────┘
+                   │
+┌──────────────────▼──────────────────────────┐
+│       Supabase Backend                       │
+│  SQL RPC Functions · Row Level Security      │
+│  Auth · PostgreSQL · Migrations              │
+└─────────────────────────────────────────────┘
 ```
 
-### Architectural Principles
+**Design Principles:**
 
-- **Server-first rendering** for secure data loading and predictable auth boundaries
-- **Transactional SQL RPC functions** for critical multi-step workflows
-- **Optimistic UI with batched autosave** for responsive checklist editing
-- **Role-based access control** enforced at both UI and database level
-- **Operational correctness prioritized over over-engineering**
+- **Server-first rendering** — data loading and auth boundaries handled on the server
+- **Transactional database operations** — critical workflows use SQL RPC functions to ensure atomicity
+- **Optimistic UI** — batched autosave for checklist editing reduces network overhead
+- **Security at every layer** — RLS policies enforce access control at the database level, not just the UI
 
-## My Role / Engineering Ownership
+## Project Structure
 
-This project was designed and implemented end-to-end by me, including:
+```
+src/
+├── app/
+│   ├── (app)/              # Authenticated routes
+│   │   ├── dashboard/      # Overview with KPIs and weekly status
+│   │   ├── checklist/      # Weekly inventory checklist
+│   │   ├── orders/         # Order management & routine orders
+│   │   ├── suppliers/      # Supplier & product mapping
+│   │   ├── reports/        # Analytics & reporting
+│   │   ├── archive/        # Historical checklist review
+│   │   └── settings/       # User settings
+│   ├── (auth)/             # Login, setup, deactivated flows
+│   └── api/export/         # Excel export endpoint
+├── components/
+│   ├── checklist/          # Checklist UI components
+│   ├── orders/             # Order list & management
+│   ├── reports/            # Charts, KPIs, data tables
+│   ├── routine-orders/     # Recurring order management
+│   ├── suppliers/          # Supplier forms & mapping
+│   ├── layout/             # Navigation, sidebar, header
+│   └── ui/                 # shadcn/ui component library
+├── lib/
+│   ├── supabase/           # Client, server, middleware, auth helpers
+│   ├── utils/              # Business logic (calculations, batching, dates, export)
+│   ├── validations/        # Zod schemas
+│   ├── server/             # Server-only logic (order suggestions)
+│   └── constants/          # App-wide constants
+├── i18n/                   # German localization
+└── types/                  # TypeScript type definitions
 
-- Product and workflow design based on real restaurant operational needs
-- Database schema and relational modeling
-- Backend business logic and transactional SQL/RPC workflows
-- Frontend UI/UX implementation with responsive design
-- Auth and role/permission model design
-- Reporting and export architecture
-- Test strategy and smoke-test planning
-- Documentation and deployment preparation
+supabase/
+├── migrations/             # 18 incremental PostgreSQL migrations
+└── seed.sql                # Development seed data
 
-## Engineering Decisions & Challenges
+tests/
+├── unit/                   # 20 unit test suites
+└── integration/            # 4 integration test suites
+```
 
-Some important architectural decisions made during development:
+## Engineering Highlights
 
 ### Transactional Order Finalization
-Supplier-order creation and checklist "ordered" capture are executed in one transactional database boundary to prevent half-written states.
+Order creation and checklist state capture execute within a single database transaction via SQL RPC functions, preventing inconsistent states where an order exists but the checklist doesn't reflect it.
+
+### Batched Optimistic Autosave
+Checklist editing uses debounced batch updates instead of per-row saves. Changes are collected and flushed in a single RPC call, providing instant UI feedback while minimizing database round-trips.
 
 ### Operational Reporting Model
-Reports are based on `checklist_date` rather than raw database timestamps to reflect real operational dates.
+All reports are anchored to `checklist_date` (the business week) rather than raw database timestamps, ensuring metrics reflect actual operational periods.
 
-### Autosave Performance
-Checklist editing uses debounced batched autosave instead of row-by-row updates to improve UX and reduce network overhead.
+### Duplicate Order Prevention
+The order suggestion engine cross-references open orders before generating drafts, preventing accidental re-ordering of items already in the pipeline.
 
-### Suggestion Safety
-Order suggestions exclude products already present in open orders to prevent accidental duplicate ordering.
+### Excel Export Hardening
+The export pipeline sanitizes cell content against formula injection attacks (`=`, `+`, `-`, `@` prefixes), producing safe spreadsheets for downstream use.
 
-## Project Status
+## Testing
 
-Current Status: **Operational Release Candidate**
+```bash
+npm run test          # Run all tests
+npm run test:unit     # Unit tests only
+npm run test:integration  # Integration tests only
+npm run test:watch    # Watch mode
+```
 
-The application is currently stable for internal small-team operational use.
+**24 test suites** covering business logic, data transformations, server actions, component rendering, and integration flows.
 
-### Planned Improvements
+## Getting Started
 
-- End-to-end browser smoke automation
-- Admin-facing audit log viewer
-- Product/master-data management UI
-- Expanded analytics/reporting filters
-- Improved multi-user conflict handling
+### Prerequisites
+- Node.js 20+
+- Supabase project (local or hosted)
+
+### Setup
+
+```bash
+# Install dependencies
+npm install
+
+# Set up environment variables
+cp .env.example .env.local
+# Configure NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY
+
+# Run database migrations
+npx supabase db push
+
+# Start development server
+npm run dev
+```
+
+### Build & Verify
+
+```bash
+npm run build        # Production build
+npm run lint         # ESLint
+npm run type-check   # TypeScript strict check
+npm run test         # Test suite
+```
 
 ## Documentation
 
-Detailed project documentation is available in `/docs`.
+Detailed documentation is available in [`/docs`](./docs):
 
-- **Business Rules:** Functional workflow and product logic
-- **API Specification:** Internal actions and SQL/RPC contracts
-- **Smoke Tests:** Manual verification scenarios
-- **Deployment Guide:** Environment and release preparation
+| Document | Description |
+|---|---|
+| [Business Rules](./docs/business-rules.md) | Functional workflows, product logic, and operational constraints |
+| [API Specification](./docs/api-spec.md) | Server Actions, SQL RPC contracts, and data flow |
+| [Blueprint](./docs/blueprint.md) | Architectural decisions and system design |
+| [Deployment](./docs/deployment.md) | Environment configuration and release process |
+
+## License
+
+Private — internal use only.
