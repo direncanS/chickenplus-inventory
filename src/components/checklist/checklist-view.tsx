@@ -15,12 +15,6 @@ import {
 import { toast } from 'sonner';
 import { formatWeekRangeGerman } from '@/lib/utils/date';
 import {
-  Accordion,
-  AccordionContent,
-  AccordionItem,
-  AccordionTrigger,
-} from '@/components/ui/accordion';
-import {
   Dialog,
   DialogClose,
   DialogContent,
@@ -103,6 +97,7 @@ export function ChecklistView({ checklist, items, isAdmin }: ChecklistViewProps)
   const [completing, setCompleting] = useState(false);
   const [reopening, setReopening] = useState(false);
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [showMissingOnly, setShowMissingOnly] = useState(false);
   const [localChecklistStatus, setLocalChecklistStatus] = useState(checklist.status);
   const [localOrderGenerationStatus, setLocalOrderGenerationStatus] = useState(
     checklist.order_generation_status ?? 'idle'
@@ -358,6 +353,12 @@ export function ChecklistView({ checklist, items, isAdmin }: ChecklistViewProps)
     setReopening(false);
   }
 
+  function handlePrint() {
+    if (typeof window !== 'undefined') {
+      window.print();
+    }
+  }
+
   const checkedCount = countCheckedChecklistItems(itemStates);
   const totalCount = items.length;
   const isCompleted = localChecklistStatus === 'completed';
@@ -428,51 +429,53 @@ export function ChecklistView({ checklist, items, isAdmin }: ChecklistViewProps)
     completed: 'bg-green-100 text-green-800 border-green-200 dark:bg-green-900/30 dark:text-green-400 dark:border-green-800',
   };
 
-  function getGroupCheckedCount(location: GroupedItems) {
-    let checked = 0;
-    let total = 0;
-    for (const cat of location.categories) {
-      for (const item of cat.items) {
-        total++;
-        if (itemStates[item.id]?.isChecked) checked++;
-      }
-    }
-    return { checked, total };
+  function shouldShowItem(item: ChecklistItem) {
+    if (!showMissingOnly) return true;
+    return itemStates[item.id]?.isMissing === true;
   }
 
+  const hiddenByFilter = showMissingOnly
+    ? items.length - items.filter((item) => itemStates[item.id]?.isMissing === true).length
+    : 0;
+
   return (
-    <div className="space-y-4">
+    <div className="space-y-3">
       <OrderGenerationStatusBanner
         status={localOrderGenerationStatus}
         ordersCreated={localOrdersCreated}
         error={localOrderGenerationError}
       />
 
-      {/* Sticky header area */}
-      <div className="sticky top-[5.35rem] z-30 pb-4">
-        <div className="surface-panel -mx-1 px-4 py-4 sm:px-5">
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-            <div className="flex flex-col gap-2">
-              <div className="flex items-center gap-2">
-                <h2 className="font-heading text-xl font-semibold tracking-tight">{headerText}</h2>
-                <Badge variant="outline" className={statusBadgeClass[localChecklistStatus]}>
-                  {statusLabels[localChecklistStatus]}
-                </Badge>
-              </div>
-              <p className="text-sm text-muted-foreground">
-                {de.checklist.progress
-                  .replace('{checked}', String(checkedCount))
-                  .replace('{total}', String(totalCount))}
-              </p>
+      {/* Sticky toolbar */}
+      <div className="sticky top-[5.35rem] z-40 -mx-1 px-1 pb-2" data-no-print>
+        <div className="surface-panel px-3 py-3 sm:px-4">
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+            <div className="flex items-center gap-2">
+              <h2 className="font-heading text-base font-semibold tracking-tight sm:text-lg">{headerText}</h2>
+              <Badge variant="outline" className={statusBadgeClass[localChecklistStatus]}>
+                {statusLabels[localChecklistStatus]}
+              </Badge>
             </div>
-            <div className="flex flex-wrap items-center justify-end gap-2">
+            <div className="flex flex-wrap items-center gap-2">
               {saveStatusMessage && (
                 <span
-                  className={`rounded-full px-3 py-1 text-xs ${hasSaveError ? 'bg-destructive/10 text-destructive' : 'bg-muted text-muted-foreground'}`}
+                  className={`rounded-full px-2.5 py-1 text-xs ${hasSaveError ? 'bg-destructive/10 text-destructive' : 'bg-muted text-muted-foreground'}`}
                 >
                   {saveStatusMessage}
                 </span>
               )}
+              <Button
+                variant={showMissingOnly ? 'default' : 'outline'}
+                size="sm"
+                onClick={() => setShowMissingOnly((value) => !value)}
+                aria-pressed={showMissingOnly}
+                className={showMissingOnly ? 'bg-amber-500 hover:bg-amber-600 text-white border-amber-500' : ''}
+              >
+                {showMissingOnly ? de.checklist.showAll : de.checklist.showMissingOnly}
+              </Button>
+              <Button variant="outline" size="sm" onClick={handlePrint}>
+                {de.checklist.print}
+              </Button>
               {isCompleted && isAdmin && (
                 <Button variant="outline" size="sm" onClick={handleReopen} disabled={reopening}>
                   {reopening ? de.common.loading : de.checklist.reopen}
@@ -511,87 +514,107 @@ export function ChecklistView({ checklist, items, isAdmin }: ChecklistViewProps)
             </div>
           </div>
 
-          <div className="mt-4 space-y-2">
-            <div className="flex items-center justify-between text-xs font-medium uppercase tracking-[0.16em] text-muted-foreground">
-              <span>Fortschritt</span>
-              <span>{progressPercent}%</span>
+          <div className="mt-3 flex items-center gap-2 text-xs text-muted-foreground">
+            <span className="font-medium">
+              {de.checklist.progress
+                .replace('{checked}', String(checkedCount))
+                .replace('{total}', String(totalCount))}
+            </span>
+            <div className="relative h-2 flex-1 overflow-hidden rounded-full bg-muted">
+              <div
+                className="absolute inset-y-0 left-0 rounded-full bg-gradient-to-r from-primary via-primary to-primary/70 transition-all"
+                style={{ width: `${progressPercent}%` }}
+              />
             </div>
-            <div className="relative">
-              <div className="h-4 w-full rounded-full bg-muted">
-                <div
-                  className="h-4 rounded-full bg-gradient-to-r from-primary via-primary to-primary/70 transition-all"
-                  style={{
-                    width: `${progressPercent}%`,
-                  }}
-                />
-              </div>
-            </div>
+            <span className="tabular-nums font-semibold text-foreground">{progressPercent}%</span>
+            {showMissingOnly && hiddenByFilter > 0 && (
+              <Badge variant="outline" className="border-amber-300 bg-amber-50 text-amber-700">
+                {de.checklist.filterActiveLabel.replace('{count}', String(hiddenByFilter))}
+              </Badge>
+            )}
           </div>
         </div>
       </div>
 
-      <div className="grid grid-cols-[1fr_112px_64px_56px] items-center gap-3 px-2 text-[0.72rem] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
-        <div>{de.checklist.product}</div>
-        <div className="text-center">{de.checklist.stock}</div>
-        <div className="text-center">{de.checklist.missing}</div>
-        <div className="text-center">{de.checklist.checked}</div>
+      {/* Persistent column header bar — visible on all sizes */}
+      <div className="sticky top-[10.5rem] z-30 -mx-1 grid grid-cols-[minmax(0,1fr)_72px_44px_44px] items-center gap-2 border-b border-border bg-background/95 px-3 py-1.5 text-[0.65rem] font-semibold uppercase tracking-[0.16em] text-muted-foreground backdrop-blur" data-no-print>
+        <span>{de.checklist.product}</span>
+        <span className="text-center">{de.checklist.stock}</span>
+        <span className="text-center">F</span>
+        <span className="text-center">✓</span>
       </div>
 
-      <Accordion multiple defaultValue={grouped.map((group) => group.locationCode)} className="space-y-3">
+      <div className="rounded-2xl border border-border/70 bg-white/80 shadow-[0_10px_30px_-24px_rgba(38,32,29,0.25)]">
         {grouped.map((location) => {
-          const groupCount = getGroupCheckedCount(location);
+          const visibleCategories = location.categories
+            .map((category) => ({
+              ...category,
+              items: category.items.filter(shouldShowItem),
+            }))
+            .filter((category) => category.items.length > 0);
+
+          if (visibleCategories.length === 0) return null;
+
+          let locationChecked = 0;
+          let locationTotal = 0;
+          for (const category of location.categories) {
+            for (const item of category.items) {
+              locationTotal++;
+              if (itemStates[item.id]?.isChecked) locationChecked++;
+            }
+          }
+
           return (
-            <AccordionItem key={location.locationCode} value={location.locationCode} className="surface-subtle border px-2">
-              <AccordionTrigger className="rounded-2xl px-3 py-3 text-base font-semibold">
-                <span className="flex items-center gap-2 flex-1">
-                  <Badge variant="secondary" className="font-mono text-xs">
-                    {location.locationCode}
-                  </Badge>
-                  <span className="flex-1">{location.locationName}</span>
-                  <span className="mr-2 rounded-full bg-muted px-2.5 py-1 text-xs font-semibold text-muted-foreground">
-                    {groupCount.checked}/{groupCount.total}
-                  </span>
+            <section key={location.locationCode} className="border-b border-border/40 last:border-b-0">
+              <header className="sticky top-[12.6rem] z-20 flex items-center gap-2 border-b border-border/60 bg-secondary/95 px-3 py-2 backdrop-blur">
+                <Badge variant="secondary" className="font-mono text-[0.65rem]">
+                  {location.locationCode}
+                </Badge>
+                <h3 className="flex-1 truncate text-sm font-semibold tracking-tight">
+                  {location.locationName}
+                </h3>
+                <span className="rounded-full bg-muted px-2 py-0.5 text-[11px] font-semibold tabular-nums text-muted-foreground">
+                  {locationChecked}/{locationTotal}
                 </span>
-              </AccordionTrigger>
-              <AccordionContent className="px-3 pb-4">
-                {location.categories.map((category) => (
-                  <div key={category.categoryName} className="mb-4">
-                    {category.categoryName !== 'Allgemein' && (
-                      <h4 className="mb-3 px-1 text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">
-                        {category.categoryName}
-                      </h4>
-                    )}
-                    <div className="space-y-1.5">
-                      {category.items.map((item) => (
-                        <ChecklistItemRow
-                          key={item.id}
-                          item={item}
-                          state={itemStates[item.id]}
-                          isReadOnly={isReadOnly}
-                          onStockChange={(value) => {
-                            queueLocalItemChange(item.id, { currentStock: value });
-                          }}
-                          onStockBlur={() => {
-                            void flushPendingChanges();
-                          }}
-                          onMissingToggle={() => {
-                            queueLocalItemChange(item.id, {
-                              isMissing: !itemStatesRef.current[item.id]?.isMissing,
-                            });
-                          }}
-                          onCheckToggle={(checked) => {
-                            queueLocalItemChange(item.id, { isChecked: checked });
-                          }}
-                        />
-                      ))}
-                    </div>
+              </header>
+
+              {visibleCategories.map((category) => (
+                <div key={category.categoryName}>
+                  {category.categoryName !== 'Allgemein' && (
+                    <h4 className="sticky top-[15.4rem] z-10 border-b border-border/30 bg-background/90 px-3 py-1 text-[0.65rem] font-semibold uppercase tracking-[0.18em] text-muted-foreground backdrop-blur">
+                      {category.categoryName}
+                    </h4>
+                  )}
+                  <div>
+                    {category.items.map((item) => (
+                      <ChecklistItemRow
+                        key={item.id}
+                        item={item}
+                        state={itemStates[item.id]}
+                        isReadOnly={isReadOnly}
+                        onStockChange={(value) => {
+                          queueLocalItemChange(item.id, { currentStock: value });
+                        }}
+                        onStockBlur={() => {
+                          void flushPendingChanges();
+                        }}
+                        onMissingToggle={() => {
+                          queueLocalItemChange(item.id, {
+                            isMissing: !itemStatesRef.current[item.id]?.isMissing,
+                          });
+                        }}
+                        onCheckToggle={(checked) => {
+                          queueLocalItemChange(item.id, { isChecked: checked });
+                        }}
+                      />
+                    ))}
                   </div>
-                ))}
-              </AccordionContent>
-            </AccordionItem>
+                </div>
+              ))}
+            </section>
           );
         })}
-      </Accordion>
+      </div>
     </div>
   );
 }

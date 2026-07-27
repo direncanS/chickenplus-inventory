@@ -4,8 +4,13 @@ import { useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
+import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from '@/components/ui/accordion';
 import { OrderGenerationStatusBanner } from '@/components/checklist/order-generation-status-banner';
 import {
   Dialog,
@@ -134,6 +139,8 @@ export function OrderList({
     activeChecklist?.order_generation_status === 'running';
   const suggestionAvailabilityMessage = de.orders.suggestionsAvailableAfterCompletion;
 
+  const totalSuggestedItems = suggestions.reduce((sum, group) => sum + group.items.length, 0);
+
   function syncServerState() {
     // The list stays responsive locally and then refreshes server-rendered side regions.
     startSyncTransition(() => {
@@ -239,8 +246,14 @@ export function OrderList({
     }
   }
 
+  function handlePrint() {
+    if (typeof window !== 'undefined') {
+      window.print();
+    }
+  }
+
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
       <OrderGenerationStatusBanner
         status={activeChecklist?.order_generation_status}
         ordersCreated={activeChecklist?.order_generation_orders_created}
@@ -248,19 +261,30 @@ export function OrderList({
       />
 
       {activeChecklist && (
-        <div className="surface-subtle flex flex-col gap-4 px-5 py-5">
+        <div className="surface-subtle flex flex-col gap-3 px-4 py-4" data-no-print>
           <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-            <div>
+            <div className="flex flex-col gap-1">
               <p className="text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">
                 Bestellvorschläge
               </p>
-              <p className="text-sm text-muted-foreground">
-                {suggestionsAllowed
-                  ? 'Gruppieren Sie offene Fehlmengen nach Lieferant und behalten Sie bestehende Bestellungen parallel im Blick.'
-                  : suggestionAvailabilityMessage}
-              </p>
+              {suggestionsAllowed && suggestions.length > 0 ? (
+                <p className="text-sm text-muted-foreground">
+                  {de.orders.suppliersTotal.replace('{count}', String(suggestions.length))}
+                  {' · '}
+                  {de.orders.itemsTotal.replace('{count}', String(totalSuggestedItems))}
+                </p>
+              ) : (
+                <p className="text-sm text-muted-foreground">
+                  {suggestionsAllowed
+                    ? 'Gruppieren Sie offene Fehlmengen nach Lieferant und behalten Sie bestehende Bestellungen parallel im Blick.'
+                    : suggestionAvailabilityMessage}
+                </p>
+              )}
             </div>
-            <div className="flex flex-col sm:flex-row gap-2">
+            <div className="flex flex-wrap gap-2">
+              <Button onClick={handlePrint} variant="outline" size="sm">
+                {de.orders.print}
+              </Button>
               <Button
                 onClick={handleGenerateSuggestions}
                 disabled={
@@ -269,6 +293,7 @@ export function OrderList({
                   !suggestionsAllowed
                 }
                 variant="outline"
+                size="sm"
               >
                 {loadingSuggestions ? de.common.loading : de.orders.generateSuggestions}
               </Button>
@@ -282,101 +307,111 @@ export function OrderList({
       )}
 
       {showSuggestions && (
-        <div className="space-y-3">
-          <div className="flex items-center justify-between">
-            <h3 className="font-heading text-lg font-semibold tracking-tight">{de.orders.suggestions}</h3>
-            <Badge variant="secondary">{suggestions.length} Gruppen</Badge>
+        <section className="space-y-2">
+          <div className="flex items-center justify-between px-1">
+            <h3 className="font-heading text-base font-semibold tracking-tight sm:text-lg">{de.orders.suggestions}</h3>
+            <Badge variant="secondary">{suggestions.length}</Badge>
           </div>
-          {suggestions.map((suggestion) => (
-            <SuggestionCard
-              key={`${activeChecklist?.id ?? 'no-checklist'}:${suggestion.supplierId}:${suggestion.items
-                .map((item) => item.checklistItemId)
-                .join(',')}`}
-              checklistId={activeChecklist!.id}
-              suggestion={suggestion}
-              onCompleted={async (orderedChecklistItemIds) => {
-                removeFinalizedSuggestionItems(suggestion.supplierId, orderedChecklistItemIds);
-                syncServerState();
-              }}
-            />
-          ))}
-        </div>
+          <Accordion
+            multiple
+            defaultValue={suggestions.map((s) => `suggestion-${s.supplierId}`)}
+            className="surface-subtle divide-y divide-border/40 px-2"
+          >
+            {suggestions.map((suggestion) => (
+              <SuggestionCard
+                key={`${activeChecklist?.id ?? 'no-checklist'}:${suggestion.supplierId}:${suggestion.items
+                  .map((item) => item.checklistItemId)
+                  .join(',')}`}
+                checklistId={activeChecklist!.id}
+                suggestion={suggestion}
+                onCompleted={async (orderedChecklistItemIds) => {
+                  removeFinalizedSuggestionItems(suggestion.supplierId, orderedChecklistItemIds);
+                  syncServerState();
+                }}
+              />
+            ))}
+          </Accordion>
+        </section>
       )}
 
       {openOrders.length > 0 && (
-        <div className="space-y-3">
-          <div className="flex items-center justify-between">
-            <h3 className="font-heading text-lg font-semibold tracking-tight">{de.dashboard.openOrders}</h3>
+        <section className="space-y-2">
+          <div className="flex items-center justify-between px-1">
+            <h3 className="font-heading text-base font-semibold tracking-tight sm:text-lg">{de.dashboard.openOrders}</h3>
             <Badge variant="secondary">{openOrders.length}</Badge>
           </div>
-          {openOrders.map((order) => (
-            <OrderCard
-              key={getOrderRenderKey(order)}
-              order={order}
-              isAdmin={isAdmin}
-              onDeliveryToggle={handleDeliveryToggle}
-              onOrderedItemsSaved={(orderedItems) => {
-                patchOrderItems(order.id, orderedItems);
-              }}
-              onMarkedOrdered={(orderedItems) => {
-                if (orderedItems) {
+          <Accordion multiple className="surface-subtle divide-y divide-border/40 px-2">
+            {openOrders.map((order) => (
+              <OrderCard
+                key={getOrderRenderKey(order)}
+                order={order}
+                isAdmin={isAdmin}
+                onDeliveryToggle={handleDeliveryToggle}
+                onOrderedItemsSaved={(orderedItems) => {
                   patchOrderItems(order.id, orderedItems);
-                }
-                patchOrder(order.id, (current) => ({
-                  ...current,
-                  status: 'ordered',
-                  ordered_at: current.ordered_at ?? new Date().toISOString(),
-                }));
-                syncServerState();
-              }}
-              onCancelled={() => {
-                patchOrder(order.id, (current) => ({
-                  ...current,
-                  status: 'cancelled',
-                }));
-                syncServerState();
-              }}
-            />
-          ))}
-        </div>
+                }}
+                onMarkedOrdered={(orderedItems) => {
+                  if (orderedItems) {
+                    patchOrderItems(order.id, orderedItems);
+                  }
+                  patchOrder(order.id, (current) => ({
+                    ...current,
+                    status: 'ordered',
+                    ordered_at: current.ordered_at ?? new Date().toISOString(),
+                  }));
+                  syncServerState();
+                }}
+                onCancelled={() => {
+                  patchOrder(order.id, (current) => ({
+                    ...current,
+                    status: 'cancelled',
+                  }));
+                  syncServerState();
+                }}
+              />
+            ))}
+          </Accordion>
+        </section>
       )}
 
       {closedOrders.length > 0 && (
-        <div className="space-y-3">
-          <div className="flex items-center justify-between">
-            <h3 className="font-heading text-lg font-semibold tracking-tight text-muted-foreground">{de.orders.closedOrders}</h3>
+        <section className="space-y-2">
+          <div className="flex items-center justify-between px-1">
+            <h3 className="font-heading text-base font-semibold tracking-tight text-muted-foreground sm:text-lg">{de.orders.closedOrders}</h3>
             <Badge variant="outline">{closedOrders.length}</Badge>
           </div>
-          {closedOrders.map((order) => (
-            <OrderCard
-              key={getOrderRenderKey(order)}
-              order={order}
-              isAdmin={isAdmin}
-              onDeliveryToggle={handleDeliveryToggle}
-              onOrderedItemsSaved={(orderedItems) => {
-                patchOrderItems(order.id, orderedItems);
-              }}
-              onMarkedOrdered={(orderedItems) => {
-                if (orderedItems) {
+          <Accordion multiple className="surface-subtle divide-y divide-border/40 px-2">
+            {closedOrders.map((order) => (
+              <OrderCard
+                key={getOrderRenderKey(order)}
+                order={order}
+                isAdmin={isAdmin}
+                onDeliveryToggle={handleDeliveryToggle}
+                onOrderedItemsSaved={(orderedItems) => {
                   patchOrderItems(order.id, orderedItems);
-                }
-                patchOrder(order.id, (current) => ({
-                  ...current,
-                  status: 'ordered',
-                  ordered_at: current.ordered_at ?? new Date().toISOString(),
-                }));
-                syncServerState();
-              }}
-              onCancelled={() => {
-                patchOrder(order.id, (current) => ({
-                  ...current,
-                  status: 'cancelled',
-                }));
-                syncServerState();
-              }}
-            />
-          ))}
-        </div>
+                }}
+                onMarkedOrdered={(orderedItems) => {
+                  if (orderedItems) {
+                    patchOrderItems(order.id, orderedItems);
+                  }
+                  patchOrder(order.id, (current) => ({
+                    ...current,
+                    status: 'ordered',
+                    ordered_at: current.ordered_at ?? new Date().toISOString(),
+                  }));
+                  syncServerState();
+                }}
+                onCancelled={() => {
+                  patchOrder(order.id, (current) => ({
+                    ...current,
+                    status: 'cancelled',
+                  }));
+                  syncServerState();
+                }}
+              />
+            ))}
+          </Accordion>
+        </section>
       )}
 
       {ordersState.length === 0 && suggestions.length === 0 && !loadingSuggestions && !isSyncPending && (
@@ -500,39 +535,38 @@ function SuggestionCard({
   }
 
   return (
-    <Card>
-      <CardHeader className="pb-2">
-        <div className="flex items-center justify-between gap-3">
-          <div>
-            <CardTitle className="text-base">{suggestion.supplierName}</CardTitle>
-            <p className="text-sm text-muted-foreground">{checkedCount} Positionen ausgewählt</p>
-          </div>
-          <Button
-            size="sm"
-            onClick={handleComplete}
-            disabled={saving || checkedCount === 0}
-          >
-            {saving ? de.common.loading : de.common.complete}
-          </Button>
+    <AccordionItem value={`suggestion-${suggestion.supplierId}`}>
+      <AccordionTrigger className="px-2 py-3">
+        <div className="flex w-full items-center gap-2 pr-2">
+          <span className="flex-1 truncate text-sm font-semibold sm:text-base">{suggestion.supplierName}</span>
+          <Badge variant="outline" className="font-mono text-[11px]">
+            {suggestion.items.length}
+          </Badge>
+          {checkedCount > 0 && (
+            <Badge variant="default" className="font-mono text-[11px]">
+              {checkedCount}
+            </Badge>
+          )}
         </div>
-      </CardHeader>
-      <CardContent>
-        <div className="space-y-3">
+      </AccordionTrigger>
+      <AccordionContent className="px-2 pb-3">
+        <div className="space-y-2">
           {suggestion.items.map((item) => {
             const draft = draftState[item.checklistItemId] ?? { isOrdered: false, orderedQuantity: '' };
 
             return (
-              <div key={item.checklistItemId} className="rounded-[22px] border border-border/60 bg-muted/25 p-3.5">
-                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                  <label className="flex items-center gap-3 text-sm">
+              <div key={item.checklistItemId} className="rounded-lg border border-border/60 bg-muted/25 p-2">
+                <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                  <label className="flex min-w-0 items-center gap-2 text-sm">
                     <Checkbox
                       checked={draft.isOrdered}
                       disabled={saving}
                       onCheckedChange={(checked) => handleToggle(item.checklistItemId, checked === true)}
+                      className="size-5 shrink-0"
                     />
-                    <span>{item.productName}</span>
+                    <span className="truncate">{item.productName}</span>
                   </label>
-                  <div className="flex items-center gap-2 sm:w-60">
+                  <div className="flex items-center gap-2 sm:w-48">
                     <Input
                       type="number"
                       min="1"
@@ -542,16 +576,26 @@ function SuggestionCard({
                       disabled={!draft.isOrdered || saving}
                       onChange={(event) => handleQuantityChange(item.checklistItemId, event.target.value)}
                       placeholder={getQuantityInputPlaceholder(item.quantity)}
+                      className="h-9"
                     />
-                    <span className="text-xs text-muted-foreground whitespace-nowrap">{item.unit}</span>
+                    <span className="shrink-0 text-xs text-muted-foreground whitespace-nowrap">{item.unit}</span>
                   </div>
                 </div>
               </div>
             );
           })}
+          <div className="flex justify-end pt-1" data-no-print>
+            <Button
+              size="sm"
+              onClick={handleComplete}
+              disabled={saving || checkedCount === 0}
+            >
+              {saving ? de.common.loading : de.common.complete}
+            </Button>
+          </div>
         </div>
-      </CardContent>
-    </Card>
+      </AccordionContent>
+    </AccordionItem>
   );
 }
 
@@ -685,67 +729,21 @@ function OrderCard({
   }
 
   return (
-    <Card className={isReadOnly ? 'opacity-70' : ''}>
-      <CardHeader className="pb-2">
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
-          <div>
-            <CardTitle className="text-base font-mono">{order.order_number}</CardTitle>
-            <p className="text-sm text-muted-foreground">
-              {(order.suppliers as { name: string }).name} &middot; KW {(order.checklists as { iso_week: number }).iso_week}
-            </p>
-          </div>
-          <div className="flex flex-wrap items-center gap-2">
-            <Badge variant={config.variant}>{config.label}</Badge>
-            {isDraft && (
-              <>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={handleSaveOrderedItems}
-                  disabled={!hasDraftChanges || isBusy}
-                >
-                  {savingOrderedItems ? de.common.loading : de.common.save}
-                </Button>
-                <Button size="sm" variant="outline" onClick={handleMarkOrdered} disabled={isBusy}>
-                  {markingOrdered ? de.common.loading : de.orders.markOrdered}
-                </Button>
-              </>
-            )}
-            {!isReadOnly && isAdmin && (
-              <Dialog open={cancelOpen} onOpenChange={(open) => { setCancelOpen(open); if (!open) setCancelError(null); }}>
-                <DialogTrigger render={<Button size="sm" variant="destructive" />}>
-                  {de.orders.cancelOrder}
-                </DialogTrigger>
-                <DialogContent>
-                  <DialogHeader>
-                    <DialogTitle>{de.orders.cancelDialogTitle}</DialogTitle>
-                    <DialogDescription>
-                      {de.orders.cancelDialogDescription}
-                    </DialogDescription>
-                  </DialogHeader>
-                  {cancelError && (
-                    <p className="text-sm text-destructive">{cancelError}</p>
-                  )}
-                  <DialogFooter>
-                    <DialogClose render={<Button variant="outline" />}>
-                      {de.common.cancel}
-                    </DialogClose>
-                    <Button
-                      variant="destructive"
-                      onClick={handleConfirmCancel}
-                      disabled={cancelling}
-                    >
-                      {cancelling ? de.common.loading : de.orders.cancelOrder}
-                    </Button>
-                  </DialogFooter>
-                </DialogContent>
-              </Dialog>
-            )}
-          </div>
+    <AccordionItem value={`order-${order.id}`} className={isReadOnly ? 'opacity-70' : ''}>
+      <AccordionTrigger className="px-2 py-3">
+        <div className="flex w-full flex-wrap items-center gap-2 pr-2">
+          <span className="font-mono text-xs sm:text-sm">{order.order_number}</span>
+          <span className="flex-1 truncate text-sm font-medium">
+            {(order.suppliers as { name: string }).name}
+          </span>
+          <Badge variant="outline" className="font-mono text-[11px]">
+            KW {(order.checklists as { iso_week: number }).iso_week}
+          </Badge>
+          <Badge variant={config.variant} className="text-[11px]">{config.label}</Badge>
         </div>
-      </CardHeader>
-      <CardContent>
-        <div className="space-y-3">
+      </AccordionTrigger>
+      <AccordionContent className="px-2 pb-3">
+        <div className="space-y-2">
           {order.order_items.map((item) => {
             const draftItem = orderedItemsDraft[item.id] ?? {
               isOrdered: item.is_ordered,
@@ -754,35 +752,37 @@ function OrderCard({
             const actualOrderedQuantity = formatActualOrderedQuantity(item.ordered_quantity, item.unit);
 
             return (
-              <div key={item.id} className="rounded-[22px] border border-border/60 bg-muted/25 p-3.5">
-                <div className="flex items-start justify-between gap-3 text-sm">
-                  <div className="flex items-center gap-2 min-w-0">
+              <div key={item.id} className="rounded-lg border border-border/60 bg-muted/25 p-2">
+                <div className="flex items-start justify-between gap-2 text-sm">
+                  <div className="flex min-w-0 items-center gap-2">
                     {canDeliver && (
                       <Checkbox
                         checked={item.is_delivered}
                         onCheckedChange={(checked) => onDeliveryToggle(order.id, item.id, checked === true)}
+                        className="size-5 shrink-0"
                       />
                     )}
-                    <span className={item.is_delivered ? 'line-through text-muted-foreground' : ''}>
+                    <span className={`truncate ${item.is_delivered ? 'line-through text-muted-foreground' : ''}`}>
                       {(item.products as { name: string }).name}
                     </span>
                   </div>
-                  <span className="font-mono text-xs text-muted-foreground whitespace-nowrap">
-                    {de.orders.suggestedQuantity}: {item.quantity} {item.unit}
+                  <span className="shrink-0 font-mono text-xs text-muted-foreground whitespace-nowrap">
+                    {item.quantity} {item.unit}
                   </span>
                 </div>
 
                 {isDraft ? (
-                  <div className="mt-3 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                  <div className="mt-2 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                     <label className="flex items-center gap-2 text-sm">
                       <Checkbox
                         checked={draftItem.isOrdered}
                         disabled={isBusy}
                         onCheckedChange={(checked) => handleOrderedToggle(item, checked === true)}
+                        className="size-5"
                       />
                       <span>{de.orders.orderedItem}</span>
                     </label>
-                    <div className="flex items-center gap-2 sm:w-64">
+                    <div className="flex items-center gap-2 sm:w-48">
                       <Input
                         type="number"
                         min="1"
@@ -792,12 +792,13 @@ function OrderCard({
                         disabled={!draftItem.isOrdered || isBusy}
                         onChange={(event) => handleOrderedQuantityChange(item.id, event.target.value)}
                         placeholder={getQuantityInputPlaceholder(item.quantity)}
+                        className="h-9"
                       />
-                      <span className="text-xs text-muted-foreground whitespace-nowrap">{item.unit}</span>
+                      <span className="shrink-0 text-xs text-muted-foreground whitespace-nowrap">{item.unit}</span>
                     </div>
                   </div>
                 ) : actualOrderedQuantity ? (
-                  <p className="mt-3 text-xs text-muted-foreground">
+                  <p className="mt-2 text-xs text-muted-foreground">
                     {de.orders.orderedItem}: <span className="font-mono">{actualOrderedQuantity}</span>
                   </p>
                 ) : null}
@@ -805,17 +806,66 @@ function OrderCard({
             );
           })}
         </div>
-        {order.ordered_at && (
-          <p className="text-xs text-muted-foreground mt-3">
-            {de.orders.orderedAt}: {formatDateTimeVienna(order.ordered_at)}
-          </p>
+
+        <div className="mt-3 flex flex-wrap items-center gap-2" data-no-print>
+          {isDraft && (
+            <>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={handleSaveOrderedItems}
+                disabled={!hasDraftChanges || isBusy}
+              >
+                {savingOrderedItems ? de.common.loading : de.common.save}
+              </Button>
+              <Button size="sm" onClick={handleMarkOrdered} disabled={isBusy}>
+                {markingOrdered ? de.common.loading : de.orders.markOrdered}
+              </Button>
+            </>
+          )}
+          {!isReadOnly && isAdmin && (
+            <Dialog open={cancelOpen} onOpenChange={(open) => { setCancelOpen(open); if (!open) setCancelError(null); }}>
+              <DialogTrigger render={<Button size="sm" variant="destructive" />}>
+                {de.orders.cancelOrder}
+              </DialogTrigger>
+              <DialogContent>
+                <DialogHeader>
+                  <DialogTitle>{de.orders.cancelDialogTitle}</DialogTitle>
+                  <DialogDescription>
+                    {de.orders.cancelDialogDescription}
+                  </DialogDescription>
+                </DialogHeader>
+                {cancelError && (
+                  <p className="text-sm text-destructive">{cancelError}</p>
+                )}
+                <DialogFooter>
+                  <DialogClose render={<Button variant="outline" />}>
+                    {de.common.cancel}
+                  </DialogClose>
+                  <Button
+                    variant="destructive"
+                    onClick={handleConfirmCancel}
+                    disabled={cancelling}
+                  >
+                    {cancelling ? de.common.loading : de.orders.cancelOrder}
+                  </Button>
+                </DialogFooter>
+              </DialogContent>
+            </Dialog>
+          )}
+        </div>
+
+        {(order.ordered_at || order.delivered_at) && (
+          <div className="mt-3 space-y-1 text-xs text-muted-foreground">
+            {order.ordered_at && (
+              <p>{de.orders.orderedAt}: {formatDateTimeVienna(order.ordered_at)}</p>
+            )}
+            {order.delivered_at && (
+              <p>{de.orders.deliveredAt}: {formatDateTimeVienna(order.delivered_at)}</p>
+            )}
+          </div>
         )}
-        {order.delivered_at && (
-          <p className="text-xs text-muted-foreground">
-            {de.orders.deliveredAt}: {formatDateTimeVienna(order.delivered_at)}
-          </p>
-        )}
-      </CardContent>
-    </Card>
+      </AccordionContent>
+    </AccordionItem>
   );
 }
