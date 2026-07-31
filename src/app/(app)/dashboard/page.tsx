@@ -8,8 +8,10 @@ import {
   ClipboardList,
   FileSpreadsheet,
   PackageOpen,
+  PlayCircle,
   RefreshCw,
   ShoppingCart,
+  Sparkles,
   Truck,
 } from 'lucide-react';
 import { CorrectChecklistWeekButton } from '@/components/checklist/correct-checklist-week-button';
@@ -21,12 +23,24 @@ import { de } from '@/i18n/de';
 import { createServerClient } from '@/lib/supabase/server';
 import { formatDateTimeVienna, formatWeekRangeGerman, getCurrentWeekRange, getISOWeekAndYear } from '@/lib/utils/date';
 
+type HeroVariant = 'all_done' | 'start_checklist' | 'continue_checklist' | 'pending_suggestions' | 'open_orders' | 'routine_pending';
+
+interface HeroAction {
+  variant: HeroVariant;
+  title: string;
+  subtitle: string;
+  cta: string;
+  href: string;
+  count?: number;
+}
+
 export default async function DashboardPage() {
   const supabase = await createServerClient();
   const { startDate: currentWeekStart, endDate: currentWeekEnd } = getCurrentWeekRange();
 
   let progress = { checked: 0, total: 0 };
   let missingCount = 0;
+  let waitingForOrderCount = 0;
 
   const [
     { data: currentWeekChecklist },
@@ -58,7 +72,12 @@ export default async function DashboardPage() {
   ]);
 
   if (currentWeekChecklist) {
-    const [{ count: totalCount }, { count: checkedCount }, { count: missingItemsCount }] = await Promise.all([
+    const [
+      { count: totalCount },
+      { count: checkedCount },
+      { count: missingItemsCount },
+      { count: waitingCount },
+    ] = await Promise.all([
       supabase
         .from('checklist_items')
         .select('id', { count: 'exact', head: true })
@@ -73,6 +92,13 @@ export default async function DashboardPage() {
         .select('id', { count: 'exact', head: true })
         .eq('checklist_id', currentWeekChecklist.id)
         .eq('is_missing', true),
+      // Items still waiting to be turned into orders
+      supabase
+        .from('checklist_items')
+        .select('id', { count: 'exact', head: true })
+        .eq('checklist_id', currentWeekChecklist.id)
+        .eq('is_missing', true)
+        .eq('is_ordered', false),
     ]);
 
     progress = {
@@ -80,6 +106,7 @@ export default async function DashboardPage() {
       checked: checkedCount ?? 0,
     };
     missingCount = missingItemsCount ?? 0;
+    waitingForOrderCount = waitingCount ?? 0;
   }
 
   const statusLabels: Record<string, string> = {
@@ -116,25 +143,129 @@ export default async function DashboardPage() {
 
   const checklistStatusKey = currentWeekChecklist?.status ?? null;
 
-  // Hero KPI tiles — top-of-page snapshot (mobile 2-col, desktop 4-col)
+  // Determine the single most important action right now (priority order)
+  const heroAction: HeroAction = (() => {
+    if (!currentWeekChecklist) {
+      return {
+        variant: 'start_checklist',
+        title: de.dashboard.heroStartChecklist,
+        subtitle: de.dashboard.heroStartChecklistSub,
+        cta: de.dashboard.startChecklist,
+        href: '/checklist',
+      };
+    }
+    if (currentWeekChecklist.status === 'draft' || currentWeekChecklist.status === 'in_progress') {
+      return {
+        variant: 'continue_checklist',
+        title: de.dashboard.heroContinueChecklist,
+        subtitle: de.dashboard.heroContinueChecklistSub
+          .replace('{checked}', String(progress.checked))
+          .replace('{total}', String(progress.total)),
+        cta: de.dashboard.continueChecklist,
+        href: '/checklist',
+        count: progress.checked,
+      };
+    }
+    // Checklist completed — what's next?
+    if (waitingForOrderCount > 0) {
+      return {
+        variant: 'pending_suggestions',
+        title: de.dashboard.heroPendingSuggestions.replace('{count}', String(waitingForOrderCount)),
+        subtitle: de.dashboard.heroPendingSuggestionsSub,
+        cta: de.orders.title,
+        href: '/orders',
+        count: waitingForOrderCount,
+      };
+    }
+    if ((openOrdersCount ?? 0) > 0) {
+      return {
+        variant: 'open_orders',
+        title: de.dashboard.heroOpenOrders.replace('{count}', String(openOrdersCount)),
+        subtitle: de.dashboard.heroOpenOrdersSub,
+        cta: de.orders.title,
+        href: '/orders',
+        count: openOrdersCount ?? 0,
+      };
+    }
+    if ((pendingRoutineCount ?? 0) > 0) {
+      return {
+        variant: 'routine_pending',
+        title: de.dashboard.heroRoutinePending.replace('{count}', String(pendingRoutineCount)),
+        subtitle: de.dashboard.heroRoutinePendingSub.replace('{week}', String(currentIsoWeek.isoWeek)),
+        cta: de.routineOrders.manage,
+        href: '/orders/routine',
+        count: pendingRoutineCount ?? 0,
+      };
+    }
+    return {
+      variant: 'all_done',
+      title: de.dashboard.heroAllDone,
+      subtitle: de.dashboard.heroAllDoneSub,
+      cta: de.dashboard.viewChecklist,
+      href: '/checklist',
+    };
+  })();
+
+  const heroStyles: Record<HeroVariant, { bg: string; iconBg: string; icon: typeof ClipboardCheck; accent: string }> = {
+    all_done: {
+      bg: 'border-emerald-200/80 bg-gradient-to-br from-emerald-50 via-white to-white',
+      iconBg: 'bg-emerald-100 text-emerald-700',
+      icon: CheckCircle2,
+      accent: 'text-emerald-700',
+    },
+    start_checklist: {
+      bg: 'border-primary/30 bg-gradient-to-br from-primary/10 via-white to-white',
+      iconBg: 'bg-primary text-primary-foreground',
+      icon: PlayCircle,
+      accent: 'text-primary',
+    },
+    continue_checklist: {
+      bg: 'border-blue-200/80 bg-gradient-to-br from-blue-50 via-white to-white',
+      iconBg: 'bg-blue-500 text-white',
+      icon: ClipboardCheck,
+      accent: 'text-blue-700',
+    },
+    pending_suggestions: {
+      bg: 'border-amber-300 bg-gradient-to-br from-amber-50 via-white to-white',
+      iconBg: 'bg-amber-500 text-white',
+      icon: PackageOpen,
+      accent: 'text-amber-800',
+    },
+    open_orders: {
+      bg: 'border-primary/30 bg-gradient-to-br from-primary/10 via-white to-white',
+      iconBg: 'bg-primary text-primary-foreground',
+      icon: ShoppingCart,
+      accent: 'text-primary',
+    },
+    routine_pending: {
+      bg: 'border-amber-300 bg-gradient-to-br from-amber-50 via-white to-white',
+      iconBg: 'bg-amber-500 text-white',
+      icon: RefreshCw,
+      accent: 'text-amber-800',
+    },
+  };
+  const heroStyle = heroStyles[heroAction.variant];
+  const HeroIcon = heroStyle.icon;
+
+  // Compact KPI strip (smaller than hero, secondary info)
   const kpis = [
     {
       label: de.dashboard.weekProgress,
       value: currentWeekChecklist ? `${progressPercent}%` : '—',
       sub: currentWeekChecklist
-        ? `${progress.checked}/${progress.total} ${de.checklist.checked.toLowerCase()}`
+        ? `${progress.checked}/${progress.total}`
         : de.dashboard.notStartedYet,
       icon: ClipboardCheck,
-      tone: 'primary' as const,
+      tone: 'neutral' as const,
     },
     {
-      label: de.dashboard.missingItemsKpi,
-      value: currentWeekChecklist ? String(missingCount) : '—',
-      sub: missingCount > 0
-        ? de.dashboard.missingProducts.replace('{count}', String(missingCount))
-        : de.dashboard.noMissingProducts,
+      label: de.dashboard.waitingForOrder,
+      value: currentWeekChecklist ? String(waitingForOrderCount) : '—',
+      sub: waitingForOrderCount > 0
+        ? `${missingCount} ${de.checklist.missing}`
+        : de.dashboard.allCaughtUp,
       icon: PackageOpen,
-      tone: missingCount > 0 ? 'amber' : 'success' as const,
+      tone: waitingForOrderCount > 0 ? 'amber' : 'success' as const,
     },
     {
       label: de.dashboard.openOrdersKpi,
@@ -157,23 +288,18 @@ export default async function DashboardPage() {
   ];
 
   const toneClasses: Record<string, { tile: string; icon: string; value: string }> = {
-    primary: {
-      tile: 'border-primary/20 bg-gradient-to-br from-primary/8 via-white to-white',
-      icon: 'bg-primary/12 text-primary',
-      value: 'text-foreground',
-    },
     amber: {
-      tile: 'border-amber-200/70 bg-gradient-to-br from-amber-50 via-white to-white',
+      tile: 'border-amber-200/70 bg-white',
       icon: 'bg-amber-100 text-amber-700',
       value: 'text-amber-700',
     },
     success: {
-      tile: 'border-emerald-200/70 bg-gradient-to-br from-emerald-50 via-white to-white',
+      tile: 'border-emerald-200/70 bg-white',
       icon: 'bg-emerald-100 text-emerald-700',
       value: 'text-emerald-700',
     },
     neutral: {
-      tile: 'border-border/70 bg-white/85',
+      tile: 'border-border/70 bg-white',
       icon: 'bg-muted text-muted-foreground',
       value: 'text-foreground',
     },
@@ -187,36 +313,72 @@ export default async function DashboardPage() {
         description="Sehen Sie den Fortschritt der aktuellen Woche, offene Bestellungen und die wichtigsten nächsten Schritte für den Betrieb."
       />
 
-      {/* Hero KPI strip */}
-      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+      {/* HERO ACTION CARD — single dominant card showing what to do next */}
+      <div className={`rounded-3xl border-2 p-5 shadow-[0_24px_60px_-40px_rgba(38,32,29,0.35)] sm:p-6 ${heroStyle.bg}`}>
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex items-start gap-4">
+            <span className={`flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl shadow-sm ${heroStyle.iconBg}`}>
+              <HeroIcon className="h-7 w-7" />
+            </span>
+            <div className="min-w-0 space-y-1">
+              <p className="text-[0.68rem] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
+                {de.dashboard.primaryAction}
+              </p>
+              <h2 className={`font-heading text-xl font-semibold tracking-tight sm:text-2xl ${heroStyle.accent}`}>
+                {heroAction.title}
+              </h2>
+              <p className="text-sm text-muted-foreground sm:text-[0.95rem]">
+                {heroAction.subtitle}
+              </p>
+            </div>
+          </div>
+          {heroAction.variant !== 'all_done' && (
+            <Link href={heroAction.href} className="shrink-0">
+              <Button size="lg" className="w-full sm:w-auto">
+                {heroAction.cta}
+                <ArrowRight className="ml-1.5 h-4 w-4" />
+              </Button>
+            </Link>
+          )}
+          {heroAction.variant === 'all_done' && (
+            <span className="inline-flex shrink-0 items-center gap-1.5 rounded-full bg-emerald-100 px-3 py-1.5 text-xs font-semibold text-emerald-700">
+              <Sparkles className="h-3.5 w-3.5" />
+              {de.dashboard.allCaughtUp}
+            </span>
+          )}
+        </div>
+      </div>
+
+      {/* Compact KPI strip — secondary info, smaller weight than hero */}
+      <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
         {kpis.map((kpi) => {
           const tone = toneClasses[kpi.tone];
           return (
             <div
               key={kpi.label}
-              className={`flex flex-col gap-3 rounded-3xl border p-4 shadow-[0_10px_30px_-26px_rgba(38,32,29,0.25)] ${tone.tile}`}
+              className={`flex items-center gap-3 rounded-2xl border p-3 ${tone.tile}`}
             >
-              <div className="flex items-center justify-between">
-                <span className="text-[0.68rem] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
+              <span className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl ${tone.icon}`}>
+                <kpi.icon className="h-4 w-4" />
+              </span>
+              <div className="min-w-0 flex-1">
+                <p className="text-[0.65rem] font-semibold uppercase tracking-[0.16em] text-muted-foreground">
                   {kpi.label}
-                </span>
-                <span className={`flex h-9 w-9 items-center justify-center rounded-xl ${tone.icon}`}>
-                  <kpi.icon className="h-4 w-4" />
-                </span>
+                </p>
+                <div className="flex items-baseline gap-1.5">
+                  <span className={`text-xl font-semibold tabular-nums tracking-tight ${tone.value}`}>
+                    {kpi.value}
+                  </span>
+                  <span className="truncate text-[0.7rem] text-muted-foreground">{kpi.sub}</span>
+                </div>
               </div>
-              <div className="flex items-baseline gap-2">
-                <span className={`text-3xl font-semibold tabular-nums tracking-tight ${tone.value}`}>
-                  {kpi.value}
-                </span>
-              </div>
-              <p className="text-xs text-muted-foreground">{kpi.sub}</p>
             </div>
           );
         })}
       </div>
 
       <div className="grid gap-4 lg:grid-cols-[1.55fr_0.95fr]">
-        {/* Main checklist card */}
+        {/* Wochenkontrolle detail card */}
         <Card className="overflow-visible">
           <CardHeader className="gap-2">
             <div className="flex items-start justify-between gap-3">
@@ -241,7 +403,6 @@ export default async function DashboardPage() {
           <CardContent>
             {currentWeekChecklist ? (
               <div className="space-y-4">
-                {/* Progress bar with inline stats */}
                 <div>
                   <div className="mb-2 flex items-baseline justify-between text-sm">
                     <span className="text-muted-foreground">{de.dashboard.weekProgress}</span>
@@ -258,19 +419,22 @@ export default async function DashboardPage() {
                   </div>
                 </div>
 
-                {/* Inline meta */}
                 <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-muted-foreground">
                   <span>
-                    {de.checklist.savingInProgress.replace('Änderungen werden ', '')
-                      .replace('...', '')}
-                    : <span className="font-medium text-foreground tabular-nums">
+                    Aktualisiert:{' '}
+                    <span className="font-medium text-foreground tabular-nums">
                       {formatDateTimeVienna(currentWeekChecklist.updated_at)}
                     </span>
                   </span>
                   {missingCount > 0 ? (
                     <span className="inline-flex items-center gap-1 text-amber-700">
                       <PackageOpen className="h-3.5 w-3.5" />
-                      {missingCount} {de.checklist.missing}
+                      {de.dashboard.missingProducts.replace('{count}', String(missingCount))}
+                      {waitingForOrderCount > 0 && waitingForOrderCount !== missingCount && (
+                        <span className="text-muted-foreground">
+                          ({waitingForOrderCount} {de.dashboard.waitingForOrder.toLowerCase()})
+                        </span>
+                      )}
                     </span>
                   ) : (
                     <span className="inline-flex items-center gap-1 text-emerald-700">
@@ -282,7 +446,7 @@ export default async function DashboardPage() {
 
                 <div className="flex flex-wrap gap-2 pt-1">
                   <Link href="/checklist">
-                    <Button>
+                    <Button variant={heroAction.variant === 'continue_checklist' ? 'default' : 'outline'}>
                       {currentWeekChecklist.status === 'draft'
                         ? de.dashboard.startChecklist
                         : currentWeekChecklist.status === 'in_progress'
@@ -329,9 +493,8 @@ export default async function DashboardPage() {
           </CardContent>
         </Card>
 
-        {/* Right column */}
+        {/* Right column: status breakdown + quick actions */}
         <div className="grid gap-4">
-          {/* Status breakdown card */}
           <Card size="sm">
             <CardHeader className="gap-1">
               <CardTitle className="flex items-center gap-2 text-base">
@@ -342,16 +505,26 @@ export default async function DashboardPage() {
               </CardTitle>
             </CardHeader>
             <CardContent>
-              {(openOrdersCount ?? 0) > 0 ? (
-                <div className="space-y-2">
+              {(openOrdersCount ?? 0) > 0 || waitingForOrderCount > 0 ? (
+                <div className="space-y-2.5">
+                  {waitingForOrderCount > 0 && (
+                    <div className="space-y-1">
+                      <div className="flex items-baseline justify-between text-xs">
+                        <span className="flex items-center gap-1.5 text-amber-700">
+                          <span className="h-1.5 w-1.5 rounded-full bg-amber-500" />
+                          {de.dashboard.waitingForOrder}
+                        </span>
+                        <span className="font-semibold tabular-nums">{waitingForOrderCount}</span>
+                      </div>
+                    </div>
+                  )}
                   {[
                     { key: 'draft', label: de.orders.statusDraft, color: 'bg-amber-500' },
                     { key: 'ordered', label: de.orders.statusOrdered, color: 'bg-blue-500' },
                     { key: 'partially_delivered', label: de.orders.statusPartiallyDelivered, color: 'bg-purple-500' },
                   ].map((row) => {
                     const value = orderBreakdown[row.key] ?? 0;
-                    const max = openOrdersCount ?? 1;
-                    const widthPercent = max > 0 ? Math.round((value / max) * 100) : 0;
+                    if (value === 0 && (openOrdersCount ?? 0) === 0) return null;
                     return (
                       <div key={row.key} className="space-y-1">
                         <div className="flex items-baseline justify-between text-xs">
@@ -360,9 +533,6 @@ export default async function DashboardPage() {
                             {row.label}
                           </span>
                           <span className="font-semibold tabular-nums">{value}</span>
-                        </div>
-                        <div className="h-1 overflow-hidden rounded-full bg-muted">
-                          <div className={`h-full ${row.color} transition-all`} style={{ width: `${widthPercent}%` }} />
                         </div>
                       </div>
                     );
@@ -386,7 +556,6 @@ export default async function DashboardPage() {
             </CardContent>
           </Card>
 
-          {/* Quick actions card */}
           <Card size="sm">
             <CardHeader>
               <CardTitle className="text-base">{de.dashboard.quickActions}</CardTitle>
@@ -398,14 +567,6 @@ export default async function DashboardPage() {
                   { href: '/suppliers', icon: Truck, label: de.nav.suppliers, sub: 'Lieferanten und Produktzuordnung' },
                   { href: '/archive', icon: Archive, label: de.nav.archive, sub: 'Abgeschlossene Wochenkontrollen' },
                   { href: '/reports', icon: BarChart3, label: de.nav.reports, sub: 'Kennzahlen und Liefertrends' },
-                  ...(currentWeekChecklist?.status === 'completed'
-                    ? [{
-                        href: `/api/export/${currentWeekChecklist.id}`,
-                        icon: FileSpreadsheet,
-                        label: de.dashboard.exportExcel,
-                        sub: 'Excel-Export der aktuellen Woche',
-                      }]
-                    : []),
                 ].map((action) => (
                   <Link
                     key={action.href}
