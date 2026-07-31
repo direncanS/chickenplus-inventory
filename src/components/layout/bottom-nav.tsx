@@ -15,24 +15,39 @@ import {
   Settings,
   MoreHorizontal,
 } from 'lucide-react';
+import type { NavCounts } from '@/lib/server/nav-counts';
 
-const mainNavItems = [
-  { href: '/dashboard', label: de.nav.dashboard, icon: LayoutDashboard },
-  { href: '/checklist', label: de.nav.checklist, icon: ClipboardCheck },
-  { href: '/orders', label: de.nav.orders, icon: ShoppingCart },
-  { href: '/suppliers', label: de.nav.suppliers, icon: Truck },
-  { href: '/archive', label: de.nav.archive, icon: Archive },
-];
+interface BottomNavProps {
+  counts: NavCounts;
+}
 
-const moreNavItems = [
-  { href: '/reports', label: de.nav.reports, icon: BarChart3 },
-  { href: '/settings', label: de.nav.settings, icon: Settings },
-];
-
-export function BottomNav() {
+export function BottomNav({ counts }: BottomNavProps) {
   const pathname = usePathname();
   const [moreOpen, setMoreOpen] = useState(false);
   const moreRef = useRef<HTMLDivElement>(null);
+
+  const mainNavItems = [
+    { href: '/dashboard', label: de.nav.dashboard, icon: LayoutDashboard, badge: null as number | null },
+    {
+      href: '/checklist',
+      label: de.nav.checklist,
+      icon: ClipboardCheck,
+      badge: counts.currentWeek.missingCount > 0 ? counts.currentWeek.missingCount : null,
+    },
+    {
+      href: '/orders',
+      label: de.nav.orders,
+      icon: ShoppingCart,
+      badge: counts.openOrders > 0 ? counts.openOrders : null,
+    },
+    { href: '/suppliers', label: de.nav.suppliers, icon: Truck, badge: null },
+    { href: '/archive', label: de.nav.archive, icon: Archive, badge: null },
+  ];
+
+  const moreNavItems = [
+    { href: '/reports', label: de.nav.reports, icon: BarChart3 },
+    { href: '/settings', label: de.nav.settings, icon: Settings },
+  ];
 
   const isMoreActive = moreNavItems.some((item) => pathname.startsWith(item.href));
 
@@ -56,7 +71,7 @@ export function BottomNav() {
   }, [moreOpen]);
 
   return (
-    <nav className="md:hidden fixed bottom-0 left-0 right-0 z-50 px-3 pb-3 safe-area-bottom">
+    <nav className="md:hidden fixed bottom-0 left-0 right-0 z-50 px-3 pb-3 safe-area-bottom" data-no-print>
       <div className="surface-panel flex items-center justify-around rounded-[28px] px-2 py-1.5">
         {mainNavItems.map((item) => {
           const isActive = pathname.startsWith(item.href);
@@ -71,7 +86,21 @@ export function BottomNav() {
                   : 'text-muted-foreground'
               )}
             >
-              <item.icon className="h-6 w-6" />
+              <span className="relative">
+                <item.icon className="h-6 w-6" />
+                {item.badge !== null && (
+                  <span
+                    className={cn(
+                      'absolute -right-2 -top-1 flex h-4 min-w-[1rem] items-center justify-center rounded-full px-1 text-[0.6rem] font-semibold tabular-nums shadow',
+                      isActive
+                        ? 'bg-white text-primary'
+                        : 'bg-primary text-primary-foreground'
+                    )}
+                  >
+                    {item.badge > 99 ? '99+' : item.badge}
+                  </span>
+                )}
+              </span>
               <span className="truncate">{item.label}</span>
             </Link>
           );
