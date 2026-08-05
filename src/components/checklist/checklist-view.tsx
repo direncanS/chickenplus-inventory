@@ -572,11 +572,6 @@ export function ChecklistView({ checklist, items, isAdmin }: ChecklistViewProps)
 
               {visibleCategories.map((category) => (
                 <div key={category.categoryName}>
-                  {category.categoryName !== 'Allgemein' && (
-                    <h4 className="sticky top-[13.3rem] z-10 border-b border-border/30 bg-background/90 px-3 py-1 text-[0.65rem] font-semibold uppercase tracking-[0.18em] text-muted-foreground backdrop-blur">
-                      {category.categoryName}
-                    </h4>
-                  )}
                   <div>
                     {category.items.map((item) => (
                       <ChecklistItemRow

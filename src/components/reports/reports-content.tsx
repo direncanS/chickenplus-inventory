@@ -8,6 +8,14 @@ import { OrderSummaryChart } from './order-summary-chart';
 import { SupplierPerformanceChart } from './supplier-performance';
 import { TopMissingProducts } from './top-missing-products';
 import { OrderedProductsTable } from './ordered-products-table';
+import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from '@/components/ui/accordion';
+import { Badge } from '@/components/ui/badge';
+import { de } from '@/i18n/de';
 import { getReportData } from '@/app/(app)/reports/actions';
 import type { ReportData, ReportPeriod, ReportDateRange } from '@/types/reports';
 
@@ -70,12 +78,16 @@ export function ReportsContent({ initialData }: ReportsContentProps) {
   }
 
   return (
-    <div className="space-y-5">
-      <div className="surface-subtle flex flex-col gap-3 px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
-        <PeriodSelector value={period} onChange={handlePeriodChange} />
-        <p className="text-sm text-muted-foreground">
-          Filtern Sie den Zeitraum, um Fehlmengen, Bestellungen und Lieferverhalten gezielt zu vergleichen.
-        </p>
+    <div className="space-y-4">
+      {/* Sticky header: period selector + KPIs always visible */}
+      <div className="space-y-3">
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+          <PeriodSelector value={period} onChange={handlePeriodChange} />
+          {isPending && (
+            <span className="text-xs text-muted-foreground">{de.common.loading}</span>
+          )}
+        </div>
+        <KPICards kpis={data.kpis} />
       </div>
 
       {error && (
@@ -84,22 +96,69 @@ export function ReportsContent({ initialData }: ReportsContentProps) {
         </div>
       )}
 
+      {/* Collapsible detail sections — Verlauf default-open, others collapsed */}
       <div className={isPending ? 'opacity-60 pointer-events-none transition-opacity' : ''}>
-        <div className="space-y-5">
-          <KPICards kpis={data.kpis} />
+        <Accordion
+          multiple
+          defaultValue={['verlauf']}
+          className="surface-subtle divide-y divide-border/40 px-2"
+        >
+          <AccordionItem value="verlauf">
+            <AccordionTrigger className="px-2 py-3">
+              <span className="flex w-full items-center gap-2 pr-2">
+                <span className="flex-1 text-sm font-semibold sm:text-base">{de.reports.stockTrend} & {de.reports.orderSummary}</span>
+              </span>
+            </AccordionTrigger>
+            <AccordionContent className="px-2 pb-3">
+              <div className="grid gap-4 lg:grid-cols-2">
+                <StockTrendChart data={data.stockTrend} />
+                <OrderSummaryChart data={data.orderSummary} />
+              </div>
+            </AccordionContent>
+          </AccordionItem>
 
-          <div className="grid gap-4 lg:grid-cols-2">
-            <StockTrendChart data={data.stockTrend} />
-            <OrderSummaryChart data={data.orderSummary} />
-          </div>
+          <AccordionItem value="suppliers">
+            <AccordionTrigger className="px-2 py-3">
+              <span className="flex w-full items-center gap-2 pr-2">
+                <span className="flex-1 text-sm font-semibold sm:text-base">{de.reports.supplierPerformance}</span>
+                <Badge variant="outline" className="font-mono text-[11px]">
+                  {data.supplierPerformance.length}
+                </Badge>
+              </span>
+            </AccordionTrigger>
+            <AccordionContent className="px-2 pb-3">
+              <SupplierPerformanceChart data={data.supplierPerformance} />
+            </AccordionContent>
+          </AccordionItem>
 
-          <div className="grid gap-4 lg:grid-cols-2">
-            <SupplierPerformanceChart data={data.supplierPerformance} />
-            <TopMissingProducts data={data.topMissingProducts} />
-          </div>
+          <AccordionItem value="missing">
+            <AccordionTrigger className="px-2 py-3">
+              <span className="flex w-full items-center gap-2 pr-2">
+                <span className="flex-1 text-sm font-semibold sm:text-base">{de.reports.topMissingProducts}</span>
+                <Badge variant="outline" className="font-mono text-[11px]">
+                  {data.topMissingProducts.length}
+                </Badge>
+              </span>
+            </AccordionTrigger>
+            <AccordionContent className="px-2 pb-3">
+              <TopMissingProducts data={data.topMissingProducts} />
+            </AccordionContent>
+          </AccordionItem>
 
-          <OrderedProductsTable data={data.orderedProducts} />
-        </div>
+          <AccordionItem value="ordered">
+            <AccordionTrigger className="px-2 py-3">
+              <span className="flex w-full items-center gap-2 pr-2">
+                <span className="flex-1 text-sm font-semibold sm:text-base">{de.reports.orderedProducts}</span>
+                <Badge variant="outline" className="font-mono text-[11px]">
+                  {data.orderedProducts.length}
+                </Badge>
+              </span>
+            </AccordionTrigger>
+            <AccordionContent className="px-2 pb-3">
+              <OrderedProductsTable data={data.orderedProducts} />
+            </AccordionContent>
+          </AccordionItem>
+        </Accordion>
       </div>
     </div>
   );

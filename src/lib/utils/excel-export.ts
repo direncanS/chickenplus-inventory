@@ -38,11 +38,12 @@ interface ExportData {
 // Brand-tinted palette (oklch from globals.css translated to ARGB hex)
 const COLORS = {
   primary: 'FFBF462C',       // brand orange/rust — title bar
-  primaryLight: 'FFF6E1D8',  // header tint
+  primaryLight: 'FFF6E1D8',  // header tint (warm cream)
   storageBar: 'FFFFE9D6',    // storage location row
   categoryBar: 'FFFAF3EB',   // category row
-  missingTint: 'FFFFF4D6',   // missing row tint
-  missingText: 'FFB45309',   // amber-700
+  missingTint: 'FFFEE2E2',   // missing row → soft red (red-100), clearly distinct from cream header
+  missingText: 'FFB91C1C',   // missing accent → red-700
+  missingBorder: 'FFFCA5A5', // missing left edge → red-300 for scan-ability
   borderGray: 'FFD8CFC4',
   textMuted: 'FF7C6F66',
   white: 'FFFFFFFF',
@@ -212,9 +213,16 @@ export async function generateChecklistExcel(
         });
 
         if (item.isMissing) {
-          dataRow.eachCell((cell) => {
+          dataRow.eachCell((cell, col) => {
             cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: COLORS.missingTint } };
+            if (col === 1) {
+              cell.border = {
+                ...cell.border,
+                left: { style: 'thick', color: { argb: COLORS.missingText } },
+              };
+            }
           });
+          dataRow.getCell(1).font = { size: 10, bold: true, color: { argb: COLORS.missingText } };
           dataRow.getCell(5).font = { size: 11, bold: true, color: { argb: COLORS.missingText } };
         }
       }
