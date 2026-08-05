@@ -31,15 +31,15 @@ export function Sidebar({ counts }: SidebarProps) {
       icon: ClipboardCheck,
       badge: counts.currentWeek.missingCount > 0 ? counts.currentWeek.missingCount : null,
     },
-    { href: '/suppliers', label: de.nav.suppliers, icon: Truck, badge: null },
     {
       href: '/orders',
       label: de.nav.orders,
       icon: ShoppingCart,
       badge: counts.openOrders > 0 ? counts.openOrders : null,
     },
-    { href: '/archive', label: de.nav.archive, icon: Archive, badge: null },
+    { href: '/suppliers', label: de.nav.suppliers, icon: Truck, badge: null },
     { href: '/reports', label: de.nav.reports, icon: BarChart3, badge: null },
+    { href: '/archive', label: de.nav.archive, icon: Archive, badge: null },
     { href: '/settings', label: de.nav.settings, icon: Settings, badge: null },
   ];
 

@@ -1,5 +1,4 @@
 import { de } from '@/i18n/de';
-import { PageIntro } from '@/components/layout/page-intro';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { requireAppViewer } from '@/lib/supabase/app-viewer';
@@ -10,11 +9,6 @@ export default async function SettingsPage() {
 
   return (
     <div className="max-w-3xl space-y-4">
-      <PageIntro
-        eyebrow="Konto"
-        title={de.nav.settings}
-        description="Zeigen Sie Kontodetails an und halten Sie den täglichen Zugriff bewusst einfach."
-      />
       <Card>
         <CardHeader>
           <CardTitle className="text-base">{de.settings.profile}</CardTitle>

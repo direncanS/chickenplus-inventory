@@ -41,11 +41,11 @@ export function BottomNav({ counts }: BottomNavProps) {
       badge: counts.openOrders > 0 ? counts.openOrders : null,
     },
     { href: '/suppliers', label: de.nav.suppliers, icon: Truck, badge: null },
-    { href: '/archive', label: de.nav.archive, icon: Archive, badge: null },
+    { href: '/reports', label: de.nav.reports, icon: BarChart3, badge: null },
   ];
 
   const moreNavItems = [
-    { href: '/reports', label: de.nav.reports, icon: BarChart3 },
+    { href: '/archive', label: de.nav.archive, icon: Archive },
     { href: '/settings', label: de.nav.settings, icon: Settings },
   ];
 

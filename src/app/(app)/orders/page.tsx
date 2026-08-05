@@ -1,6 +1,5 @@
 import Link from 'next/link';
 import { createServerClient } from '@/lib/supabase/server';
-import { PageIntro } from '@/components/layout/page-intro';
 import { OrderList } from '@/components/orders/order-list';
 import { WeeklyRoutineDashboard } from '@/components/routine-orders/weekly-routine-dashboard';
 import { getOrderSuggestions } from '@/lib/server/order-suggestions';
@@ -95,21 +94,16 @@ export default async function OrdersPage() {
 
   return (
     <div className="space-y-4">
-      <PageIntro
-        eyebrow="Bestellübersicht"
-        title="Bestellungen"
-        description="Verwalten Sie offene Lieferantenbestellungen, prüfen Sie Vorschlagsgruppen und behalten Sie Lieferzustände klar im Blick."
-        actions={
-          viewer.isAdmin ? (
-            <Link
-              href="/orders/routine"
-              className="text-sm text-primary underline underline-offset-4 hover:text-primary/80"
-            >
-              Routine verwalten
-            </Link>
-          ) : undefined
-        }
-      />
+      {viewer.isAdmin && (
+        <div className="flex justify-end">
+          <Link
+            href="/orders/routine"
+            className="text-sm text-primary underline underline-offset-4 hover:text-primary/80"
+          >
+            Routine verwalten
+          </Link>
+        </div>
+      )}
 
       <WeeklyRoutineDashboard
         instances={routineInstances ?? []}
