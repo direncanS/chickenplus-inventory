@@ -158,10 +158,15 @@
 }
 
 /* ============================================
- * Print layout — A4 friendly, paper-like
+ * Print layout — A4 friendly, target ≤3 pages
  * Triggered by browser print dialog (Ctrl+P) or "Drucken" button.
  * ============================================ */
 @media print {
+  @page {
+    size: A4 portrait;
+    margin: 8mm 10mm;
+  }
+
   /* Hide app chrome and interactive controls */
   nav,
   header[role="banner"],
@@ -177,6 +182,7 @@
   }
   [data-slot="accordion-content"] > div {
     height: auto !important;
+    padding: 0 !important;
   }
   [data-slot="accordion-trigger-icon"] {
     display: none !important;
@@ -187,63 +193,108 @@
     position: static !important;
   }
 
-  /* Plain background, black text, no shadows */
+  /* Plain background, black text, dense typography */
   html,
   body {
     background: white !important;
     color: black !important;
-    font-size: 10pt;
+    font-size: 8pt !important;
+    line-height: 1.25 !important;
   }
   body {
     background-image: none !important;
   }
+
+  /* Strip every decorative surface */
   .surface-panel,
   .surface-subtle {
     background: white !important;
     box-shadow: none !important;
-    border: 1px solid #ccc !important;
+    border: none !important;
     backdrop-filter: none !important;
+    border-radius: 0 !important;
+    padding: 0 !important;
+    margin: 0 !important;
+  }
+  [class*="rounded-"] {
+    border-radius: 2pt !important;
+  }
+  [class*="shadow"] {
+    box-shadow: none !important;
   }
 
-  /* Make checkbox and inputs printable as fillable form fields */
+  /* Compact form fields so every line fits */
   input[type="checkbox"],
   [role="checkbox"] {
     appearance: none !important;
     -webkit-appearance: none !important;
-    width: 12pt !important;
-    height: 12pt !important;
-    border: 1pt solid black !important;
+    width: 9pt !important;
+    height: 9pt !important;
+    min-width: 9pt !important;
+    min-height: 9pt !important;
+    border: 0.6pt solid black !important;
     background: white !important;
+    margin: 0 !important;
+    padding: 0 !important;
   }
   input[type="text"],
   input[type="number"] {
     border: none !important;
-    border-bottom: 0.5pt solid #888 !important;
+    border-bottom: 0.4pt solid #999 !important;
     background: transparent !important;
     color: black !important;
     box-shadow: none !important;
+    height: auto !important;
+    min-height: 0 !important;
+    padding: 0 1pt !important;
+    font-size: 8pt !important;
+  }
+  button {
+    background: transparent !important;
+    border: 0.4pt solid #ccc !important;
+    box-shadow: none !important;
   }
 
-  /* Avoid breaking sections across pages where possible */
-  section,
-  [data-slot="accordion-item"] {
-    page-break-inside: avoid;
-    break-inside: avoid;
+  /* Tight spacing across the document */
+  .space-y-4 > * + *,
+  .space-y-3 > * + *,
+  .space-y-2 > * + * {
+    margin-top: 2pt !important;
   }
+  .gap-3, .gap-4 { gap: 2pt !important; }
+  .p-3, .p-4, .py-3, .py-4, .py-5 { padding: 1pt !important; }
+  .px-4, .px-5, .px-6 { padding-left: 2pt !important; padding-right: 2pt !important; }
+
+  /* Headings should be visibly smaller in print */
+  h1 { font-size: 12pt !important; margin: 0 0 2pt 0 !important; }
+  h2 { font-size: 10pt !important; margin: 0 0 1pt 0 !important; }
+  h3 { font-size: 9pt !important; margin: 0 !important; }
+  h4 { font-size: 8pt !important; margin: 0 !important; text-transform: uppercase; }
+
   h2, h3, h4 {
     page-break-after: avoid;
     break-after: avoid;
   }
 
-  /* Each top-level supplier accordion item starts on a new page in Bestellung */
+  /* Keep a row together with its headings */
+  [data-slot="accordion-item"],
+  section > header,
+  thead {
+    page-break-inside: avoid;
+    break-inside: avoid;
+  }
+
+  /* Bestellung: each top-level supplier on its own page */
   [data-print-page-break] {
     page-break-before: always;
     break-before: always;
   }
 
-  /* Compact spacing for paper */
-  .space-y-4 > * + *,
-  .space-y-3 > * + * {
-    margin-top: 4pt !important;
+  /* Hide grow-only padding around lists */
+  main {
+    padding: 0 !important;
+  }
+  body > * {
+    margin: 0 !important;
   }
 }

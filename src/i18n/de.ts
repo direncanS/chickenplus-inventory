@@ -242,6 +242,10 @@ export const de = {
     suppliersTotal: '{count} Lieferanten',
     itemsTotal: '{count} Positionen',
     selectedCount: '{count} ausgewählt',
+    suggestionLabel: 'Vorschlag',
+    orderQuantityLabel: 'Bestellmenge',
+    orderQuantityHint: 'Anzahl, die Sie bestellen möchten',
+    suggestionHint: 'Empfohlene Menge auf Basis der Fehlbestände',
   },
 
   // Routine Orders
