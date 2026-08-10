@@ -113,6 +113,7 @@ export const de = {
     draft: 'Entwurf',
     inProgress: 'In Bearbeitung',
     stock: 'Bestand',
+    currentStockShort: 'Bestand',
     missing: 'Fehlt',
     minStock: 'Mindestbestand',
     checked: 'Geprüft',
