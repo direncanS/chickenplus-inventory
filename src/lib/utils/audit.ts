@@ -6,6 +6,7 @@ type AuditAction =
   | 'checklist_deleted'
   | 'checklist_completed'
   | 'checklist_exported'
+  | 'orders_exported'
   | 'checklist_reopened'
   | 'admin_bootstrapped'
   | 'order_created'

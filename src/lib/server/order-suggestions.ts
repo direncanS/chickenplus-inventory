@@ -11,6 +11,7 @@ type SuggestionItemRow = {
   product_name: string;
   min_stock_snapshot: number | null;
   min_stock_max_snapshot: number | null;
+  current_stock: string | null;
   products: { unit: string | null; is_active: boolean } | Array<{ unit: string | null; is_active: boolean }>;
 };
 
@@ -35,6 +36,7 @@ export interface OrderSuggestionItem {
   productName: string;
   quantity: number;
   unit: string;
+  currentStock: string | null;
   isOrdered: boolean;
   orderedQuantity: number | null;
 }
@@ -62,7 +64,7 @@ export async function getOrderSuggestions(
     .from('checklist_items')
     .select(`
       id, product_id, product_name,
-      min_stock_snapshot, min_stock_max_snapshot,
+      min_stock_snapshot, min_stock_max_snapshot, current_stock,
       products!inner(unit, is_active)
     `)
     .eq('checklist_id', checklistId)
@@ -188,6 +190,7 @@ export async function getOrderSuggestions(
         item.min_stock_max_snapshot ?? item.min_stock_snapshot ?? 1
       ),
       unit: product?.unit ?? 'stueck',
+      currentStock: item.current_stock ?? null,
       isOrdered: false,
       orderedQuantity: null,
     });
