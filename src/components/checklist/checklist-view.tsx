@@ -542,7 +542,9 @@ export function ChecklistView({ checklist, items, isAdmin }: ChecklistViewProps)
           data-no-print
         >
           <span>{de.checklist.product}</span>
-          <span className="text-center">{de.checklist.currentStockShort}</span>
+          <span className="whitespace-normal text-center text-[9px] font-semibold normal-case leading-[1.1] tracking-[0.01em]">
+            {de.checklist.currentStockShort}
+          </span>
           <span className="text-center" title={de.checklist.missing}>F</span>
           <span className="text-center" title={de.checklist.checked}>✓</span>
         </div>

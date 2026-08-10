@@ -52,9 +52,14 @@ export default async function ArchivePage() {
                   <Link href={`/archive/${cl.id}`}>
                     <Button variant="outline" size="sm" className="w-full sm:w-auto">{de.archive.viewDetails}</Button>
                   </Link>
-                  <Link href={`/api/export/${cl.id}`}>
-                    <Button variant="outline" size="sm" className="w-full sm:w-auto">{de.archive.exportExcel}</Button>
-                  </Link>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="w-full sm:w-auto"
+                    render={<a href={`/api/export/${cl.id}`} download />}
+                  >
+                    {de.archive.exportExcel}
+                  </Button>
                 </div>
               </div>
             </CardContent>

@@ -449,12 +449,13 @@ export default async function DashboardPage() {
                     </Button>
                   </Link>
                   {currentWeekChecklist.status === 'completed' && (
-                    <Link href={`/api/export/${currentWeekChecklist.id}`}>
-                      <Button variant="outline">
-                        <FileSpreadsheet className="mr-1 h-4 w-4" />
-                        {de.dashboard.exportExcel}
-                      </Button>
-                    </Link>
+                    <Button
+                      variant="outline"
+                      render={<a href={`/api/export/${currentWeekChecklist.id}`} download />}
+                    >
+                      <FileSpreadsheet className="mr-1 h-4 w-4" />
+                      {de.dashboard.exportExcel}
+                    </Button>
                   )}
                 </div>
               </div>
