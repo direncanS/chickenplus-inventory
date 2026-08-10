@@ -76,13 +76,22 @@ interface Suggestion {
 }
 
 function formatCurrentStock(
-  currentStock: string | null
+  currentStock: string | null,
+  unit: string
 ): { value: string; showUnit: boolean } {
   const trimmed = currentStock?.trim() ?? '';
   if (!trimmed) {
     return { value: de.orders.currentStockMissing, showUnit: false };
   }
-  return { value: trimmed, showUnit: true };
+  const lowerStock = trimmed.toLowerCase();
+  const lowerUnit = unit.trim().toLowerCase();
+  const alreadyHasUnit =
+    lowerUnit.length > 0 &&
+    (lowerStock === lowerUnit ||
+      lowerStock.endsWith(' ' + lowerUnit) ||
+      lowerStock.endsWith(' ' + lowerUnit + '.') ||
+      lowerStock.endsWith(' ' + lowerUnit + 's'));
+  return { value: trimmed, showUnit: !alreadyHasUnit };
 }
 
 const statusConfig: Record<string, { label: string; variant: 'default' | 'secondary' | 'outline' | 'destructive' }> = {
@@ -595,7 +604,7 @@ function SuggestionCard({
         <div className="space-y-2">
           {suggestion.items.map((item) => {
             const draft = draftState[item.checklistItemId] ?? { isOrdered: false, orderedQuantity: '' };
-            const stock = formatCurrentStock(item.currentStock);
+            const stock = formatCurrentStock(item.currentStock, item.unit);
 
             return (
               <div key={item.checklistItemId} className="rounded-lg border border-border/60 bg-muted/25 p-2">
@@ -636,7 +645,6 @@ function SuggestionCard({
                       />
                       <span className="shrink-0 text-xs text-muted-foreground whitespace-nowrap">{item.unit}</span>
                     </div>
-                    <span className="text-[10px] text-muted-foreground">{de.orders.orderQuantityHint}</span>
                   </div>
                 </div>
               </div>

@@ -21,6 +21,20 @@ export interface OrderExportData {
   groups: OrderExportSupplierGroup[];
 }
 
+function formatStockCell(currentStock: string | null, unit: string): string {
+  const trimmed = currentStock?.trim() ?? '';
+  if (!trimmed) return '—';
+  const lowerStock = trimmed.toLowerCase();
+  const lowerUnit = unit.trim().toLowerCase();
+  const alreadyHasUnit =
+    lowerUnit.length > 0 &&
+    (lowerStock === lowerUnit ||
+      lowerStock.endsWith(' ' + lowerUnit) ||
+      lowerStock.endsWith(' ' + lowerUnit + '.') ||
+      lowerStock.endsWith(' ' + lowerUnit + 's'));
+  return alreadyHasUnit || lowerUnit.length === 0 ? trimmed : `${trimmed} ${unit}`;
+}
+
 const COLORS = {
   primary: 'FFBF462C',
   primaryLight: 'FFF6E1D8',
@@ -61,15 +75,14 @@ export async function generateOrdersExcel(
   });
 
   sheet.columns = [
-    { width: 34 }, // Produkt
-    { width: 14 }, // Bestand
-    { width: 10 }, // Einheit
-    { width: 16 }, // Bestellmenge (leer)
-    { width: 22 }, // Lieferant
+    { width: 40 }, // Produkt
+    { width: 20 }, // Bestand
+    { width: 20 }, // Bestellmenge (leer)
+    { width: 26 }, // Lieferant
   ];
 
   // ---------- Title bar (row 1) ----------
-  sheet.mergeCells('A1:E1');
+  sheet.mergeCells('A1:D1');
   const titleCell = sheet.getCell('A1');
   const titleSuffix = data.weekStartDate && data.weekEndDate
     ? (() => {
@@ -88,7 +101,7 @@ export async function generateOrdersExcel(
   const totalSuppliers = data.groups.length;
   const totalItems = data.groups.reduce((sum, g) => sum + g.items.length, 0);
 
-  sheet.mergeCells('A2:E2');
+  sheet.mergeCells('A2:D2');
   const summaryCell = sheet.getCell('A2');
   summaryCell.value = `Lieferanten: ${totalSuppliers}    ·    Positionen: ${totalItems}`;
   summaryCell.font = { size: 10, italic: true, color: { argb: COLORS.textMuted } };
@@ -101,8 +114,7 @@ export async function generateOrdersExcel(
   // ---------- Header row (row 4) ----------
   const headerRow = sheet.addRow([
     'Produkt',
-    'Bestand',
-    'Einheit',
+    'Aktueller Bestand',
     'Bestellmenge',
     'Lieferant',
   ]);
@@ -118,7 +130,6 @@ export async function generateOrdersExcel(
   });
   headerRow.getCell(2).alignment = { vertical: 'middle', horizontal: 'center' };
   headerRow.getCell(3).alignment = { vertical: 'middle', horizontal: 'center' };
-  headerRow.getCell(4).alignment = { vertical: 'middle', horizontal: 'center' };
 
   // ---------- Body rows ----------
   let zebra = false;
@@ -126,28 +137,35 @@ export async function generateOrdersExcel(
   for (const group of data.groups) {
     if (group.items.length === 0) continue;
 
-    // Supplier bar
-    const supRow = sheet.addRow([group.supplierName.toUpperCase()]);
-    supRow.height = 18;
-    supRow.font = { bold: true, size: 11, color: { argb: COLORS.primary } };
+    // Supplier bar — elegant serif font, left-aligned
+    const supRow = sheet.addRow([group.supplierName]);
+    supRow.height = 22;
+    supRow.font = {
+      name: 'Cambria',
+      bold: true,
+      italic: true,
+      size: 13,
+      color: { argb: COLORS.primary },
+    };
     supRow.alignment = { vertical: 'middle', indent: 1 };
-    sheet.mergeCells(`A${supRow.number}:E${supRow.number}`);
+    sheet.mergeCells(`A${supRow.number}:D${supRow.number}`);
     supRow.eachCell((cell) => {
       cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: COLORS.supplierBar } };
+      cell.border = {
+        bottom: { style: 'thin', color: { argb: COLORS.primary } },
+      };
     });
 
     for (const item of group.items) {
-      const stockValue = item.currentStock?.trim() ?? '';
-      const stockDisplay = stockValue.length > 0 ? stockValue : '—';
+      const stockDisplay = formatStockCell(item.currentStock, item.unit);
 
       const dataRow = sheet.addRow([
         sanitizeExcelValue(item.productName),
         sanitizeExcelValue(stockDisplay),
-        sanitizeExcelValue(item.unit),
         '', // Bestellmenge leer
         sanitizeExcelValue(group.supplierName),
       ]);
-      dataRow.height = 15;
+      dataRow.height = 16;
       dataRow.font = { size: 10 };
       dataRow.alignment = { vertical: 'middle', indent: 1 };
 
@@ -155,16 +173,16 @@ export async function generateOrdersExcel(
         cell.border = {
           bottom: { style: 'hair', color: { argb: COLORS.borderGray } },
         };
-        if (col >= 2 && col <= 4) {
+        if (col === 2 || col === 3) {
           cell.alignment = { vertical: 'middle', horizontal: 'center' };
         }
-        if (zebra && col !== 4) {
+        if (zebra && col !== 3) {
           cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: COLORS.zebraTint } };
         }
       });
 
       // Highlight Bestellmenge cell for handwriting
-      const qtyCell = dataRow.getCell(4);
+      const qtyCell = dataRow.getCell(3);
       qtyCell.border = {
         top: { style: 'thin', color: { argb: COLORS.inputBorder } },
         bottom: { style: 'thin', color: { argb: COLORS.inputBorder } },
@@ -176,7 +194,7 @@ export async function generateOrdersExcel(
       zebra = !zebra;
     }
 
-    zebra = false; // reset per supplier block for readability
+    zebra = false;
   }
 
   return workbook;
