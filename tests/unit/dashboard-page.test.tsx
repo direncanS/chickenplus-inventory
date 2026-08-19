@@ -27,8 +27,16 @@ function createDashboardSupabaseStub(options: {
   checkedCount?: number;
   missingCount?: number;
 }) {
-  const checklistItemCounts = [options.totalCount ?? 0, options.checkedCount ?? 0, options.missingCount ?? 0];
   let checklistCallIndex = 0;
+
+  const total = options.totalCount ?? 0;
+  const checked = options.checkedCount ?? 0;
+  const missing = options.missingCount ?? 0;
+  const checklistItemRows = Array.from({ length: total }, (_, i) => ({
+    is_checked: i < checked,
+    is_missing: i < missing,
+    is_ordered: false,
+  }));
 
   return {
     from: vi.fn((table: string) => {
@@ -59,7 +67,7 @@ function createDashboardSupabaseStub(options: {
           eq: vi.fn(() => query),
           then: (resolve: (value: unknown) => unknown, reject?: (reason: unknown) => unknown) =>
             Promise.resolve({
-              count: checklistItemCounts.shift() ?? 0,
+              data: checklistItemRows,
               error: null,
             }).then(resolve, reject),
         };
