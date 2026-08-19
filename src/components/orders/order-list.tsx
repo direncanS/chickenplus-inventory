@@ -1,7 +1,6 @@
 'use client';
 
-import { useState, useTransition } from 'react';
-import { useRouter } from 'next/navigation';
+import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
@@ -142,8 +141,6 @@ export function OrderList({
   initialSuggestions: Suggestion[];
   isAdmin: boolean;
 }) {
-  const router = useRouter();
-  const [isSyncPending, startSyncTransition] = useTransition();
   const suggestionsAllowed = activeChecklist?.status === 'completed';
   const [ordersState, setOrdersState] = useState<Order[]>(orders);
   const [suggestions, setSuggestions] = useState<Suggestion[]>(
@@ -160,13 +157,6 @@ export function OrderList({
   const suggestionAvailabilityMessage = de.orders.suggestionsAvailableAfterCompletion;
 
   const totalSuggestedItems = suggestions.reduce((sum, group) => sum + group.items.length, 0);
-
-  function syncServerState() {
-    // The list stays responsive locally and then refreshes server-rendered side regions.
-    startSyncTransition(() => {
-      router.refresh();
-    });
-  }
 
   function patchOrder(orderId: string, updater: (order: Order) => Order) {
     setOrdersState((current) =>
@@ -262,7 +252,6 @@ export function OrderList({
         ),
       }));
       toast.success(de.orders.statusUpdateSuccess);
-      syncServerState();
     }
   }
 
@@ -377,8 +366,7 @@ export function OrderList({
                 suggestion={suggestion}
                 onCompleted={async (orderedChecklistItemIds) => {
                   removeFinalizedSuggestionItems(suggestion.supplierId, orderedChecklistItemIds);
-                  syncServerState();
-                }}
+                            }}
               />
             ))}
           </Accordion>
@@ -410,15 +398,13 @@ export function OrderList({
                     status: 'ordered',
                     ordered_at: current.ordered_at ?? new Date().toISOString(),
                   }));
-                  syncServerState();
-                }}
+                            }}
                 onCancelled={() => {
                   patchOrder(order.id, (current) => ({
                     ...current,
                     status: 'cancelled',
                   }));
-                  syncServerState();
-                }}
+                            }}
               />
             ))}
           </Accordion>
@@ -450,22 +436,20 @@ export function OrderList({
                     status: 'ordered',
                     ordered_at: current.ordered_at ?? new Date().toISOString(),
                   }));
-                  syncServerState();
-                }}
+                            }}
                 onCancelled={() => {
                   patchOrder(order.id, (current) => ({
                     ...current,
                     status: 'cancelled',
                   }));
-                  syncServerState();
-                }}
+                            }}
               />
             ))}
           </Accordion>
         </section>
       )}
 
-      {ordersState.length === 0 && suggestions.length === 0 && !loadingSuggestions && !isSyncPending && (
+      {ordersState.length === 0 && suggestions.length === 0 && !loadingSuggestions && (
         <div className="surface-subtle py-10 text-center">
           <p className="font-medium mb-1">{de.orders.noOrders}</p>
           <p className="text-sm text-muted-foreground">

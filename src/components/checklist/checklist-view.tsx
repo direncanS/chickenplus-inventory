@@ -1,7 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useRef, useState, useTransition } from 'react';
-import { useRouter } from 'next/navigation';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { de } from '@/i18n/de';
@@ -92,8 +91,6 @@ interface GroupedItems {
 }
 
 export function ChecklistView({ checklist, items, isAdmin }: ChecklistViewProps) {
-  const router = useRouter();
-  const [, startSyncTransition] = useTransition();
   const [completing, setCompleting] = useState(false);
   const [reopening, setReopening] = useState(false);
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -313,9 +310,6 @@ export function ChecklistView({ checklist, items, isAdmin }: ChecklistViewProps)
         toast.info(de.checklist.orderGenerationPending);
       }
       setDialogOpen(false);
-      startSyncTransition(() => {
-        router.refresh();
-      });
     }
     setCompleting(false);
   }
@@ -346,9 +340,6 @@ export function ChecklistView({ checklist, items, isAdmin }: ChecklistViewProps)
       setLocalOrderGenerationError(previousOrderGenerationError);
     } else {
       toast.success(de.checklist.reopenSuccess);
-      startSyncTransition(() => {
-        router.refresh();
-      });
     }
     setReopening(false);
   }

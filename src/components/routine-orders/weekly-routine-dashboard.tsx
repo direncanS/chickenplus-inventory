@@ -1,7 +1,6 @@
 'use client';
 
 import { useState } from 'react';
-import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -88,7 +87,6 @@ export function WeeklyRoutineDashboard({
   isoWeek: number;
   hasActiveRoutines: boolean;
 }) {
-  const router = useRouter();
   const [generating, setGenerating] = useState(false);
 
   const checklistCompleted = activeChecklist?.status === 'completed';
@@ -147,7 +145,6 @@ export function WeeklyRoutineDashboard({
             .replace('{backfilled}', String(backfilled))
         );
       }
-      router.refresh();
     }
     setGenerating(false);
   }
@@ -190,7 +187,7 @@ export function WeeklyRoutineDashboard({
               checklistCompleted={checklistCompleted}
               checklistId={activeChecklist?.id ?? null}
               missingProductMap={missingProductMap}
-              onChanged={() => router.refresh()}
+              onChanged={() => {}}
             />
           ))}
         </div>
