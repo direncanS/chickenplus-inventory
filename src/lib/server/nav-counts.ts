@@ -15,7 +15,9 @@ export interface NavCounts {
 
 /**
  * Server-side fetch for chrome (sidebar/header) badges and snapshots.
- * Cheap counts only — no item detail. Safe to call from layout.
+ * One Promise.all round: orders count, routine count, current-week checklist,
+ * and the checklist items' check/missing flags joined by week_start_date.
+ * Item counts are derived in JS (payload tiny: ~20 bytes × ~150 rows).
  */
 export async function getNavCounts(): Promise<NavCounts> {
   const supabase = await createServerClient();
@@ -26,6 +28,7 @@ export async function getNavCounts(): Promise<NavCounts> {
     { count: openOrdersCount },
     { count: pendingRoutineCount },
     { data: currentWeekChecklist },
+    { data: currentWeekItems },
   ] = await Promise.all([
     supabase
       .from('orders')
@@ -43,34 +46,26 @@ export async function getNavCounts(): Promise<NavCounts> {
       .select('id, status')
       .eq('week_start_date', currentWeekStart)
       .maybeSingle(),
+    supabase
+      .from('checklist_items')
+      .select('is_checked, is_missing, checklists!inner(week_start_date)')
+      .eq('checklists.week_start_date', currentWeekStart),
   ]);
 
   let progressPercent: number | null = null;
   let missingCount = 0;
   const checklistStatus = currentWeekChecklist?.status ?? null;
 
-  if (currentWeekChecklist) {
-    const [{ count: totalCount }, { count: checkedCount }, { count: missingItemsCount }] = await Promise.all([
-      supabase
-        .from('checklist_items')
-        .select('id', { count: 'exact', head: true })
-        .eq('checklist_id', currentWeekChecklist.id),
-      supabase
-        .from('checklist_items')
-        .select('id', { count: 'exact', head: true })
-        .eq('checklist_id', currentWeekChecklist.id)
-        .eq('is_checked', true),
-      supabase
-        .from('checklist_items')
-        .select('id', { count: 'exact', head: true })
-        .eq('checklist_id', currentWeekChecklist.id)
-        .eq('is_missing', true),
-    ]);
-
-    const total = totalCount ?? 0;
-    const checked = checkedCount ?? 0;
+  if (currentWeekChecklist && currentWeekItems) {
+    const total = currentWeekItems.length;
+    let checked = 0;
+    let missing = 0;
+    for (const item of currentWeekItems) {
+      if (item.is_checked) checked++;
+      if (item.is_missing) missing++;
+    }
     progressPercent = total > 0 ? Math.round((checked / total) * 100) : 0;
-    missingCount = missingItemsCount ?? 0;
+    missingCount = missing;
   }
 
   return {
