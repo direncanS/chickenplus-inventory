@@ -42,6 +42,16 @@ describe('getAppViewer', () => {
       })),
     }));
 
+    vi.doMock('next/headers', () => ({
+      headers: async () => new Headers(),
+    }));
+
+    vi.doMock('next/navigation', () => ({
+      redirect: (path: string) => {
+        throw new Error(`redirect: ${path}`);
+      },
+    }));
+
     vi.doMock('react', async () => {
       const actual = await vi.importActual<typeof import('react')>('react');
       return {
