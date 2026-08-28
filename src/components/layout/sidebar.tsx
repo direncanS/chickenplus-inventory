@@ -29,7 +29,10 @@ export function Sidebar({ counts }: SidebarProps) {
       href: '/checklist',
       label: de.nav.checklist,
       icon: ClipboardCheck,
-      badge: counts.currentWeek.missingCount > 0 ? counts.currentWeek.missingCount : null,
+      badge:
+        counts.currentWeek.status !== 'completed' && counts.currentWeek.remainingCount > 0
+          ? counts.currentWeek.remainingCount
+          : null,
     },
     {
       href: '/orders',

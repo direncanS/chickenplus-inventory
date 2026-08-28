@@ -1,7 +1,7 @@
 -- ============================================================================
 -- Add product "4Eck Bowl500 Deckel" to D / Verpackung with preferred supplier Gmz.
--- Also inject the 4 Deckel products into every active weekly checklist that
--- is missing them (non-archived). Idempotent.
+-- Also inject the 4 Deckel products into every existing weekly checklist that
+-- is missing them. Idempotent.
 --
 --   Limonade Becher Deckel, Bowl500 Deckel, Bowl1100 Deckel (already seeded)
 --   4Eck Bowl500 Deckel                                    (NEW)
@@ -23,9 +23,9 @@ JOIN suppliers s ON s.name = 'Gmz'
 WHERE p.name = '4Eck Bowl500 Deckel'
 ON CONFLICT (product_id, supplier_id) DO UPDATE SET is_preferred = true;
 
--- Step 3: Inject the 4 Deckel products into every non-archived weekly checklist
--- where they're missing. Covers draft / in_progress / completed — archived stays
--- untouched. Uses UNIQUE(checklist_id, product_id) for idempotency.
+-- Step 3: Inject the 4 Deckel products into every existing weekly checklist
+-- where they're missing. Covers the known checklist_status enum values.
+-- Uses UNIQUE(checklist_id, product_id) for idempotency.
 INSERT INTO checklist_items (
   checklist_id,
   product_id,
@@ -41,7 +41,7 @@ SELECT
   p.min_stock_max
 FROM checklists cl
 CROSS JOIN products p
-WHERE cl.status <> 'archived'
+WHERE cl.status IN ('draft', 'in_progress', 'completed')
   AND p.name IN (
     'Limonade Becher Deckel',
     'Bowl500 Deckel',

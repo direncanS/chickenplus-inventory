@@ -47,7 +47,7 @@ ON CONFLICT (storage_location_id, name) DO NOTHING;
 -- Products (126 total)
 -- ============================================
 
--- D / Getränke (19 products)
+-- D / Getränke (20 products)
 INSERT INTO products (name, storage_location_id, category_id, unit, min_stock, min_stock_max, sort_order) VALUES
   ('Cola', (SELECT id FROM storage_locations WHERE code = 'D'), (SELECT c.id FROM categories c JOIN storage_locations sl ON c.storage_location_id = sl.id WHERE sl.code = 'D' AND c.name = 'Getränke'), 'koli', 10, NULL, 1),
   ('Colazero', (SELECT id FROM storage_locations WHERE code = 'D'), (SELECT c.id FROM categories c JOIN storage_locations sl ON c.storage_location_id = sl.id WHERE sl.code = 'D' AND c.name = 'Getränke'), 'koli', 8, NULL, 2),
@@ -68,7 +68,8 @@ INSERT INTO products (name, storage_location_id, category_id, unit, min_stock, m
   ('FritzApfelkirsch', (SELECT id FROM storage_locations WHERE code = 'D'), (SELECT c.id FROM categories c JOIN storage_locations sl ON c.storage_location_id = sl.id WHERE sl.code = 'D' AND c.name = 'Getränke'), 'kiste', 1, NULL, 17),
   ('FritzTraubeschorle', (SELECT id FROM storage_locations WHERE code = 'D'), (SELECT c.id FROM categories c JOIN storage_locations sl ON c.storage_location_id = sl.id WHERE sl.code = 'D' AND c.name = 'Getränke'), 'kiste', 1, NULL, 18),
   ('Caprisonne', (SELECT id FROM storage_locations WHERE code = 'D'), (SELECT c.id FROM categories c JOIN storage_locations sl ON c.storage_location_id = sl.id WHERE sl.code = 'D' AND c.name = 'Getränke'), 'karton', 3, NULL, 19),
-  ('Fritz Ananas Limette', (SELECT id FROM storage_locations WHERE code = 'D'), (SELECT c.id FROM categories c JOIN storage_locations sl ON c.storage_location_id = sl.id WHERE sl.code = 'D' AND c.name = 'Getränke'), 'kiste', 1, NULL, 20)
+  ('Fritz Ananas Limette', (SELECT id FROM storage_locations WHERE code = 'D'), (SELECT c.id FROM categories c JOIN storage_locations sl ON c.storage_location_id = sl.id WHERE sl.code = 'D' AND c.name = 'Getränke'), 'kiste', 1, NULL, 20),
+  ('Fritz honig melone', (SELECT id FROM storage_locations WHERE code = 'D'), (SELECT c.id FROM categories c JOIN storage_locations sl ON c.storage_location_id = sl.id WHERE sl.code = 'D' AND c.name = 'Getränke'), 'kiste', 1, NULL, 21)
 ON CONFLICT (storage_location_id, category_id, name) DO NOTHING;
 
 -- D / Verpackung (19 products)
@@ -80,7 +81,6 @@ INSERT INTO products (name, storage_location_id, category_id, unit, min_stock, m
   ('Pommestüte', (SELECT id FROM storage_locations WHERE code = 'D'), (SELECT c.id FROM categories c JOIN storage_locations sl ON c.storage_location_id = sl.id WHERE sl.code = 'D' AND c.name = 'Verpackung'), 'karton', 1, NULL, 5),
   ('Pommesbox', (SELECT id FROM storage_locations WHERE code = 'D'), (SELECT c.id FROM categories c JOIN storage_locations sl ON c.storage_location_id = sl.id WHERE sl.code = 'D' AND c.name = 'Verpackung'), 'karton', 3, 4, 6),
   ('Menübox', (SELECT id FROM storage_locations WHERE code = 'D'), (SELECT c.id FROM categories c JOIN storage_locations sl ON c.storage_location_id = sl.id WHERE sl.code = 'D' AND c.name = 'Verpackung'), 'karton', 1, NULL, 7),
-  ('Bucket takeaway', (SELECT id FROM storage_locations WHERE code = 'D'), (SELECT c.id FROM categories c JOIN storage_locations sl ON c.storage_location_id = sl.id WHERE sl.code = 'D' AND c.name = 'Verpackung'), 'pack', 1, 2, 8),
   ('Bucket', (SELECT id FROM storage_locations WHERE code = 'D'), (SELECT c.id FROM categories c JOIN storage_locations sl ON c.storage_location_id = sl.id WHERE sl.code = 'D' AND c.name = 'Verpackung'), 'karton', 1, NULL, 9),
   ('Bowl500', (SELECT id FROM storage_locations WHERE code = 'D'), (SELECT c.id FROM categories c JOIN storage_locations sl ON c.storage_location_id = sl.id WHERE sl.code = 'D' AND c.name = 'Verpackung'), 'karton', 3, NULL, 10),
   ('Bowl1100', (SELECT id FROM storage_locations WHERE code = 'D'), (SELECT c.id FROM categories c JOIN storage_locations sl ON c.storage_location_id = sl.id WHERE sl.code = 'D' AND c.name = 'Verpackung'), 'karton', 3, NULL, 11),
@@ -261,7 +261,7 @@ JOIN (VALUES
   ('Kaffee', 'Spar'),
   ('Kakaopulver', 'Metro'), ('Zucker', 'Metro'), ('Espressobecher', 'Metro'),
   ('Kaffeestäbchen', 'Metro'), ('Dessert Löffel', 'Metro'), ('Strohhalm', 'Metro'),
-  ('Bucket takeaway', 'Metro'), ('Käsesaucebecher 230ml', 'Metro'),
+  ('Käsesaucebecher 230ml', 'Metro'),
   ('Deckel f Käsesauce', 'Metro'), ('Haarnetz', 'Metro'), ('Mozarellakäse', 'Metro'),
   ('Parmesan', 'Metro'), ('Pustzasalat', 'Metro'), ('Oliven', 'Metro'),
   ('Rucola', 'Metro'), ('Trüffelpaste', 'Metro'), ('Trüffelöl', 'Metro'),
@@ -275,6 +275,7 @@ JOIN (VALUES
   ('Fritzkola Original', 'Metropol'), ('FritzkolaSuperzero', 'Metropol'),
   ('FritzLimo', 'Metropol'), ('Fritzorange', 'Metropol'),
   ('FritzMischmarsch', 'Metropol'), ('FritzTraubeschorle', 'Metropol'),
+  ('Fritz honig melone', 'Metropol'),
   ('Caprisonne', 'Metropol'), ('Bowl500', 'Metropol'), ('Bowl1100', 'Metropol'),
   ('Jalapenos', 'Metropol'), ('Mais', 'Metropol'), ('Sirache', 'Metropol'),
   ('Sweetchili', 'Metropol'), ('Wrap', 'Metropol'),

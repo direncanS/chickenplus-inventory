@@ -43,6 +43,23 @@ export interface OpenOrdersData {
   breakdown: Record<string, number>;
 }
 
+type OpenOrderDataRow = {
+  status: string;
+  order_items?: Array<{
+    is_delivered: boolean;
+    is_ordered: boolean;
+    ordered_quantity: number | null;
+  }> | null;
+};
+
+function hasOrderAction(order: OpenOrderDataRow) {
+  if (order.status !== 'draft') return true;
+
+  return (order.order_items ?? []).some(
+    (item) => item.is_ordered || item.ordered_quantity !== null || item.is_delivered
+  );
+}
+
 export const getCurrentWeekChecklist = cache(
   async (): Promise<DashboardCurrentWeekChecklist | null> => {
     const supabase = await createServerClient();
@@ -97,12 +114,18 @@ export const getChecklistAggregates = cache(
 
 export const getOpenOrdersData = cache(async (): Promise<OpenOrdersData> => {
   const supabase = await createServerClient();
+  const { startDate } = getCurrentWeekRange();
   const { data } = await supabase
     .from('orders')
-    .select('status')
+    .select(`
+      status,
+      checklists!inner(week_start_date),
+      order_items(is_delivered, is_ordered, ordered_quantity)
+    `)
+    .eq('checklists.week_start_date', startDate)
     .in('status', ['draft', 'ordered', 'partially_delivered']);
 
-  const rows = data ?? [];
+  const rows = ((data ?? []) as OpenOrderDataRow[]).filter(hasOrderAction);
   const breakdown: Record<string, number> = {};
   for (const row of rows) {
     breakdown[row.status] = (breakdown[row.status] ?? 0) + 1;
