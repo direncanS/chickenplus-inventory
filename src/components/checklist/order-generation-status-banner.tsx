@@ -19,7 +19,7 @@ export function OrderGenerationStatusBanner({
   const orderCount = ordersCreated ?? 0;
 
   if (!status || status === 'idle') return null;
-  if (status === 'completed' && orderCount <= 0) return null;
+  if (status === 'completed') return null;
 
   const config = {
     pending: {

@@ -1,6 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { OPEN_ORDER_STATUSES } from '@/lib/constants';
-import { getOrderSuggestions } from '@/lib/server/order-suggestions';
 
 vi.mock('server-only', () => ({}));
 
@@ -13,6 +12,7 @@ vi.mock('@/lib/server/cached-lookups', () => ({
 }));
 
 beforeEach(() => {
+  vi.resetModules();
   cachedPreferredSuppliersMock.mockReset();
   cachedPreferredSuppliersMock.mockResolvedValue([]);
 });
@@ -129,6 +129,7 @@ describe('getOrderSuggestions', () => {
       },
     });
 
+    const { getOrderSuggestions } = await import('@/lib/server/order-suggestions');
     const result = await getOrderSuggestions(supabase, checklistId);
 
     expect(result).toEqual([
@@ -197,6 +198,7 @@ describe('getOrderSuggestions', () => {
       },
     });
 
+    const { getOrderSuggestions } = await import('@/lib/server/order-suggestions');
     const result = await getOrderSuggestions(supabase, 'checklist-1');
 
     expect(result).toEqual([
@@ -266,6 +268,7 @@ describe('getOrderSuggestions', () => {
       },
     });
 
+    const { getOrderSuggestions } = await import('@/lib/server/order-suggestions');
     const result = await getOrderSuggestions(supabase, 'checklist-1');
 
     expect(result).toEqual([

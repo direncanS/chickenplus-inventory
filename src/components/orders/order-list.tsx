@@ -10,7 +10,6 @@ import {
   AccordionItem,
   AccordionTrigger,
 } from '@/components/ui/accordion';
-import { OrderGenerationStatusBanner } from '@/components/checklist/order-generation-status-banner';
 import {
   Dialog,
   DialogContent,
@@ -151,9 +150,6 @@ export function OrderList({
 
   const openOrders = ordersState.filter((o) => OPEN_ORDER_STATUSES.includes(o.status as never));
   const closedOrders = ordersState.filter((o) => !OPEN_ORDER_STATUSES.includes(o.status as never));
-  const isBackgroundOrderGenerationBusy =
-    activeChecklist?.order_generation_status === 'pending' ||
-    activeChecklist?.order_generation_status === 'running';
   const suggestionAvailabilityMessage = de.orders.suggestionsAvailableAfterCompletion;
 
   const totalSuggestedItems = suggestions.reduce((sum, group) => sum + group.items.length, 0);
@@ -289,12 +285,6 @@ export function OrderList({
 
   return (
     <div className="space-y-4">
-      <OrderGenerationStatusBanner
-        status={activeChecklist?.order_generation_status}
-        ordersCreated={activeChecklist?.order_generation_orders_created}
-        error={activeChecklist?.order_generation_error}
-      />
-
       {activeChecklist && (
         <div className="surface-subtle flex flex-col gap-3 px-4 py-4" data-no-print>
           <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
@@ -329,7 +319,6 @@ export function OrderList({
                 onClick={handleGenerateSuggestions}
                 disabled={
                   loadingSuggestions ||
-                  isBackgroundOrderGenerationBusy ||
                   !suggestionsAllowed
                 }
                 variant="outline"
@@ -352,11 +341,7 @@ export function OrderList({
             <h3 className="font-heading text-base font-semibold tracking-tight sm:text-lg">{de.orders.suggestions}</h3>
             <Badge variant="secondary">{suggestions.length}</Badge>
           </div>
-          <Accordion
-            multiple
-            defaultValue={suggestions.map((s) => `suggestion-${s.supplierId}`)}
-            className="surface-subtle divide-y divide-border/40 px-2"
-          >
+          <div className="grid gap-3">
             {suggestions.map((suggestion) => (
               <SuggestionCard
                 key={`${activeChecklist?.id ?? 'no-checklist'}:${suggestion.supplierId}:${suggestion.items
@@ -366,10 +351,10 @@ export function OrderList({
                 suggestion={suggestion}
                 onCompleted={async (orderedChecklistItemIds) => {
                   removeFinalizedSuggestionItems(suggestion.supplierId, orderedChecklistItemIds);
-                            }}
+                }}
               />
             ))}
-          </Accordion>
+          </div>
         </section>
       )}
 
@@ -570,21 +555,19 @@ function SuggestionCard({
   }
 
   return (
-    <AccordionItem value={`suggestion-${suggestion.supplierId}`}>
-      <AccordionTrigger className="px-2 py-3">
-        <div className="flex w-full items-center gap-2 pr-2">
-          <span className="flex-1 truncate text-sm font-semibold sm:text-base">{suggestion.supplierName}</span>
-          <Badge variant="outline" className="font-mono text-[11px]">
-            {suggestion.items.length}
+    <div className="surface-subtle overflow-hidden border border-border/60">
+      <div className="flex flex-wrap items-center gap-2 border-b border-border/50 bg-card/70 px-4 py-3">
+        <span className="flex-1 truncate text-sm font-semibold sm:text-base">{suggestion.supplierName}</span>
+        <Badge variant="outline" className="font-mono text-[11px]">
+          {suggestion.items.length}
+        </Badge>
+        {checkedCount > 0 && (
+          <Badge variant="default" className="font-mono text-[11px]">
+            {checkedCount}
           </Badge>
-          {checkedCount > 0 && (
-            <Badge variant="default" className="font-mono text-[11px]">
-              {checkedCount}
-            </Badge>
-          )}
-        </div>
-      </AccordionTrigger>
-      <AccordionContent className="px-2 pb-3">
+        )}
+      </div>
+      <div className="px-3 py-3">
         <div className="space-y-2">
           {suggestion.items.map((item) => {
             const draft = draftState[item.checklistItemId] ?? { isOrdered: false, orderedQuantity: '' };
@@ -644,8 +627,8 @@ function SuggestionCard({
             </Button>
           </div>
         </div>
-      </AccordionContent>
-    </AccordionItem>
+      </div>
+    </div>
   );
 }
 

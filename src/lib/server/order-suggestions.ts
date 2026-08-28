@@ -16,8 +16,17 @@ type SuggestionItemRow = {
   products: { unit: string | null; is_active: boolean } | Array<{ unit: string | null; is_active: boolean }>;
 };
 
+type OpenOrderItemActionRow = {
+  product_id: string;
+  is_delivered: boolean;
+  is_ordered: boolean;
+  ordered_quantity: number | null;
+};
+
 type OpenOrderRow = {
   id: string;
+  status: string;
+  order_items?: OpenOrderItemActionRow[] | null;
 };
 
 type OpenOrderItemRow = {
@@ -56,6 +65,63 @@ function isMissingRoutineTableError(error: SupabaseMaybeError | null | undefined
   return error.code === '42P01' || error.message?.includes('routine_order_instance_items');
 }
 
+function hasOrderAction(order: OpenOrderRow) {
+  if (order.status !== 'draft') return true;
+
+  return (order.order_items ?? []).some(
+    (item) => item.is_ordered || item.ordered_quantity !== null || item.is_delivered
+  );
+}
+
+async function groupSuggestions(items: SuggestionItemRow[]) {
+  const allPreferredSuppliers = await getCachedPreferredProductSuppliers();
+  const preferredByProduct = new Map<string, { id: string; name: string; is_active: boolean }>();
+  for (const entry of allPreferredSuppliers) {
+    preferredByProduct.set(entry.product_id, entry.supplier);
+  }
+
+  const supplierMap = new Map<string, OrderSuggestionGroup>();
+
+  for (const item of items) {
+    const supplier = preferredByProduct.get(item.product_id);
+    const supplierId = supplier?.is_active ? supplier.id : 'unassigned';
+    const supplierName = supplier?.is_active ? supplier.name : de.orders.notAssigned;
+
+    if (!supplierMap.has(supplierId)) {
+      supplierMap.set(supplierId, {
+        supplierId,
+        supplierName,
+        items: [],
+      });
+    }
+
+    const product = unwrapRelation(item.products);
+    supplierMap.get(supplierId)!.items.push({
+      checklistItemId: item.id,
+      productId: item.product_id,
+      productName: item.product_name,
+      quantity: normalizeSuggestedOrderCount(
+        item.min_stock_max_snapshot ?? item.min_stock_snapshot ?? 1
+      ),
+      unit: product?.unit ?? 'stueck',
+      currentStock: item.current_stock ?? null,
+      isOrdered: false,
+      orderedQuantity: null,
+    });
+  }
+
+  return Array.from(supplierMap.values())
+    .sort((a, b) => {
+      if (a.supplierId === 'unassigned') return 1;
+      if (b.supplierId === 'unassigned') return -1;
+      return a.supplierName.localeCompare(b.supplierName, 'de');
+    })
+    .map((group) => ({
+      ...group,
+      items: group.items.sort((a, b) => a.productName.localeCompare(b.productName, 'de')),
+    }));
+}
+
 /**
  * Shared read helper used by the Orders page and manual suggestion refresh.
  * Keeps grouping/business rules in one place while allowing first-render suggestions.
@@ -88,7 +154,7 @@ export async function getOrderSuggestions(
   const productIds = [...new Set(items.map((item) => item.product_id))];
   const { data: openOrders, error: openOrdersError } = await supabase
     .from('orders')
-    .select('id')
+    .select('id, status, order_items(product_id, is_delivered, is_ordered, ordered_quantity)')
     .eq('checklist_id', checklistId)
     .in('status', OPEN_ORDER_STATUSES);
 
@@ -96,10 +162,6 @@ export async function getOrderSuggestions(
     throw new Error(openOrdersError.message);
   }
 
-  // Routine dedup: exclude products covered by pending routine instances for this week.
-  // Checklist provides iso_year/iso_week, so no extra parameter needed.
-  // Note: instances with order_id IS NOT NULL are already filtered out by the
-  // existing productsWithOpenOrders check below, so overlap is harmless.
   const { data: checklist } = await supabase
     .from('checklists')
     .select('iso_year, iso_week')
@@ -124,8 +186,8 @@ export async function getOrderSuggestions(
       throw new Error(routineItemsError.message);
     }
 
-    for (const ri of routineItems ?? []) {
-      routineCoveredProducts.add(ri.product_id);
+    for (const routineItem of routineItems ?? []) {
+      routineCoveredProducts.add(routineItem.product_id);
     }
   }
 
@@ -137,12 +199,15 @@ export async function getOrderSuggestions(
     return [];
   }
 
-  if ((openOrders ?? []).length > 0) {
-    const openOrderIds = (openOrders as OpenOrderRow[]).map((order) => order.id);
+  const actionedOpenOrderIds = ((openOrders ?? []) as OpenOrderRow[])
+    .filter(hasOrderAction)
+    .map((order) => order.id);
+
+  if (actionedOpenOrderIds.length > 0) {
     const { data: openOrderItems, error: openOrderItemsError } = await supabase
       .from('order_items')
       .select('product_id')
-      .in('order_id', openOrderIds)
+      .in('order_id', actionedOpenOrderIds)
       .in('product_id', productIds);
 
     if (openOrderItemsError) {
@@ -160,42 +225,5 @@ export async function getOrderSuggestions(
     return [];
   }
 
-  // Cached lookup — avoids a DB round-trip on every /orders render.
-  const allPreferredSuppliers = await getCachedPreferredProductSuppliers();
-  const preferredByProduct = new Map<string, { id: string; name: string; is_active: boolean }>();
-  for (const entry of allPreferredSuppliers) {
-    preferredByProduct.set(entry.product_id, entry.supplier);
-  }
-
-  const supplierMap = new Map<string, OrderSuggestionGroup>();
-
-  for (const item of filteredItems) {
-    const supplier = preferredByProduct.get(item.product_id);
-    const supplierId = supplier?.is_active ? supplier.id : 'unassigned';
-    const supplierName = supplier?.is_active ? supplier.name : de.orders.notAssigned;
-
-    if (!supplierMap.has(supplierId)) {
-      supplierMap.set(supplierId, {
-        supplierId,
-        supplierName,
-        items: [],
-      });
-    }
-
-    const product = unwrapRelation(item.products);
-    supplierMap.get(supplierId)!.items.push({
-      checklistItemId: item.id,
-      productId: item.product_id,
-      productName: item.product_name,
-      quantity: normalizeSuggestedOrderCount(
-        item.min_stock_max_snapshot ?? item.min_stock_snapshot ?? 1
-      ),
-      unit: product?.unit ?? 'stueck',
-      currentStock: item.current_stock ?? null,
-      isOrdered: false,
-      orderedQuantity: null,
-    });
-  }
-
-  return Array.from(supplierMap.values());
+  return groupSuggestions(filteredItems);
 }
