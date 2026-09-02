@@ -189,6 +189,18 @@ export const de = {
     assignSuccess: 'Produkt zugewiesen.',
     removeSuccess: 'Produktzuordnung entfernt.',
     preferredSuccess: 'Bevorzugter Lieferant aktualisiert.',
+    mappingHealthTitle: 'Zuordnungs-Check',
+    mappingHealthDescription: 'Diese Produkte brauchen eine klare bevorzugte Lieferant-Zuordnung, damit Bestellvorschläge sauber gruppiert werden.',
+    mappingHealthOk: 'Alle aktiven Produkte haben einen aktiven bevorzugten Lieferanten.',
+    mappingMissing: 'ohne Lieferant',
+    mappingInactive: 'inaktiver Lieferant',
+    mappingDuplicate: 'mehrfach bevorzugt',
+    mappingMissingDescription: 'Kein bevorzugter Lieferant gesetzt.',
+    mappingInactiveDescription: 'Bevorzugter Lieferant ist inaktiv: {supplier}',
+    mappingDuplicateDescription: 'Mehrere bevorzugte Lieferanten gesetzt: {suppliers}',
+    selectPreferredSupplier: 'Bevorzugten Lieferant wählen...',
+    fixMapping: 'Zuordnung setzen',
+    mappingFixed: 'Produktzuordnung aktualisiert.',
   },
 
   // Products
