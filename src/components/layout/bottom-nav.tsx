@@ -14,14 +14,16 @@ import {
   BarChart3,
   Settings,
   MoreHorizontal,
+  Package,
 } from 'lucide-react';
 import type { NavCounts } from '@/lib/server/nav-counts';
 
 interface BottomNavProps {
   counts: NavCounts;
+  isAdmin: boolean;
 }
 
-export function BottomNav({ counts }: BottomNavProps) {
+export function BottomNav({ counts, isAdmin }: BottomNavProps) {
   const pathname = usePathname();
   const [moreOpen, setMoreOpen] = useState(false);
   const moreRef = useRef<HTMLDivElement>(null);
@@ -48,6 +50,7 @@ export function BottomNav({ counts }: BottomNavProps) {
   ];
 
   const moreNavItems = [
+    ...(isAdmin ? [{ href: '/products', label: de.nav.products, icon: Package }] : []),
     { href: '/archive', label: de.nav.archive, icon: Archive },
     { href: '/settings', label: de.nav.settings, icon: Settings },
   ];

@@ -13,14 +13,16 @@ import {
   Archive,
   BarChart3,
   Settings,
+  Package,
 } from 'lucide-react';
 import type { NavCounts } from '@/lib/server/nav-counts';
 
 interface SidebarProps {
   counts: NavCounts;
+  isAdmin: boolean;
 }
 
-export function Sidebar({ counts }: SidebarProps) {
+export function Sidebar({ counts, isAdmin }: SidebarProps) {
   const pathname = usePathname();
 
   const navItems = [
@@ -41,6 +43,7 @@ export function Sidebar({ counts }: SidebarProps) {
       badge: counts.openOrders > 0 ? counts.openOrders : null,
     },
     { href: '/suppliers', label: de.nav.suppliers, icon: Truck, badge: null },
+    ...(isAdmin ? [{ href: '/products', label: de.nav.products, icon: Package, badge: null }] : []),
     { href: '/reports', label: de.nav.reports, icon: BarChart3, badge: null },
     { href: '/archive', label: de.nav.archive, icon: Archive, badge: null },
     { href: '/settings', label: de.nav.settings, icon: Settings, badge: null },

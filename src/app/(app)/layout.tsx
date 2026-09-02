@@ -9,14 +9,14 @@ export default async function AppLayout({
 }: {
   children: React.ReactNode;
 }) {
-  const [, navCounts] = await Promise.all([
+  const [viewer, navCounts] = await Promise.all([
     requireAppViewer(),
     getNavCounts(),
   ]);
 
   return (
     <div className="min-h-screen">
-      <Sidebar counts={navCounts} />
+      <Sidebar counts={navCounts} isAdmin={viewer.isAdmin} />
       <div className="md:pl-[18rem]">
         <Header counts={navCounts} />
         <main className="pb-24 pt-4 md:pb-8 md:pt-6">
@@ -25,7 +25,7 @@ export default async function AppLayout({
           </div>
         </main>
       </div>
-      <BottomNav counts={navCounts} />
+      <BottomNav counts={navCounts} isAdmin={viewer.isAdmin} />
     </div>
   );
 }
