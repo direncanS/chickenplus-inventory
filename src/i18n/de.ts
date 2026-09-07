@@ -322,6 +322,12 @@ export const de = {
     unassignedGroupDescription: 'Diese Positionen haben noch keinen bevorzugten Lieferanten. Setzen Sie die Zuordnung, damit daraus sauber gruppierte Bestellungen werden.',
     fixSupplierMappings: 'Zu Lieferanten',
     createOrderFromSelection: 'Bestellung erstellen',
+    copyOrderMessage: 'Text kopieren',
+    whatsappOrderMessage: 'WhatsApp',
+    emailOrderMessage: 'E-Mail',
+    orderMessageSubject: 'Bestellung',
+    orderMessageCopied: 'Bestelltext kopiert.',
+    orderMessageCopyFailed: 'Bestelltext konnte nicht kopiert werden.',
     suggestionHint: 'Empfohlene Menge auf Basis der Fehlbestände',
   },
 

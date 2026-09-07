@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
+import { buttonVariants } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import {
@@ -28,6 +29,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { formatDateTimeVienna } from '@/lib/utils/date';
 import { OPEN_ORDER_STATUSES } from '@/lib/constants';
 import { summarizeOrderWorkflow, type OrderWorkflowSummary } from '@/lib/utils/order-workflow';
+import { buildMailtoUrl, buildOrderMessage, buildWhatsAppUrl } from '@/lib/utils/order-message';
 import {
   buildOrderedItemUpdates,
   createOrderedItemDraftState,
@@ -35,7 +37,7 @@ import {
   normalizeSuggestedOrderCount,
   prefillOrderedQuantity,
 } from '@/lib/utils/order-items';
-import { AlertTriangle, ClipboardList, PackageCheck, Truck } from 'lucide-react';
+import { AlertTriangle, Clipboard, ClipboardList, Mail, MessageCircle, PackageCheck, Truck } from 'lucide-react';
 
 interface OrderItem {
   id: string;
@@ -56,7 +58,7 @@ interface Order {
   delivered_at: string | null;
   notes: string | null;
   created_at: string;
-  suppliers: { id: string; name: string };
+  suppliers: { id: string; name: string; phone?: string | null; email?: string | null };
   checklists: { iso_year: number; iso_week: number };
   order_items: OrderItem[];
 }
@@ -767,6 +769,42 @@ function OrderCard({
   const canDeliver = order.status === 'ordered' || order.status === 'partially_delivered';
   const isBusy = savingOrderedItems || markingOrdered || cancelling;
   const hasDraftChanges = isDraft && hasOrderedItemChanges(order.order_items, orderedItemsDraft);
+  const supplier = order.suppliers as {
+    id: string;
+    name: string;
+    phone?: string | null;
+    email?: string | null;
+  };
+  const checklist = order.checklists as { iso_year: number; iso_week: number };
+  const shareMessage = buildOrderMessage({
+    orderNumber: order.order_number,
+    supplierName: supplier.name,
+    isoYear: checklist.iso_year,
+    isoWeek: checklist.iso_week,
+    items: order.order_items.map((item) => ({
+      productName: (item.products as { name: string }).name,
+      suggestedQuantity: item.quantity,
+      orderedQuantity: item.ordered_quantity,
+      unit: item.unit,
+      isOrdered: item.is_ordered,
+    })),
+  });
+  const shareSubject = `${de.orders.orderMessageSubject} ${order.order_number}`;
+  const whatsAppUrl = buildWhatsAppUrl(shareMessage, supplier.phone);
+  const mailtoUrl = buildMailtoUrl({
+    email: supplier.email,
+    subject: shareSubject,
+    body: shareMessage,
+  });
+
+  async function handleCopyOrderMessage() {
+    try {
+      await navigator.clipboard.writeText(shareMessage);
+      toast.success(de.orders.orderMessageCopied);
+    } catch {
+      toast.error(de.orders.orderMessageCopyFailed);
+    }
+  }
 
   function handleOrderedToggle(item: OrderItem, checked: boolean) {
     setOrderedItemsDraft((current) => {
@@ -870,10 +908,10 @@ function OrderCard({
         <div className="flex w-full flex-wrap items-center gap-2 pr-2">
           <span className="font-mono text-xs sm:text-sm">{order.order_number}</span>
           <span className="flex-1 truncate text-sm font-medium">
-            {(order.suppliers as { name: string }).name}
+            {supplier.name}
           </span>
           <Badge variant="outline" className="font-mono text-[11px]">
-            KW {(order.checklists as { iso_week: number }).iso_week}
+            KW {checklist.iso_week}
           </Badge>
           {(order.status === 'ordered' || order.status === 'partially_delivered' || order.status === 'delivered') && (
             <Badge variant="outline" className="font-mono text-[11px]">
@@ -958,6 +996,30 @@ function OrderCard({
         </div>
 
         <div className="mt-3 flex flex-wrap items-center gap-2" data-no-print>
+          {order.status !== 'cancelled' && (
+            <>
+              <Button size="sm" variant="outline" onClick={handleCopyOrderMessage}>
+                <Clipboard className="h-4 w-4" />
+                {de.orders.copyOrderMessage}
+              </Button>
+              <a
+                href={whatsAppUrl}
+                target="_blank"
+                rel="noreferrer"
+                className={buttonVariants({ variant: 'outline', size: 'sm' })}
+              >
+                <MessageCircle className="h-4 w-4" />
+                {de.orders.whatsappOrderMessage}
+              </a>
+              <a
+                href={mailtoUrl}
+                className={buttonVariants({ variant: 'outline', size: 'sm' })}
+              >
+                <Mail className="h-4 w-4" />
+                {de.orders.emailOrderMessage}
+              </a>
+            </>
+          )}
           {isDraft && (
             <>
               <Button
