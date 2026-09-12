@@ -151,8 +151,10 @@ export const de = {
     completeConfirmButton: 'Abschließen',
     dateLabel: 'Datum',
     showMissingOnly: 'Nur fehlende',
+    showUncheckedOnly: 'Nur ungeprüfte',
     showAll: 'Alle anzeigen',
     filterActiveLabel: '{count} ausgeblendet',
+    markVisibleChecked: 'Sichtbare prüfen',
     print: 'Drucken',
   },
 
