@@ -45,6 +45,10 @@ vi.mock('@/app/(app)/checklist/actions', () => ({
 describe('ChecklistView', () => {
   beforeEach(() => {
     vi.useFakeTimers();
+    Object.defineProperty(window.navigator, 'onLine', {
+      configurable: true,
+      value: true,
+    });
     refreshMock.mockReset();
     toastErrorMock.mockReset();
     toastSuccessMock.mockReset();
@@ -61,6 +65,10 @@ describe('ChecklistView', () => {
 
   afterEach(() => {
     cleanup();
+    Object.defineProperty(window.navigator, 'onLine', {
+      configurable: true,
+      value: true,
+    });
     vi.useRealTimers();
   });
 
@@ -283,6 +291,78 @@ describe('ChecklistView', () => {
           checklistItemId: 'item-2',
           currentStock: null,
           isMissing: true,
+          isChecked: true,
+        },
+      ],
+    });
+  });
+
+  it('keeps dirty checklist changes locally while offline and saves when online again', async () => {
+    Object.defineProperty(window.navigator, 'onLine', {
+      configurable: true,
+      value: false,
+    });
+
+    render(
+      <ChecklistView
+        checklist={{
+          id: 'checklist-1',
+          iso_year: 2026,
+          iso_week: 14,
+          status: 'draft',
+          order_generation_status: 'idle',
+          order_generation_orders_created: 0,
+          order_generation_error: null,
+        }}
+        items={[
+          {
+            id: 'item-1',
+            checklist_id: 'checklist-1',
+            product_id: 'product-1',
+            product_name: 'Cola',
+            min_stock_snapshot: 1,
+            min_stock_max_snapshot: null,
+            current_stock: null,
+            is_missing: false,
+            is_checked: false,
+            products: {
+              sort_order: 1,
+              unit: 'koli',
+              storage_locations: { name: 'Dry', code: 'D', sort_order: 1 },
+              categories: { name: 'Drinks', sort_order: 1 },
+            },
+          },
+        ]}
+        isAdmin={false}
+      />
+    );
+
+    const checkbox = screen.getAllByRole('checkbox')[0];
+    await act(async () => {
+      fireEvent.click(checkbox);
+      await vi.advanceTimersByTimeAsync(600);
+    });
+
+    expect(screen.getAllByText(/Offline/).length).toBeGreaterThan(0);
+    expect(updateChecklistItemsBatchMock).not.toHaveBeenCalled();
+
+    await act(async () => {
+      Object.defineProperty(window.navigator, 'onLine', {
+        configurable: true,
+        value: true,
+      });
+      window.dispatchEvent(new Event('online'));
+      await Promise.resolve();
+    });
+
+    expect(updateChecklistItemsBatchMock).toHaveBeenCalledTimes(1);
+    expect(updateChecklistItemsBatchMock).toHaveBeenCalledWith({
+      checklistId: 'checklist-1',
+      items: [
+        {
+          checklistItemId: 'item-1',
+          currentStock: null,
+          isMissing: false,
           isChecked: true,
         },
       ],
