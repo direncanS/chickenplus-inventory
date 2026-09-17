@@ -3,9 +3,12 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { requireAppViewer } from '@/lib/supabase/app-viewer';
 import { LogoutButton } from './logout-button';
+import { ActivityTimeline } from '@/components/activity/activity-timeline';
+import { getRecentActivity } from '@/lib/server/activity';
 
 export default async function SettingsPage() {
   const { user, profile } = await requireAppViewer();
+  const activity = profile?.role === 'admin' ? await getRecentActivity(20) : [];
 
   return (
     <div className="max-w-3xl space-y-4">
@@ -36,6 +39,10 @@ export default async function SettingsPage() {
           <LogoutButton />
         </CardContent>
       </Card>
+
+      {profile?.role === 'admin' && (
+        <ActivityTimeline entries={activity} title={de.activity.title} />
+      )}
 
       <p className="text-xs text-muted-foreground text-center">
         {de.settings.version}: 1.0.0

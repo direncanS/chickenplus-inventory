@@ -269,6 +269,15 @@ export const de = {
     },
   },
 
+  // Activity
+  activity: {
+    title: 'Aktivitätsverlauf',
+    recentTitle: 'Letzte Aktivitäten',
+    empty: 'Noch keine Aktivität',
+    emptyDescription: 'Kritische Aktionen erscheinen hier, sobald sie ausgeführt werden.',
+    unknownUser: 'Unbekannter Benutzer',
+  },
+
   // Orders
   orders: {
     title: 'Bestellungen',
