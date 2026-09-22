@@ -425,6 +425,8 @@ export const de = {
   // Archive
   archive: {
     title: 'Archiv',
+    eyebrow: 'Kontrollhistorie',
+    description: 'Abgeschlossene Wochen schnell finden, prüfen und als Excel exportieren.',
     week: 'Woche',
     year: 'Jahr',
     status: 'Status',
@@ -434,6 +436,18 @@ export const de = {
     exportExcel: 'Excel exportieren',
     noCompleted: 'Keine abgeschlossenen Kontrolllisten',
     noCompletedDescription: 'Abgeschlossene Kontrolllisten werden hier archiviert.',
+    archivedWeeks: 'Archivierte Wochen',
+    weeksWithMissingItems: 'Wochen mit Fehlmengen',
+    missingItemsTotal: 'Fehlmengen gesamt',
+    searchPlaceholder: 'KW, Jahr oder Datum suchen...',
+    allYears: 'Alle Jahre',
+    onlyWithMissingItems: 'Nur mit Fehlmengen',
+    filteredResult: '{shown} von {total} Wochen',
+    noFilterResults: 'Keine passenden Wochen gefunden',
+    noFilterResultsDescription: 'Passen Sie Suche oder Filter an, um andere Archivwochen zu sehen.',
+    positionsCount: '{count} Positionen',
+    missingCount: '{count} fehlend',
+    noMissingItems: 'Keine Fehlmengen',
   },
 
   // Settings
