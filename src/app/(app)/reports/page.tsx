@@ -1,5 +1,7 @@
 import { getReportData } from './actions';
 import { ReportsContent } from '@/components/reports/reports-content';
+import { PageIntro } from '@/components/layout/page-intro';
+import { de } from '@/i18n/de';
 import type { ReportData } from '@/types/reports';
 
 function getDefaultDateRange() {
@@ -28,6 +30,12 @@ export default async function ReportsPage() {
 
   return (
     <div className="space-y-4">
+      <PageIntro
+        eyebrow={de.reports.eyebrow}
+        title={de.reports.title}
+        description={de.reports.description}
+      />
+
       {'error' in result && (
         <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-3 text-sm text-destructive">
           {result.error}
