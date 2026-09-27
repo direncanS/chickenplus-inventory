@@ -67,7 +67,7 @@ export function Header({ counts }: HeaderProps) {
     <header
       className={cn(
         'sticky top-0 z-40 transition-all duration-200',
-        scrolled ? 'px-2 pt-2 md:px-4 md:pt-3' : 'px-4 pt-4 md:px-6 md:pt-6'
+        scrolled ? 'px-2 pt-2 md:px-4 md:pt-3' : 'px-3 pt-3 md:px-6 md:pt-6'
       )}
       data-no-print
     >
@@ -75,7 +75,7 @@ export function Header({ counts }: HeaderProps) {
         <div
           className={cn(
             'surface-panel flex items-center justify-between gap-3 px-4 py-3 transition-all duration-200 md:px-6',
-            scrolled ? 'min-h-[3.4rem] py-2' : 'min-h-[4.75rem] py-3'
+            scrolled ? 'min-h-[3.25rem] py-2' : 'min-h-[3.9rem] py-2.5 md:min-h-[4.75rem] md:py-3'
           )}
         >
           <div className="md:hidden">
