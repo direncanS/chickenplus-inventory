@@ -25,6 +25,7 @@ export default async function ProductsPage() {
           min_stock,
           min_stock_max,
           sort_order,
+          complement_of_id,
           is_active,
           updated_at,
           storage_locations!inner(id, code, name, sort_order),

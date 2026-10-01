@@ -55,6 +55,7 @@ interface ChecklistItem {
   is_checked: boolean;
   products: {
     sort_order: number;
+    complement_of_id?: string | null;
     unit: string | null;
     storage_locations: {
       name: string;
@@ -66,6 +67,36 @@ interface ChecklistItem {
       sort_order: number;
     };
   };
+}
+
+/**
+ * Order a category's items by sort_order, but keep each complement (e.g. a lid)
+ * directly after its base product regardless of the complement's own sort_order.
+ */
+function orderCategoryItems(items: ChecklistItem[]): ChecklistItem[] {
+  const bySortOrder = [...items].sort((a, b) => a.products.sort_order - b.products.sort_order);
+  const presentIds = new Set(items.map((i) => i.product_id));
+
+  const complementsByBase = new Map<string, ChecklistItem[]>();
+  for (const item of bySortOrder) {
+    const baseId = item.products.complement_of_id;
+    if (baseId && presentIds.has(baseId)) {
+      const list = complementsByBase.get(baseId) ?? [];
+      list.push(item);
+      complementsByBase.set(baseId, list);
+    }
+  }
+
+  const ordered: ChecklistItem[] = [];
+  for (const item of bySortOrder) {
+    const baseId = item.products.complement_of_id;
+    // Complements are emitted right after their base, so skip them here.
+    if (baseId && presentIds.has(baseId)) continue;
+    ordered.push(item);
+    const complements = complementsByBase.get(item.product_id);
+    if (complements) ordered.push(...complements);
+  }
+  return ordered;
 }
 
 interface ChecklistViewProps {
@@ -438,7 +469,7 @@ export function ChecklistView({ checklist, items, isAdmin }: ChecklistViewProps)
     for (const location of result) {
       location.categories.sort((a, b) => a.categorySortOrder - b.categorySortOrder);
       for (const category of location.categories) {
-        category.items.sort((a, b) => a.products.sort_order - b.products.sort_order);
+        category.items = orderCategoryItems(category.items);
       }
     }
     return result;

@@ -38,6 +38,7 @@ export interface TransformedChecklistItem {
   is_checked: boolean;
   products: {
     sort_order: number;
+    complement_of_id: string | null;
     unit: string | null;
     storage_locations: {
       name: string;
@@ -58,6 +59,7 @@ export function transformChecklistItems(items: any[]): TransformedChecklistItem[
       ...item,
       products: {
         sort_order: product.sort_order,
+        complement_of_id: product.complement_of_id ?? null,
         unit: product.unit,
         storage_locations: unwrap(product.storage_locations),
         categories: unwrap(product.categories),
