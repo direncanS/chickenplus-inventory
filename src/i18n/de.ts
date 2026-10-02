@@ -29,6 +29,7 @@ export const de = {
     loginSubtitle: 'Chickenplus Bestandskontrolle',
     loginButton: 'Anmelden',
     loginError: 'Anmeldung fehlgeschlagen. Bitte überprüfen Sie Ihre Eingaben.',
+    connectionError: 'Der Server ist derzeit nicht erreichbar. Bitte versuchen Sie es später erneut.',
     notLoggedIn: 'Nicht angemeldet',
     accountDeactivated: 'Konto deaktiviert',
     accountDeactivatedDescription: 'Dieses Konto ist deaktiviert und kann die Anwendung derzeit nicht verwenden.',
