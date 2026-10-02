@@ -51,6 +51,7 @@ export async function WochenkontrolleCard() {
     ? formatWeekRangeGerman(checklist.week_start_date, checklist.week_end_date)
     : formatWeekRangeGerman(currentWeekStart, currentWeekEnd);
   const checklistStatusKey = checklist?.status ?? null;
+  const displayIsoWeek = checklist?.iso_week ?? currentIsoWeek.isoWeek;
   const progressPercent = aggregates.total > 0 ? Math.round((aggregates.checked / aggregates.total) * 100) : 0;
 
   return (
@@ -65,8 +66,13 @@ export async function WochenkontrolleCard() {
               {de.dashboard.currentWeekChecklist}
             </CardTitle>
             <CardDescription>
-              {weekRangeLabel} · KW {currentIsoWeek.isoWeek}
+              {weekRangeLabel} · KW {displayIsoWeek}
             </CardDescription>
+            {checklist?.carried_over_at && (
+              <span className="inline-flex w-fit items-center rounded-full border border-amber-200 bg-amber-50 px-2 py-0.5 text-xs font-medium text-amber-700">
+                {de.dashboard.carriedOver}
+              </span>
+            )}
           </div>
           {checklistStatusKey && (
             <Badge variant="outline" className={statusBadgeClass[checklistStatusKey]}>

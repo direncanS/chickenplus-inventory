@@ -202,6 +202,7 @@ export type Database = {
       }
       checklists: {
         Row: {
+          carried_over_at: string | null
           checklist_date: string
           completed_by: string | null
           created_at: string
@@ -218,6 +219,7 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          carried_over_at?: string | null
           checklist_date: string
           completed_by?: string | null
           created_at?: string
@@ -234,6 +236,7 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          carried_over_at?: string | null
           checklist_date?: string
           completed_by?: string | null
           created_at?: string
@@ -432,6 +435,7 @@ export type Database = {
       products: {
         Row: {
           category_id: string
+          complement_of_id: string | null
           created_at: string
           id: string
           is_active: boolean
@@ -445,6 +449,7 @@ export type Database = {
         }
         Insert: {
           category_id: string
+          complement_of_id?: string | null
           created_at?: string
           id?: string
           is_active?: boolean
@@ -458,6 +463,7 @@ export type Database = {
         }
         Update: {
           category_id?: string
+          complement_of_id?: string | null
           created_at?: string
           id?: string
           is_active?: boolean
@@ -593,6 +599,16 @@ export type Database = {
           p_created_by: string
           p_iso_week: number
           p_iso_year: number
+        }
+        Returns: Json
+      }
+      rpc_rollover_checklist_to_week: {
+        Args: {
+          p_checklist_id: string
+          p_iso_week: number
+          p_iso_year: number
+          p_week_end_date: string
+          p_week_start_date: string
         }
         Returns: Json
       }

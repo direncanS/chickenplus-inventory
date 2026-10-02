@@ -18,6 +18,7 @@ export interface DashboardCurrentWeekChecklist {
   week_start_date: string;
   week_end_date: string;
   status: 'draft' | 'in_progress' | 'completed';
+  carried_over_at: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -67,7 +68,7 @@ export const getCurrentWeekChecklist = cache(
     const { data } = await supabase
       .from('checklists')
       .select(
-        'id, iso_year, iso_week, checklist_date, week_start_date, week_end_date, status, created_at, updated_at'
+        'id, iso_year, iso_week, checklist_date, week_start_date, week_end_date, status, carried_over_at, created_at, updated_at'
       )
       .eq('week_start_date', startDate)
       .maybeSingle();

@@ -37,6 +37,7 @@ export interface Product {
   min_stock: number | null;
   min_stock_max: number | null;
   sort_order: number;
+  complement_of_id: string | null;
   is_active: boolean;
   created_at: string;
   updated_at: string;
@@ -74,6 +75,7 @@ export interface Checklist {
   status: 'draft' | 'in_progress' | 'completed';
   created_by: string;
   completed_by: string | null;
+  carried_over_at: string | null;
   order_generation_status: 'idle' | 'pending' | 'running' | 'completed' | 'failed';
   order_generation_started_at: string | null;
   order_generation_finished_at: string | null;
