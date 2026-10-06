@@ -77,7 +77,7 @@ export function BottomNav({ counts, isAdmin }: BottomNavProps) {
   }, [moreOpen]);
 
   return (
-    <nav className="md:hidden fixed bottom-0 left-0 right-0 z-50 px-3 pb-3 safe-area-bottom" data-no-print>
+    <nav className="md:hidden fixed bottom-0 left-0 right-0 z-50 px-3 pb-3 safe-area-bottom" data-no-print data-app-bottom-nav>
       <div className="surface-panel flex items-center justify-around rounded-[28px] px-2 py-1.5">
         {mainNavItems.map((item) => {
           const isActive = pathname.startsWith(item.href);
