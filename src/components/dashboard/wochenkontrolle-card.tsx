@@ -2,8 +2,6 @@ import Link from 'next/link';
 import {
   ArrowRight,
   CheckCircle2,
-  ClipboardCheck,
-  ClipboardList,
   FileSpreadsheet,
   PackageOpen,
 } from 'lucide-react';
@@ -31,9 +29,9 @@ const statusLabels: Record<string, string> = {
 };
 
 const statusBadgeClass: Record<string, string> = {
-  draft: 'bg-amber-100 text-amber-800 border-amber-200',
-  in_progress: 'bg-blue-100 text-blue-800 border-blue-200',
-  completed: 'bg-green-100 text-green-800 border-green-200',
+  draft: 'border-border text-muted-foreground',
+  in_progress: 'border-primary text-primary',
+  completed: 'border-border text-foreground',
 };
 
 export async function WochenkontrolleCard() {
@@ -55,21 +53,18 @@ export async function WochenkontrolleCard() {
   const progressPercent = aggregates.total > 0 ? Math.round((aggregates.checked / aggregates.total) * 100) : 0;
 
   return (
-    <Card className="overflow-visible">
-      <CardHeader className="gap-2">
+    <Card className="overflow-visible border-0 bg-transparent py-0">
+      <CardHeader className="gap-2 px-0">
         <div className="flex items-start justify-between gap-3">
           <div className="space-y-1">
-            <CardTitle className="flex items-center gap-2 text-base sm:text-lg">
-              <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-primary/10 text-primary">
-                <ClipboardCheck className="h-4 w-4" />
-              </span>
+            <CardTitle className="font-heading text-2xl font-normal">
               {de.dashboard.currentWeekChecklist}
             </CardTitle>
-            <CardDescription>
+            <CardDescription className="font-mono text-xs">
               {weekRangeLabel} · KW {displayIsoWeek}
             </CardDescription>
             {checklist?.carried_over_at && (
-              <span className="inline-flex w-fit items-center rounded-full border border-amber-200 bg-amber-50 px-2 py-0.5 text-xs font-medium text-amber-700">
+              <span className="inline-flex w-fit items-center rounded-sm border border-primary/30 bg-primary/5 px-2 py-0.5 font-mono text-xs text-primary">
                 {de.dashboard.carriedOver}
               </span>
             )}
@@ -81,7 +76,7 @@ export async function WochenkontrolleCard() {
           )}
         </div>
       </CardHeader>
-      <CardContent>
+      <CardContent className="px-0">
         {checklist ? (
           <div className="space-y-4">
             <div>
@@ -92,9 +87,9 @@ export async function WochenkontrolleCard() {
                   <span className="ml-2 text-muted-foreground">({progressPercent}%)</span>
                 </span>
               </div>
-              <div className="h-3 overflow-hidden rounded-full bg-muted">
+              <div className="h-1.5 overflow-hidden bg-muted">
                 <div
-                  className="h-full rounded-full bg-gradient-to-r from-primary via-primary to-primary/70 transition-all"
+                  className="h-full bg-primary transition-[width]"
                   style={{ width: `${progressPercent}%` }}
                 />
               </div>
@@ -143,7 +138,7 @@ export async function WochenkontrolleCard() {
                 </Button>
               </Link>
               {checklist.status === 'completed' && (
-                <Button variant="outline" render={<a href={`/api/export/${checklist.id}`} download />}>
+                <Button variant="outline" nativeButton={false} render={<a href={`/api/export/${checklist.id}`} download />}>
                   <FileSpreadsheet className="mr-1 h-4 w-4" />
                   {de.dashboard.exportExcel}
                 </Button>
@@ -151,7 +146,7 @@ export async function WochenkontrolleCard() {
             </div>
           </div>
         ) : previous ? (
-          <div className="rounded-2xl border border-amber-200/80 bg-amber-50/90 p-4">
+          <div className="rounded-sm border border-primary/30 bg-primary/5 p-4">
             <p className="mb-1 font-medium">{de.dashboard.previousWeekBlocking}</p>
             <p className="mb-3 text-sm text-muted-foreground">{de.checklist.correctionHint}</p>
             <div className="flex flex-wrap gap-2">
@@ -167,7 +162,6 @@ export async function WochenkontrolleCard() {
           </div>
         ) : (
           <div className="rounded-2xl border border-dashed border-border bg-muted/30 p-6 text-center">
-            <ClipboardList className="mx-auto mb-2 h-8 w-8 text-muted-foreground" />
             <p className="mb-1 font-medium">{de.dashboard.noChecklistYet}</p>
             <p className="mb-3 text-sm text-muted-foreground">{de.dashboard.noChecklistYetDescription}</p>
             <Link href="/checklist">

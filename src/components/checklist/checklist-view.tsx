@@ -496,9 +496,9 @@ export function ChecklistView({ checklist, items, isAdmin }: ChecklistViewProps)
   const uncheckedCount = totalCount - checkedCount;
 
   const statusBadgeClass: Record<string, string> = {
-    draft: 'bg-amber-100 text-amber-800 border-amber-200 dark:bg-amber-900/30 dark:text-amber-400 dark:border-amber-800',
-    in_progress: 'bg-blue-100 text-blue-800 border-blue-200 dark:bg-blue-900/30 dark:text-blue-400 dark:border-blue-800',
-    completed: 'bg-green-100 text-green-800 border-green-200 dark:bg-green-900/30 dark:text-green-400 dark:border-green-800',
+    draft: 'bg-muted text-muted-foreground border-border',
+    in_progress: 'bg-primary/10 text-primary border-primary/30',
+    completed: 'bg-muted text-foreground border-border',
   };
 
   function shouldShowItem(item: ChecklistItem) {
@@ -579,20 +579,20 @@ export function ChecklistView({ checklist, items, isAdmin }: ChecklistViewProps)
 
       {!isOnline && (
         <div
-          className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900 shadow-[0_10px_30px_-26px_rgba(146,64,14,0.35)]"
+          className="rounded-sm border border-primary/30 bg-primary/5 px-4 py-3 text-sm text-foreground"
           data-no-print
         >
           <div className="font-semibold">{de.checklist.offlineChangesPending}</div>
-          <div className="mt-0.5 text-amber-800">{de.checklist.offlineDescription}</div>
+          <div className="mt-0.5 text-muted-foreground">{de.checklist.offlineDescription}</div>
         </div>
       )}
 
       {/* Keep the controls in document flow so they cannot obscure mobile fields. */}
       <div className="-mx-1 px-1 pb-2" data-no-print>
         <div className="surface-panel px-3 py-3 sm:px-4">
-          <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-            <div className="flex items-center gap-2">
-              <h2 className="font-heading text-base font-semibold tracking-tight sm:text-lg">{headerText}</h2>
+          <div className="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
+            <div className="flex flex-wrap items-center gap-2">
+              <h2 className="font-heading text-xl font-normal tracking-tight sm:text-2xl">{headerText}</h2>
               <Badge variant="outline" className={statusBadgeClass[localChecklistStatus]}>
                 {statusLabels[localChecklistStatus]}
               </Badge>
@@ -600,18 +600,18 @@ export function ChecklistView({ checklist, items, isAdmin }: ChecklistViewProps)
             <div className="flex flex-wrap items-center gap-2">
               {saveStatusMessage && (
                 <span
-                  className={`rounded-full px-2.5 py-1 text-xs ${
+                  className={`rounded-sm px-2.5 py-1 font-mono text-xs ${
                     hasSaveError
                       ? 'bg-destructive/10 text-destructive'
                       : !isOnline
-                        ? 'bg-amber-100 text-amber-800'
+                        ? 'bg-primary/10 text-primary'
                         : 'bg-muted text-muted-foreground'
                   }`}
                 >
                   {saveStatusMessage}
                 </span>
               )}
-              <div className="grid w-full min-w-0 grid-cols-3 rounded-2xl border border-border/70 bg-white/75 p-1 sm:w-auto">
+              <div className="grid w-full min-w-0 grid-cols-3 rounded-sm border border-border bg-card p-1 sm:w-auto">
                 {(['all', 'missing', 'unchecked'] as const).map((mode) => (
                   <Button
                     key={mode}
@@ -619,7 +619,7 @@ export function ChecklistView({ checklist, items, isAdmin }: ChecklistViewProps)
                     size="sm"
                     onClick={() => setFilterMode(mode)}
                     aria-pressed={filterMode === mode}
-                    className="h-11 min-w-0 whitespace-normal rounded-xl px-2 text-center text-xs"
+                    className="h-11 min-w-0 whitespace-normal rounded-sm px-2 text-center text-xs"
                   >
                     {mode === 'all' && de.checklist.showAll}
                     {mode === 'missing' && `${de.checklist.showMissingOnly} (${missingCount})`}
@@ -628,8 +628,8 @@ export function ChecklistView({ checklist, items, isAdmin }: ChecklistViewProps)
                 ))}
               </div>
               <details className="relative">
-                <summary className="flex min-h-11 cursor-pointer items-center rounded-xl border border-border px-3 text-xs font-medium">Weitere Aktionen</summary>
-                <div className="absolute left-0 top-full z-40 mt-2 flex w-64 flex-col gap-2 rounded-2xl border bg-card p-3 shadow-xl sm:left-auto sm:right-0">
+                <summary className="flex min-h-11 cursor-pointer items-center rounded-sm border border-border px-3 text-xs font-medium focus-visible:outline-2 focus-visible:outline-ring">Weitere Aktionen</summary>
+                <div className="absolute left-0 top-full z-40 mt-2 flex w-64 flex-col gap-2 rounded-sm border bg-card p-3 shadow-sm sm:left-auto sm:right-0">
               {!isReadOnly && visibleUncheckedCount > 0 && (
                 <Button variant="outline" size="sm" className="h-11" onClick={() => setBulkItemIds(
                   visibleItems.filter((item) => !itemStatesRef.current[item.id]?.isChecked).map((item) => item.id)
@@ -694,7 +694,7 @@ export function ChecklistView({ checklist, items, isAdmin }: ChecklistViewProps)
             />
             <select
               aria-label="Lagerort" value={locationCode} onChange={(event) => setLocationCode(event.target.value)}
-              className="h-12 min-w-0 rounded-2xl border border-input bg-card px-3 text-base"
+              className="h-12 min-w-0 rounded-sm border border-input bg-card px-3 text-base focus-visible:outline-2 focus-visible:outline-ring"
             >
               <option value="all">Alle Lagerorte</option>
               {grouped.map((location) => <option key={location.locationCode} value={location.locationCode}>{location.locationName}</option>)}
@@ -715,15 +715,15 @@ export function ChecklistView({ checklist, items, isAdmin }: ChecklistViewProps)
                 .replace('{checked}', String(checkedCount))
                 .replace('{total}', String(totalCount))}
             </span>
-            <div className="relative h-2 flex-1 overflow-hidden rounded-full bg-muted">
+            <div className="relative h-1.5 flex-1 overflow-hidden bg-muted">
               <div
-                className="absolute inset-y-0 left-0 rounded-full bg-gradient-to-r from-primary via-primary to-primary/70 transition-all"
+                className="absolute inset-y-0 left-0 bg-primary transition-[width]"
                 style={{ width: `${progressPercent}%` }}
               />
             </div>
             <span className="tabular-nums font-semibold text-foreground">{progressPercent}%</span>
             {hiddenByFilter > 0 && (
-              <Badge variant="outline" className="border-amber-300 bg-amber-50 text-amber-700">
+              <Badge variant="outline" className="border-primary/30 bg-primary/5 text-primary">
                 {de.checklist.filterActiveLabel.replace('{count}', String(hiddenByFilter))}
               </Badge>
             )}
@@ -731,9 +731,9 @@ export function ChecklistView({ checklist, items, isAdmin }: ChecklistViewProps)
         </div>
       </div>
 
-      <div className="rounded-2xl border border-border/70 bg-white/80 shadow-[0_10px_30px_-24px_rgba(38,32,29,0.25)]">
+      <div className="rounded-sm border border-border bg-card">
         <div
-          className="hidden grid-cols-[minmax(0,1fr)_minmax(132px,160px)_88px_44px] items-center gap-3 border-b border-border/60 bg-background/95 px-2 py-2 text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-foreground sm:grid"
+          className="hidden grid-cols-[minmax(0,1fr)_minmax(132px,160px)_88px_44px] items-center gap-3 border-b border-border/60 bg-background px-2 py-2 font-mono text-[10px] uppercase tracking-[0.14em] text-muted-foreground sm:grid"
           data-no-print
         >
           <span>{de.checklist.product}</span>
@@ -745,7 +745,7 @@ export function ChecklistView({ checklist, items, isAdmin }: ChecklistViewProps)
         </div>
         {entryMode === 'single' && focusedItem && (
           <section>
-            <div className="border-b bg-secondary/95 px-3 py-2 text-sm font-semibold">{focusedItem.products.storage_locations.name}</div>
+            <div className="border-b bg-secondary px-3 py-2 text-sm font-semibold">{focusedItem.products.storage_locations.name}</div>
             {renderItemRow(focusedItem, 'single-item')}
           </section>
         )}
@@ -770,14 +770,14 @@ export function ChecklistView({ checklist, items, isAdmin }: ChecklistViewProps)
 
           return (
             <section key={location.locationCode} className="border-b border-border/40 last:border-b-0">
-              <header className="flex items-center gap-2 border-b border-border/60 bg-secondary/95 px-3 py-2">
+              <header className="flex items-center gap-2 border-b border-border/60 bg-secondary px-3 py-2">
                 <Badge variant="secondary" className="font-mono text-[0.65rem]">
                   {location.locationCode}
                 </Badge>
                 <h3 className="flex-1 truncate text-sm font-semibold tracking-tight">
                   {location.locationName}
                 </h3>
-                <span className="rounded-full bg-muted px-2 py-0.5 text-[11px] font-semibold tabular-nums text-muted-foreground">
+                <span className="bg-muted px-2 py-0.5 font-mono text-[11px] tabular-nums text-muted-foreground">
                   {locationChecked}/{locationTotal}
                 </span>
               </header>

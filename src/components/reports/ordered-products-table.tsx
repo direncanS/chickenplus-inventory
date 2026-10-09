@@ -17,7 +17,7 @@ function formatOrderedQuantity(quantity: number | null, unit: string | null) {
 export function OrderedProductsTable({ data }: OrderedProductsTableProps) {
   return (
     <ChartContainer title={de.reports.orderedProducts} isEmpty={data.length === 0}>
-      <div className="overflow-x-auto rounded-[24px] border border-border/70 bg-white/70 p-2">
+      <div className="overflow-x-auto rounded-sm border border-border bg-card p-2">
         <table className="w-full text-sm">
           <thead>
             <tr className="border-b text-muted-foreground">

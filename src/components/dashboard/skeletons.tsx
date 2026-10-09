@@ -1,16 +1,15 @@
 export function HeroCardSkeleton() {
   return (
-    <div className="rounded-3xl border-2 border-border/40 bg-white/60 p-5 shadow-[0_24px_60px_-40px_rgba(38,32,29,0.15)] sm:p-6">
+    <div className="border-b border-foreground/20 pb-8 md:pb-10">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex items-start gap-4">
-          <span className="h-14 w-14 shrink-0 animate-pulse rounded-2xl bg-muted" />
-          <div className="min-w-0 space-y-2">
+          <div className="min-w-0 w-full space-y-3">
             <div className="h-3 w-24 animate-pulse rounded bg-muted" />
-            <div className="h-6 w-64 animate-pulse rounded bg-muted" />
-            <div className="h-4 w-80 animate-pulse rounded bg-muted" />
+            <div className="h-10 w-64 max-w-full animate-pulse bg-muted" />
+            <div className="h-4 w-80 max-w-full animate-pulse bg-muted" />
           </div>
         </div>
-        <div className="h-10 w-32 animate-pulse rounded-2xl bg-muted" />
+        <div className="h-11 w-32 shrink-0 animate-pulse rounded-sm bg-muted" />
       </div>
     </div>
   );
@@ -34,7 +33,7 @@ export function KpiStripSkeleton() {
 
 export function WochenkontrolleCardSkeleton() {
   return (
-    <div className="rounded-2xl border border-border/60 bg-white/60 p-5">
+    <div className="py-0">
       <div className="space-y-4">
         <div className="flex items-start justify-between gap-3">
           <div className="space-y-2">

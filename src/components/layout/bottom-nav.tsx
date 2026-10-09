@@ -77,8 +77,8 @@ export function BottomNav({ counts, isAdmin }: BottomNavProps) {
   }, [moreOpen]);
 
   return (
-    <nav className="md:hidden fixed bottom-0 left-0 right-0 z-50 px-3 pb-3 safe-area-bottom" data-no-print data-app-bottom-nav>
-      <div className="surface-panel flex items-center justify-around rounded-[28px] px-2 py-1.5">
+    <nav aria-label="Hauptnavigation" className="fixed bottom-0 left-0 right-0 z-50 border-t border-border bg-card safe-area-bottom md:hidden" data-no-print data-app-bottom-nav>
+      <div className="flex items-center justify-around px-2">
         {mainNavItems.map((item) => {
           const isActive = pathname.startsWith(item.href);
           return (
@@ -86,22 +86,20 @@ export function BottomNav({ counts, isAdmin }: BottomNavProps) {
               key={item.href}
               href={item.href}
               prefetch
+              aria-current={isActive ? 'page' : undefined}
               className={cn(
-                'flex min-w-0 flex-1 flex-col items-center justify-center gap-1 rounded-2xl py-3 text-[0.68rem] font-medium transition-all',
+                'flex min-h-16 min-w-0 flex-1 flex-col items-center justify-center gap-1 border-t-2 py-2 text-[0.68rem] font-medium transition-colors focus-visible:outline-2 focus-visible:outline-ring',
                 isActive
-                  ? 'bg-primary text-primary-foreground shadow-[0_14px_28px_-24px_rgba(191,70,44,0.9)]'
-                  : 'text-muted-foreground'
+                  ? 'border-primary text-primary'
+                  : 'border-transparent text-muted-foreground'
               )}
             >
               <span className="relative">
-                <item.icon className="h-6 w-6" />
+                <item.icon className="h-5 w-5" aria-hidden="true" />
                 {item.badge !== null && (
                   <span
                     className={cn(
-                      'absolute -right-2 -top-1 flex h-4 min-w-[1rem] items-center justify-center rounded-full px-1 text-[0.6rem] font-semibold tabular-nums shadow',
-                      isActive
-                        ? 'bg-white text-primary'
-                        : 'bg-primary text-primary-foreground'
+                      'absolute -right-2 -top-1 flex h-4 min-w-4 items-center justify-center rounded-sm bg-primary px-1 font-mono text-[0.6rem] tabular-nums text-primary-foreground'
                     )}
                   >
                     {item.badge > 99 ? '99+' : item.badge}
@@ -117,21 +115,23 @@ export function BottomNav({ counts, isAdmin }: BottomNavProps) {
         <div ref={moreRef} className="relative flex-1 flex items-center justify-center">
           <button
             type="button"
+            aria-expanded={moreOpen}
+            aria-controls="mobile-more-nav"
             onClick={() => setMoreOpen((prev) => !prev)}
             className={cn(
-              'flex min-w-0 w-full flex-col items-center justify-center gap-1 rounded-2xl py-3 text-[0.68rem] font-medium transition-all',
+              'flex min-h-16 min-w-0 w-full flex-col items-center justify-center gap-1 border-t-2 py-2 text-[0.68rem] font-medium transition-colors focus-visible:outline-2 focus-visible:outline-ring',
               isMoreActive || moreOpen
-                ? 'bg-primary text-primary-foreground shadow-[0_14px_28px_-24px_rgba(191,70,44,0.9)] font-medium'
-                : 'text-muted-foreground'
+                ? 'border-primary text-primary'
+                : 'border-transparent text-muted-foreground'
             )}
           >
-            <MoreHorizontal className="h-6 w-6" />
+            <MoreHorizontal className="h-5 w-5" aria-hidden="true" />
             <span className="truncate">{de.nav.more}</span>
           </button>
 
           {/* More menu popup */}
           {moreOpen && (
-            <div className="absolute bottom-full right-0 mb-3 min-w-[220px] rounded-[24px] border border-white/80 bg-card/98 p-2 shadow-[0_28px_60px_-34px_rgba(38,32,29,0.35)]">
+            <div id="mobile-more-nav" className="absolute bottom-full right-0 mb-2 min-w-[220px] rounded-sm border border-border bg-card p-2 shadow-sm">
               {moreNavItems.map((item) => {
                 const isActive = pathname.startsWith(item.href);
                 return (
@@ -140,10 +140,11 @@ export function BottomNav({ counts, isAdmin }: BottomNavProps) {
                     href={item.href}
                     prefetch
                     onClick={handleClose}
+                    aria-current={isActive ? 'page' : undefined}
                     className={cn(
-                      'flex items-center gap-3 rounded-2xl px-4 py-3.5 text-sm transition-colors',
+                      'flex min-h-11 items-center gap-3 px-4 py-3 text-sm transition-colors focus-visible:outline-2 focus-visible:outline-ring',
                       isActive
-                        ? 'bg-primary/10 text-primary font-medium'
+                        ? 'bg-muted text-primary font-medium'
                         : 'text-foreground hover:bg-muted'
                     )}
                   >
