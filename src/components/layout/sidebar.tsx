@@ -55,20 +55,15 @@ export function Sidebar({ counts, isAdmin }: SidebarProps) {
     in_progress: de.checklist.inProgress,
     completed: de.checklist.completed,
   };
-  const statusColor: Record<NonNullable<typeof week.status>, string> = {
-    draft: 'bg-amber-100 text-amber-800',
-    in_progress: 'bg-blue-100 text-blue-800',
-    completed: 'bg-green-100 text-green-800',
-  };
 
   return (
-    <aside className="hidden md:flex md:fixed md:inset-y-0 md:w-[18rem] md:flex-col" data-no-print>
-      <div className="m-4 flex h-[calc(100vh-2rem)] flex-col rounded-[30px] border border-white/70 bg-sidebar/95 p-4 shadow-[0_24px_70px_-46px_rgba(36,32,28,0.42)]">
-        <div className="border-b border-border/70 pb-4">
+    <aside className="hidden border-r border-border bg-sidebar md:fixed md:inset-y-0 md:flex md:w-[15rem] md:flex-col" data-no-print>
+      <div className="flex min-h-0 flex-1 flex-col overflow-y-auto px-5 py-6">
+        <div className="border-b border-border pb-6">
           <BrandMark />
         </div>
         <div className="px-1 pt-4 pb-2">
-          <p className="text-[0.68rem] font-semibold uppercase tracking-[0.24em] text-muted-foreground">
+          <p className="font-mono text-[0.65rem] uppercase tracking-[0.1em] text-muted-foreground">
             Überblick
           </p>
         </div>
@@ -80,31 +75,24 @@ export function Sidebar({ counts, isAdmin }: SidebarProps) {
                 key={item.href}
                 href={item.href}
                 prefetch
+                aria-current={isActive ? 'page' : undefined}
                 className={cn(
-                  'flex items-center gap-3 rounded-2xl px-3.5 py-3 text-sm font-medium transition-all',
+                  'flex min-h-11 items-center gap-3 border-l-2 px-3 py-2.5 text-sm transition-colors focus-visible:outline-2 focus-visible:outline-ring',
                   isActive
-                    ? 'bg-primary text-primary-foreground shadow-[0_16px_36px_-26px_rgba(191,70,44,0.85)]'
-                    : 'text-muted-foreground hover:bg-white hover:text-foreground'
+                    ? 'border-primary font-semibold text-foreground'
+                    : 'border-transparent text-muted-foreground hover:bg-muted hover:text-foreground'
                 )}
               >
                 <span
-                  className={cn(
-                    'flex h-9 w-9 items-center justify-center rounded-xl border transition-colors',
-                    isActive
-                      ? 'border-white/15 bg-white/14 text-primary-foreground'
-                      : 'border-border/70 bg-white/70 text-muted-foreground'
-                  )}
+                  className={isActive ? 'text-primary' : 'text-muted-foreground'}
                 >
-                  <item.icon className="h-4 w-4" />
+                  <item.icon className="h-4 w-4" aria-hidden="true" />
                 </span>
                 <span className="flex-1 truncate">{item.label}</span>
                 {item.badge !== null && (
                   <span
                     className={cn(
-                      'flex h-6 min-w-[1.5rem] items-center justify-center rounded-full px-2 text-[0.7rem] font-semibold tabular-nums',
-                      isActive
-                        ? 'bg-white/20 text-primary-foreground'
-                        : 'bg-primary/10 text-primary'
+                      'min-w-6 text-right font-mono text-xs tabular-nums text-primary'
                     )}
                   >
                     {item.badge}
@@ -116,13 +104,13 @@ export function Sidebar({ counts, isAdmin }: SidebarProps) {
         </nav>
 
         {/* Week snapshot — replaces the vague "Wochenfokus" copy with real info */}
-        <div className="mt-auto rounded-3xl border border-primary/10 bg-accent/45 px-4 py-4">
+        <div className="mt-8 border-t border-border pt-5">
           <div className="flex items-center justify-between gap-2">
-            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">
+            <p className="font-mono text-xs uppercase text-muted-foreground">
               KW {week.isoWeek}
             </p>
             {week.status && (
-              <span className={cn('rounded-full px-2 py-0.5 text-[0.65rem] font-semibold', statusColor[week.status])}>
+              <span className="text-[0.65rem] font-medium text-muted-foreground">
                 {statusLabel[week.status]}
               </span>
             )}
@@ -134,9 +122,9 @@ export function Sidebar({ counts, isAdmin }: SidebarProps) {
                 <span className="text-sm font-medium text-muted-foreground">%</span>
                 <span className="ml-auto text-[0.7rem] text-muted-foreground">geprüft</span>
               </div>
-              <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-white/60">
+              <div className="mt-2 h-1 overflow-hidden bg-muted">
                 <div
-                  className="h-full rounded-full bg-gradient-to-r from-primary via-primary to-primary/70 transition-all"
+                  className="h-full bg-primary transition-[width]"
                   style={{ width: `${week.progressPercent}%` }}
                 />
               </div>

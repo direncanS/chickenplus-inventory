@@ -85,7 +85,7 @@ export const de = {
     nextSteps: 'Nächste Schritte',
     notStartedYet: 'Noch nicht gestartet',
     heroTitle: 'Was steht jetzt an?',
-    heroAllDone: 'Sie sind diese Woche auf dem aktuellen Stand.',
+    heroAllDone: 'Keine offenen Aufgaben.',
     heroAllDoneSub: 'Keine offenen Aufgaben in der Kontrolle, Bestellungen oder Routine.',
     heroStartChecklist: 'Wochenkontrolle starten',
     heroStartChecklistSub: 'Beginnen Sie die Bestandskontrolle für diese Woche.',

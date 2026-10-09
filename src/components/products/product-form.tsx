@@ -140,7 +140,7 @@ export function ProductForm({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl rounded-[28px] p-5">
+      <DialogContent className="max-h-[calc(100dvh-2rem)] w-[calc(100%-2rem)] max-w-2xl overflow-y-auto rounded-sm p-5">
         <DialogHeader>
           <DialogTitle>{product ? de.products.editProduct : de.products.addNew}</DialogTitle>
           <DialogDescription>{de.products.formDescription}</DialogDescription>
@@ -155,7 +155,7 @@ export function ProductForm({
           <label className="space-y-1.5 text-sm font-medium">
             {de.products.storageLocation}
             <Select value={storageLocationId} onValueChange={(value) => handleStorageChange(value ?? '')}>
-              <SelectTrigger>
+              <SelectTrigger className="text-base md:text-sm">
                 <SelectValue placeholder={de.products.selectStorageLocation} />
               </SelectTrigger>
               <SelectContent>
@@ -171,7 +171,7 @@ export function ProductForm({
           <label className="space-y-1.5 text-sm font-medium">
             {de.products.category}
             <Select value={categoryId} onValueChange={(value) => handleCategoryChange(value ?? '')}>
-              <SelectTrigger>
+              <SelectTrigger className="text-base md:text-sm">
                 <SelectValue placeholder={de.products.selectCategory} />
               </SelectTrigger>
               <SelectContent>
@@ -190,7 +190,7 @@ export function ProductForm({
               value={unit}
               onValueChange={(value) => value && setUnit(value as UnitType | typeof NONE_VALUE)}
             >
-              <SelectTrigger>
+              <SelectTrigger className="text-base md:text-sm">
                 <SelectValue placeholder={de.products.selectUnit} />
               </SelectTrigger>
               <SelectContent>
@@ -239,7 +239,7 @@ export function ProductForm({
           <label className="sm:col-span-2 space-y-1.5 text-sm font-medium">
             {de.products.preferredSupplier}
             <Select value={preferredSupplierId} onValueChange={(value) => value && setPreferredSupplierId(value)}>
-              <SelectTrigger>
+              <SelectTrigger className="text-base md:text-sm">
                 <SelectValue placeholder={de.products.selectSupplier} />
               </SelectTrigger>
               <SelectContent>
@@ -260,7 +260,7 @@ export function ProductForm({
               onValueChange={(value) => value && setComplementOfId(value)}
               disabled={complementCandidates.length === 0}
             >
-              <SelectTrigger>
+              <SelectTrigger className="text-base md:text-sm">
                 <SelectValue placeholder={de.products.noComplement} />
               </SelectTrigger>
               <SelectContent>
@@ -278,7 +278,7 @@ export function ProductForm({
           </label>
         </div>
 
-        <DialogFooter className="rounded-b-[24px]">
+        <DialogFooter className="rounded-b-sm">
           <Button variant="outline" type="button" onClick={() => onOpenChange(false)}>
             {de.common.cancel}
           </Button>
