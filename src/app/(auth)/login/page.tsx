@@ -47,13 +47,13 @@ export default function LoginPage() {
   }
 
   return (
-    <Card className="w-full max-w-[29rem]">
-      <CardHeader className="space-y-6 text-center">
+    <Card className="w-full max-w-[29rem] border-0 bg-transparent">
+      <CardHeader className="space-y-6 text-left">
         <div className="mx-auto lg:hidden">
           <BrandMark compact />
         </div>
         <div className="space-y-2">
-          <CardTitle className="text-3xl">{de.auth.loginTitle}</CardTitle>
+          <CardTitle className="font-heading text-4xl font-normal">{de.auth.loginTitle}</CardTitle>
           <CardDescription>{de.auth.loginSubtitle}</CardDescription>
         </div>
       </CardHeader>

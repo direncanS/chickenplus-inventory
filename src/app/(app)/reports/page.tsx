@@ -37,7 +37,7 @@ export default async function ReportsPage() {
       />
 
       {'error' in result && (
-        <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-3 text-sm text-destructive">
+        <div className="rounded-sm border border-destructive bg-destructive/10 p-3 text-sm text-destructive">
           {result.error}
         </div>
       )}

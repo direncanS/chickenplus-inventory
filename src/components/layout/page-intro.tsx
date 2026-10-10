@@ -19,18 +19,18 @@ export function PageIntro({
   return (
     <div
       className={cn(
-        'flex flex-col gap-4 rounded-[28px] border border-white/80 bg-white/88 px-5 py-5 shadow-[0_24px_60px_-40px_rgba(38,32,29,0.28)] backdrop-blur md:flex-row md:items-end md:justify-between md:px-7',
+        'flex flex-col gap-5 border-b border-foreground/20 pb-6 pt-2 md:flex-row md:items-end md:justify-between',
         className
       )}
     >
-      <div className="space-y-2">
+      <div className="min-w-0 space-y-2">
         {eyebrow && (
-          <p className="text-[0.68rem] font-semibold uppercase tracking-[0.22em] text-primary/80">
+          <p className="font-mono text-[0.68rem] uppercase tracking-[0.1em] text-primary">
             {eyebrow}
           </p>
         )}
         <div className="space-y-1">
-          <h1 className="font-heading text-2xl font-semibold tracking-tight text-foreground md:text-[2rem]">
+          <h1 className="font-heading text-3xl font-normal tracking-tight text-foreground md:text-[2.75rem]">
             {title}
           </h1>
           {description && (

@@ -1,14 +1,5 @@
 import Link from 'next/link';
-import {
-  ArrowRight,
-  CheckCircle2,
-  ClipboardCheck,
-  PackageOpen,
-  PlayCircle,
-  RefreshCw,
-  ShoppingCart,
-  Sparkles,
-} from 'lucide-react';
+import { ArrowRight } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { de } from '@/i18n/de';
 import { getISOWeekAndYear } from '@/lib/utils/date';
@@ -34,48 +25,6 @@ interface HeroAction {
   cta: string;
   href: string;
 }
-
-const heroStyles: Record<
-  HeroVariant,
-  { bg: string; iconBg: string; icon: typeof ClipboardCheck; accent: string }
-> = {
-  all_done: {
-    bg: 'border-emerald-200/80 bg-white',
-    iconBg: 'bg-emerald-100 text-emerald-700',
-    icon: CheckCircle2,
-    accent: 'text-emerald-700',
-  },
-  start_checklist: {
-    bg: 'border-primary/25 bg-white',
-    iconBg: 'bg-primary text-primary-foreground',
-    icon: PlayCircle,
-    accent: 'text-primary',
-  },
-  continue_checklist: {
-    bg: 'border-blue-200/80 bg-white',
-    iconBg: 'bg-blue-500 text-white',
-    icon: ClipboardCheck,
-    accent: 'text-blue-700',
-  },
-  pending_suggestions: {
-    bg: 'border-amber-300 bg-white',
-    iconBg: 'bg-amber-500 text-white',
-    icon: PackageOpen,
-    accent: 'text-amber-800',
-  },
-  open_orders: {
-    bg: 'border-primary/25 bg-white',
-    iconBg: 'bg-primary text-primary-foreground',
-    icon: ShoppingCart,
-    accent: 'text-primary',
-  },
-  routine_pending: {
-    bg: 'border-amber-300 bg-white',
-    iconBg: 'bg-amber-500 text-white',
-    icon: RefreshCw,
-    accent: 'text-amber-800',
-  },
-};
 
 export async function HeroCard() {
   const checklist = await getCurrentWeekChecklist();
@@ -145,21 +94,15 @@ export async function HeroCard() {
     };
   })();
 
-  const heroStyle = heroStyles[heroAction.variant];
-  const HeroIcon = heroStyle.icon;
-
   return (
-    <div className={`rounded-3xl border p-4 shadow-[0_18px_45px_-38px_rgba(38,32,29,0.35)] sm:p-5 ${heroStyle.bg}`}>
+    <section className="border-b border-foreground/20 pb-8 md:pb-10">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <div className="flex items-start gap-4">
-          <span className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl shadow-sm ${heroStyle.iconBg}`}>
-            <HeroIcon className="h-5 w-5" />
-          </span>
+        <div className="flex min-w-0 flex-1 items-start gap-4">
           <div className="min-w-0 space-y-1">
-            <p className="text-[0.68rem] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
+            <p className="font-mono text-[0.68rem] uppercase tracking-[0.16em] text-primary">
               {de.dashboard.primaryAction}
             </p>
-            <h2 className={`font-heading text-lg font-semibold tracking-tight sm:text-xl ${heroStyle.accent}`}>
+            <h2 className="max-w-2xl font-heading text-3xl leading-tight font-normal tracking-tight md:text-4xl">
               {heroAction.title}
             </h2>
             <p className="text-sm text-muted-foreground sm:text-[0.95rem]">{heroAction.subtitle}</p>
@@ -174,12 +117,11 @@ export async function HeroCard() {
           </Link>
         )}
         {heroAction.variant === 'all_done' && (
-          <span className="inline-flex shrink-0 items-center gap-1.5 rounded-full bg-emerald-100 px-3 py-1.5 text-xs font-semibold text-emerald-700">
-            <Sparkles className="h-3.5 w-3.5" />
+          <span className="inline-flex shrink-0 items-center border-l-2 border-primary pl-3 font-mono text-xs text-muted-foreground">
             {de.dashboard.allCaughtUp}
           </span>
         )}
       </div>
-    </div>
+    </section>
   );
 }
