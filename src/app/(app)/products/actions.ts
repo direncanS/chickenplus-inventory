@@ -196,6 +196,7 @@ export async function createProduct(
         min_stock: normalizeNumber(validated.minStock),
         min_stock_max: normalizeNumber(validated.minStockMax),
         sort_order: validated.sortOrder,
+        complement_of_id: validated.complementOfId ?? null,
         is_active: true,
       })
       .select('id, name')
@@ -250,6 +251,7 @@ export async function updateProduct(
         min_stock: normalizeNumber(validated.minStock),
         min_stock_max: normalizeNumber(validated.minStockMax),
         sort_order: validated.sortOrder,
+        complement_of_id: validated.complementOfId ?? null,
         is_active: validated.isActive ?? true,
       })
       .eq('id', validated.productId);

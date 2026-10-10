@@ -18,6 +18,17 @@ export type CreateChecklistForWeekResult =
   | { status: 'already_exists' }
   | { status: 'error'; message: string };
 
+type ChecklistRolloverRpcResult = {
+  success: boolean;
+  error?: string;
+  checklist_id?: string;
+};
+
+export type RolloverChecklistResult =
+  | { status: 'rolled_over'; checklistId: string }
+  | { status: 'skipped'; reason: string }
+  | { status: 'error'; message: string };
+
 export async function createChecklistForWeek(
   supabase: SupabaseClient<Database>,
   userId: string,
@@ -95,6 +106,69 @@ export async function createChecklistForWeek(
   } catch (err) {
     logger.error('Create checklist failed', {
       userId,
+      error: err instanceof Error ? err.message : 'Unknown',
+    });
+    return { status: 'error', message: de.errors.generic };
+  }
+}
+
+/**
+ * Carry an incomplete checklist from a past week forward into the target week,
+ * preserving all entered checklist_items. The DB-side RPC guards against moving
+ * a checklist that isn't genuinely stale or overwriting an existing target week,
+ * so this is safe to call idempotently on page load.
+ */
+export async function rolloverChecklistToWeek(
+  supabase: SupabaseClient<Database>,
+  userId: string,
+  checklistId: string,
+  weekStartDate: string,
+  weekEndDate: string
+): Promise<RolloverChecklistResult> {
+  try {
+    const monday = new Date(`${weekStartDate}T12:00:00`);
+    monday.setDate(monday.getDate() + 1);
+    const { isoYear, isoWeek } = getISOWeekAndYear(monday);
+
+    const { data, error } = await supabase.rpc('rpc_rollover_checklist_to_week', {
+      p_checklist_id: checklistId,
+      p_iso_year: isoYear,
+      p_iso_week: isoWeek,
+      p_week_start_date: weekStartDate,
+      p_week_end_date: weekEndDate,
+    });
+
+    if (error) {
+      logger.error('Rollover checklist RPC error', { userId, checklistId, error: error.message });
+      return { status: 'error', message: de.errors.generic };
+    }
+
+    const result = data as ChecklistRolloverRpcResult;
+
+    if (!result.success) {
+      return { status: 'skipped', reason: result.error ?? 'unknown' };
+    }
+
+    await logAudit({
+      userId,
+      action: 'checklist_rolled_over',
+      entityType: 'checklist',
+      entityId: checklistId,
+      details: { isoYear, isoWeek, weekStartDate, weekEndDate },
+    });
+
+    logger.info('Checklist rolled over', {
+      checklistId,
+      week: `${isoYear}-W${isoWeek}`,
+      weekStartDate,
+      weekEndDate,
+    });
+
+    return { status: 'rolled_over', checklistId };
+  } catch (err) {
+    logger.error('Rollover checklist failed', {
+      userId,
+      checklistId,
       error: err instanceof Error ? err.message : 'Unknown',
     });
     return { status: 'error', message: de.errors.generic };

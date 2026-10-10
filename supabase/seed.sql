@@ -77,25 +77,25 @@ INSERT INTO products (name, storage_location_id, category_id, unit, min_stock, m
   ('Kaffeebecher', (SELECT id FROM storage_locations WHERE code = 'D'), (SELECT c.id FROM categories c JOIN storage_locations sl ON c.storage_location_id = sl.id WHERE sl.code = 'D' AND c.name = 'Verpackung'), 'karton', 1, NULL, 1),
   ('Espressobecher', (SELECT id FROM storage_locations WHERE code = 'D'), (SELECT c.id FROM categories c JOIN storage_locations sl ON c.storage_location_id = sl.id WHERE sl.code = 'D' AND c.name = 'Verpackung'), 'karton', 1, NULL, 2),
   ('Limonade Becher', (SELECT id FROM storage_locations WHERE code = 'D'), (SELECT c.id FROM categories c JOIN storage_locations sl ON c.storage_location_id = sl.id WHERE sl.code = 'D' AND c.name = 'Verpackung'), 'stueck', NULL, NULL, 3),
-  ('Kassarolle', (SELECT id FROM storage_locations WHERE code = 'D'), (SELECT c.id FROM categories c JOIN storage_locations sl ON c.storage_location_id = sl.id WHERE sl.code = 'D' AND c.name = 'Verpackung'), 'stueck', 6, NULL, 4),
-  ('Pommestüte', (SELECT id FROM storage_locations WHERE code = 'D'), (SELECT c.id FROM categories c JOIN storage_locations sl ON c.storage_location_id = sl.id WHERE sl.code = 'D' AND c.name = 'Verpackung'), 'karton', 1, NULL, 5),
-  ('Pommesbox', (SELECT id FROM storage_locations WHERE code = 'D'), (SELECT c.id FROM categories c JOIN storage_locations sl ON c.storage_location_id = sl.id WHERE sl.code = 'D' AND c.name = 'Verpackung'), 'karton', 3, 4, 6),
-  ('Menübox', (SELECT id FROM storage_locations WHERE code = 'D'), (SELECT c.id FROM categories c JOIN storage_locations sl ON c.storage_location_id = sl.id WHERE sl.code = 'D' AND c.name = 'Verpackung'), 'karton', 1, NULL, 7),
+  ('Kassarolle', (SELECT id FROM storage_locations WHERE code = 'D'), (SELECT c.id FROM categories c JOIN storage_locations sl ON c.storage_location_id = sl.id WHERE sl.code = 'D' AND c.name = 'Verpackung'), 'stueck', 6, NULL, 5),
+  ('Pommestüte', (SELECT id FROM storage_locations WHERE code = 'D'), (SELECT c.id FROM categories c JOIN storage_locations sl ON c.storage_location_id = sl.id WHERE sl.code = 'D' AND c.name = 'Verpackung'), 'karton', 1, NULL, 6),
+  ('Pommesbox', (SELECT id FROM storage_locations WHERE code = 'D'), (SELECT c.id FROM categories c JOIN storage_locations sl ON c.storage_location_id = sl.id WHERE sl.code = 'D' AND c.name = 'Verpackung'), 'karton', 3, 4, 7),
+  ('Menübox', (SELECT id FROM storage_locations WHERE code = 'D'), (SELECT c.id FROM categories c JOIN storage_locations sl ON c.storage_location_id = sl.id WHERE sl.code = 'D' AND c.name = 'Verpackung'), 'karton', 1, NULL, 8),
   ('Bucket', (SELECT id FROM storage_locations WHERE code = 'D'), (SELECT c.id FROM categories c JOIN storage_locations sl ON c.storage_location_id = sl.id WHERE sl.code = 'D' AND c.name = 'Verpackung'), 'karton', 1, NULL, 9),
   ('Bowl500', (SELECT id FROM storage_locations WHERE code = 'D'), (SELECT c.id FROM categories c JOIN storage_locations sl ON c.storage_location_id = sl.id WHERE sl.code = 'D' AND c.name = 'Verpackung'), 'karton', 3, NULL, 10),
-  ('Bowl1100', (SELECT id FROM storage_locations WHERE code = 'D'), (SELECT c.id FROM categories c JOIN storage_locations sl ON c.storage_location_id = sl.id WHERE sl.code = 'D' AND c.name = 'Verpackung'), 'karton', 3, NULL, 11),
-  ('4Eck bowl500', (SELECT id FROM storage_locations WHERE code = 'D'), (SELECT c.id FROM categories c JOIN storage_locations sl ON c.storage_location_id = sl.id WHERE sl.code = 'D' AND c.name = 'Verpackung'), 'karton', 1, NULL, 12),
-  ('Coleslaw Becher', (SELECT id FROM storage_locations WHERE code = 'D'), (SELECT c.id FROM categories c JOIN storage_locations sl ON c.storage_location_id = sl.id WHERE sl.code = 'D' AND c.name = 'Verpackung'), 'stueck', 50, NULL, 13),
-  ('Papiertasche', (SELECT id FROM storage_locations WHERE code = 'D'), (SELECT c.id FROM categories c JOIN storage_locations sl ON c.storage_location_id = sl.id WHERE sl.code = 'D' AND c.name = 'Verpackung'), 'karton', 2, NULL, 14),
-  ('Papiertasche Wolt', (SELECT id FROM storage_locations WHERE code = 'D'), (SELECT c.id FROM categories c JOIN storage_locations sl ON c.storage_location_id = sl.id WHERE sl.code = 'D' AND c.name = 'Verpackung'), 'karton', 2, NULL, 15),
-  ('Papiertüte', (SELECT id FROM storage_locations WHERE code = 'D'), (SELECT c.id FROM categories c JOIN storage_locations sl ON c.storage_location_id = sl.id WHERE sl.code = 'D' AND c.name = 'Verpackung'), 'karton', 1, NULL, 16),
-  ('Burgerpapier', (SELECT id FROM storage_locations WHERE code = 'D'), (SELECT c.id FROM categories c JOIN storage_locations sl ON c.storage_location_id = sl.id WHERE sl.code = 'D' AND c.name = 'Verpackung'), 'pack', 3, NULL, 17),
-  ('Papier f Serviertablette', (SELECT id FROM storage_locations WHERE code = 'D'), (SELECT c.id FROM categories c JOIN storage_locations sl ON c.storage_location_id = sl.id WHERE sl.code = 'D' AND c.name = 'Verpackung'), 'pack', 3, NULL, 18),
-  ('Deckel f Käsesauce', (SELECT id FROM storage_locations WHERE code = 'D'), (SELECT c.id FROM categories c JOIN storage_locations sl ON c.storage_location_id = sl.id WHERE sl.code = 'D' AND c.name = 'Verpackung'), 'pack', 3, NULL, 19),
-  ('Bowl500 Deckel', (SELECT id FROM storage_locations WHERE code = 'D'), (SELECT c.id FROM categories c JOIN storage_locations sl ON c.storage_location_id = sl.id WHERE sl.code = 'D' AND c.name = 'Verpackung'), 'karton', 1, NULL, 20),
-  ('Bowl1100 Deckel', (SELECT id FROM storage_locations WHERE code = 'D'), (SELECT c.id FROM categories c JOIN storage_locations sl ON c.storage_location_id = sl.id WHERE sl.code = 'D' AND c.name = 'Verpackung'), 'karton', 1, NULL, 21),
-  ('Limonade Becher Deckel', (SELECT id FROM storage_locations WHERE code = 'D'), (SELECT c.id FROM categories c JOIN storage_locations sl ON c.storage_location_id = sl.id WHERE sl.code = 'D' AND c.name = 'Verpackung'), 'stueck', 1, NULL, 22),
-  ('4Eck Bowl500 Deckel', (SELECT id FROM storage_locations WHERE code = 'D'), (SELECT c.id FROM categories c JOIN storage_locations sl ON c.storage_location_id = sl.id WHERE sl.code = 'D' AND c.name = 'Verpackung'), 'karton', 1, NULL, 23)
+  ('Bowl500 Deckel', (SELECT id FROM storage_locations WHERE code = 'D'), (SELECT c.id FROM categories c JOIN storage_locations sl ON c.storage_location_id = sl.id WHERE sl.code = 'D' AND c.name = 'Verpackung'), 'karton', 1, NULL, 11),
+  ('Bowl1100', (SELECT id FROM storage_locations WHERE code = 'D'), (SELECT c.id FROM categories c JOIN storage_locations sl ON c.storage_location_id = sl.id WHERE sl.code = 'D' AND c.name = 'Verpackung'), 'karton', 3, NULL, 12),
+  ('Bowl1100 Deckel', (SELECT id FROM storage_locations WHERE code = 'D'), (SELECT c.id FROM categories c JOIN storage_locations sl ON c.storage_location_id = sl.id WHERE sl.code = 'D' AND c.name = 'Verpackung'), 'karton', 1, NULL, 13),
+  ('4Eck bowl500', (SELECT id FROM storage_locations WHERE code = 'D'), (SELECT c.id FROM categories c JOIN storage_locations sl ON c.storage_location_id = sl.id WHERE sl.code = 'D' AND c.name = 'Verpackung'), 'karton', 1, NULL, 14),
+  ('4Eck Bowl500 Deckel', (SELECT id FROM storage_locations WHERE code = 'D'), (SELECT c.id FROM categories c JOIN storage_locations sl ON c.storage_location_id = sl.id WHERE sl.code = 'D' AND c.name = 'Verpackung'), 'karton', 1, NULL, 15),
+  ('Coleslaw Becher', (SELECT id FROM storage_locations WHERE code = 'D'), (SELECT c.id FROM categories c JOIN storage_locations sl ON c.storage_location_id = sl.id WHERE sl.code = 'D' AND c.name = 'Verpackung'), 'stueck', 50, NULL, 16),
+  ('Papiertasche', (SELECT id FROM storage_locations WHERE code = 'D'), (SELECT c.id FROM categories c JOIN storage_locations sl ON c.storage_location_id = sl.id WHERE sl.code = 'D' AND c.name = 'Verpackung'), 'karton', 2, NULL, 17),
+  ('Papiertasche Wolt', (SELECT id FROM storage_locations WHERE code = 'D'), (SELECT c.id FROM categories c JOIN storage_locations sl ON c.storage_location_id = sl.id WHERE sl.code = 'D' AND c.name = 'Verpackung'), 'karton', 2, NULL, 18),
+  ('Papiertüte', (SELECT id FROM storage_locations WHERE code = 'D'), (SELECT c.id FROM categories c JOIN storage_locations sl ON c.storage_location_id = sl.id WHERE sl.code = 'D' AND c.name = 'Verpackung'), 'karton', 1, NULL, 19),
+  ('Burgerpapier', (SELECT id FROM storage_locations WHERE code = 'D'), (SELECT c.id FROM categories c JOIN storage_locations sl ON c.storage_location_id = sl.id WHERE sl.code = 'D' AND c.name = 'Verpackung'), 'pack', 3, NULL, 20),
+  ('Papier f Serviertablette', (SELECT id FROM storage_locations WHERE code = 'D'), (SELECT c.id FROM categories c JOIN storage_locations sl ON c.storage_location_id = sl.id WHERE sl.code = 'D' AND c.name = 'Verpackung'), 'pack', 3, NULL, 21),
+  ('Deckel f Käsesauce', (SELECT id FROM storage_locations WHERE code = 'D'), (SELECT c.id FROM categories c JOIN storage_locations sl ON c.storage_location_id = sl.id WHERE sl.code = 'D' AND c.name = 'Verpackung'), 'pack', 3, NULL, 22),
+  ('Limonade Becher Deckel', (SELECT id FROM storage_locations WHERE code = 'D'), (SELECT c.id FROM categories c JOIN storage_locations sl ON c.storage_location_id = sl.id WHERE sl.code = 'D' AND c.name = 'Verpackung'), 'stueck', 1, NULL, 4)
 ON CONFLICT (storage_location_id, category_id, name) DO NOTHING;
 
 -- D / Besteck & Zubehör (5 products)
@@ -310,3 +310,16 @@ JOIN (VALUES
 ) AS m(product_name, supplier_name) ON p.name = m.product_name
 JOIN suppliers s ON s.name = m.supplier_name
 ON CONFLICT (product_id, supplier_id) DO UPDATE SET is_preferred = true;
+
+-- Complementary product links (lid ↔ base), matched within the same category.
+UPDATE products deckel
+SET complement_of_id = base.id
+FROM products base, (VALUES
+  ('Bowl500 Deckel', 'Bowl500'),
+  ('Bowl1100 Deckel', 'Bowl1100'),
+  ('4Eck Bowl500 Deckel', '4Eck bowl500'),
+  ('Limonade Becher Deckel', 'Limonade Becher')
+) AS m(deckel_name, base_name)
+WHERE deckel.name = m.deckel_name
+  AND base.name = m.base_name
+  AND deckel.category_id = base.category_id;

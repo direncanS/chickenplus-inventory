@@ -3,9 +3,16 @@ import { CorrectChecklistWeekButton } from '@/components/checklist/correct-check
 import { de } from '@/i18n/de';
 import { requireAppViewer } from '@/lib/supabase/app-viewer';
 import { createServerClient } from '@/lib/supabase/server';
-import { createChecklistForWeek } from '@/lib/utils/checklist-create';
+import { createChecklistForWeek, rolloverChecklistToWeek } from '@/lib/utils/checklist-create';
 import { formatWeekRangeGerman, getCurrentWeekRange } from '@/lib/utils/date';
 import { transformChecklistItems } from '@/lib/utils/transform';
+
+const CHECKLIST_COLUMNS = `
+  id, iso_year, iso_week, checklist_date, week_start_date, week_end_date,
+  status, created_by, completed_by, created_at, carried_over_at,
+  order_generation_status, order_generation_started_at, order_generation_finished_at,
+  order_generation_orders_created, order_generation_error
+` as const;
 
 async function fetchChecklistItems(supabase: Awaited<ReturnType<typeof createServerClient>>, checklistId: string) {
   const { data: items } = await supabase
@@ -17,6 +24,7 @@ async function fetchChecklistItems(supabase: Awaited<ReturnType<typeof createSer
       is_missing_overridden, is_missing, is_checked,
       products!inner(
         sort_order,
+        complement_of_id,
         unit,
         storage_locations!inner(name, code, sort_order),
         categories!inner(name, sort_order)
@@ -36,12 +44,7 @@ export default async function ChecklistPage() {
     requireAppViewer(),
     supabase
       .from('checklists')
-      .select(`
-        id, iso_year, iso_week, checklist_date, week_start_date, week_end_date,
-        status, created_by, completed_by, created_at,
-        order_generation_status, order_generation_started_at, order_generation_finished_at,
-        order_generation_orders_created, order_generation_error
-      `)
+      .select(CHECKLIST_COLUMNS)
       .eq('week_start_date', currentWeekStart)
       .maybeSingle(),
   ]);
@@ -68,12 +71,7 @@ export default async function ChecklistPage() {
   if (createResult.status === 'created' || createResult.status === 'already_exists') {
     const { data: refetchedChecklist } = await supabase
       .from('checklists')
-      .select(`
-        id, iso_year, iso_week, checklist_date, week_start_date, week_end_date,
-        status, created_by, completed_by, created_at,
-        order_generation_status, order_generation_started_at, order_generation_finished_at,
-        order_generation_orders_created, order_generation_error
-      `)
+      .select(CHECKLIST_COLUMNS)
       .eq('week_start_date', currentWeekStart)
       .maybeSingle();
 
@@ -93,18 +91,47 @@ export default async function ChecklistPage() {
   if (createResult.status === 'blocked_by_active') {
     const { data: previousActiveChecklist } = await supabase
       .from('checklists')
-      .select(`
-        id, iso_year, iso_week, checklist_date, week_start_date, week_end_date,
-        status, created_by, completed_by, created_at,
-        order_generation_status, order_generation_started_at, order_generation_finished_at,
-        order_generation_orders_created, order_generation_error
-      `)
+      .select(CHECKLIST_COLUMNS)
       .in('status', ['draft', 'in_progress'])
       .order('week_start_date', { ascending: false })
       .limit(1)
       .maybeSingle();
 
     if (previousActiveChecklist) {
+      // Auto-rollover: an incomplete checklist from a past week is carried
+      // forward into the current week (keeping all entered data) so the user
+      // never gets stuck on a stale week.
+      if (previousActiveChecklist.week_end_date < currentWeekStart) {
+        const rollover = await rolloverChecklistToWeek(
+          supabase,
+          viewer.user.id,
+          previousActiveChecklist.id,
+          currentWeekStart,
+          currentWeekEnd
+        );
+
+        if (rollover.status === 'rolled_over') {
+          const { data: rolledChecklist } = await supabase
+            .from('checklists')
+            .select(CHECKLIST_COLUMNS)
+            .eq('week_start_date', currentWeekStart)
+            .maybeSingle();
+
+          if (rolledChecklist) {
+            const items = await fetchChecklistItems(supabase, rolledChecklist.id);
+
+            return (
+              <ChecklistView
+                checklist={rolledChecklist}
+                items={items}
+                isAdmin={viewer.isAdmin}
+              />
+            );
+          }
+        }
+      }
+
+      // Fallback: non-stale mismatch or rollover failed — offer manual correction.
       const items = await fetchChecklistItems(supabase, previousActiveChecklist.id);
       const previousWeekRange = formatWeekRangeGerman(
         previousActiveChecklist.week_start_date,

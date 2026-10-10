@@ -30,14 +30,17 @@ export default function LoginPage() {
       });
 
       if (authError) {
-        setError(de.auth.loginError);
+        setError(authError.status === 0 || (authError.status ?? 0) >= 500 ||
+          authError.name === 'AuthRetryableFetchError'
+          ? de.auth.connectionError
+          : de.auth.loginError);
         return;
       }
 
       router.push('/dashboard');
       router.refresh();
     } catch {
-      setError(de.errors.generic);
+      setError(de.auth.connectionError);
     } finally {
       setLoading(false);
     }

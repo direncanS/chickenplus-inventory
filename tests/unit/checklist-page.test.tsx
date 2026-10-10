@@ -7,11 +7,13 @@ const {
   createServerClientMock,
   requireAppViewerMock,
   createChecklistForWeekMock,
+  rolloverChecklistToWeekMock,
   transformChecklistItemsMock,
 } = vi.hoisted(() => ({
   createServerClientMock: vi.fn(),
   requireAppViewerMock: vi.fn(),
   createChecklistForWeekMock: vi.fn(),
+  rolloverChecklistToWeekMock: vi.fn(),
   transformChecklistItemsMock: vi.fn((items) => items),
 }));
 
@@ -25,6 +27,7 @@ vi.mock('@/lib/supabase/app-viewer', () => ({
 
 vi.mock('@/lib/utils/checklist-create', () => ({
   createChecklistForWeek: (...args: unknown[]) => createChecklistForWeekMock(...args),
+  rolloverChecklistToWeek: (...args: unknown[]) => rolloverChecklistToWeekMock(...args),
 }));
 
 vi.mock('@/lib/utils/transform', () => ({
@@ -45,12 +48,15 @@ function createChecklistPageSupabaseStub(options: {
   currentWeekChecklist?: Record<string, unknown> | null;
   previousActiveChecklist?: Record<string, unknown> | null;
   refetchedChecklist?: Record<string, unknown> | null;
+  orderedResponses?: Array<Record<string, unknown> | null>;
 }) {
-  const checklistResponses = [
-    { data: options.currentWeekChecklist ?? null, error: null },
-    ...(options.refetchedChecklist !== undefined ? [{ data: options.refetchedChecklist, error: null }] : []),
-    ...(options.previousActiveChecklist !== undefined ? [{ data: options.previousActiveChecklist, error: null }] : []),
-  ];
+  const checklistResponses = options.orderedResponses
+    ? options.orderedResponses.map((data) => ({ data, error: null }))
+    : [
+        { data: options.currentWeekChecklist ?? null, error: null },
+        ...(options.refetchedChecklist !== undefined ? [{ data: options.refetchedChecklist, error: null }] : []),
+        ...(options.previousActiveChecklist !== undefined ? [{ data: options.previousActiveChecklist, error: null }] : []),
+      ];
 
   return {
     from: vi.fn((table: string) => {
@@ -88,6 +94,7 @@ describe('ChecklistPage', () => {
     createServerClientMock.mockReset();
     requireAppViewerMock.mockReset();
     createChecklistForWeekMock.mockReset();
+    rolloverChecklistToWeekMock.mockReset();
     transformChecklistItemsMock.mockClear();
 
     requireAppViewerMock.mockResolvedValue({
@@ -122,16 +129,53 @@ describe('ChecklistPage', () => {
     expect(screen.getByTestId('checklist-view').textContent).toContain('checklist-current:completed');
   });
 
-  it('shows a previous-week warning banner when auto-create is blocked by an older active checklist', async () => {
+  it('auto-rolls over a stale previous-week checklist into the current week', async () => {
+    createServerClientMock.mockResolvedValue(
+      createChecklistPageSupabaseStub({
+        // Order of checklists.maybeSingle() calls: current week (none),
+        // previous active (stale), then the rolled-over checklist for this week.
+        orderedResponses: [
+          null,
+          {
+            id: 'checklist-old',
+            iso_year: 2026,
+            iso_week: 15,
+            week_start_date: '2026-04-05',
+            week_end_date: '2026-04-11',
+            status: 'in_progress',
+          },
+          {
+            id: 'checklist-old',
+            iso_year: 2026,
+            iso_week: 33,
+            week_start_date: '2026-08-16',
+            week_end_date: '2026-08-22',
+            status: 'in_progress',
+          },
+        ],
+      })
+    );
+    createChecklistForWeekMock.mockResolvedValue({ status: 'blocked_by_active' });
+    rolloverChecklistToWeekMock.mockResolvedValue({ status: 'rolled_over', checklistId: 'checklist-old' });
+
+    const { default: ChecklistPage } = await import('@/app/(app)/checklist/page');
+    render(await ChecklistPage());
+
+    expect(rolloverChecklistToWeekMock).toHaveBeenCalledTimes(1);
+    expect(screen.getByTestId('checklist-view').textContent).toContain('checklist-old:in_progress');
+    expect(screen.queryByText(/Für aktuelle Woche neu erstellen/)).toBeNull();
+  });
+
+  it('shows a fallback warning banner when a blocking active checklist is not stale', async () => {
     createServerClientMock.mockResolvedValue(
       createChecklistPageSupabaseStub({
         currentWeekChecklist: null,
         previousActiveChecklist: {
-          id: 'checklist-old',
-          iso_year: 2026,
-          iso_week: 15,
-          week_start_date: '2026-04-05',
-          week_end_date: '2026-04-11',
+          id: 'checklist-future',
+          iso_year: 2027,
+          iso_week: 1,
+          week_start_date: '2027-01-03',
+          week_end_date: '2027-01-09',
           status: 'in_progress',
         },
       })
@@ -141,9 +185,10 @@ describe('ChecklistPage', () => {
     const { default: ChecklistPage } = await import('@/app/(app)/checklist/page');
     render(await ChecklistPage());
 
+    // Not stale (week_end_date in the future) → no rollover, manual correction offered.
+    expect(rolloverChecklistToWeekMock).not.toHaveBeenCalled();
     expect(screen.getAllByText(/Vorwoche/).length).toBeGreaterThan(0);
-    expect(screen.getByText(/KW 15/)).toBeTruthy();
     expect(screen.getByText(/Für aktuelle Woche neu erstellen/)).toBeTruthy();
-    expect(screen.getAllByTestId('checklist-view').at(-1)?.textContent).toContain('checklist-old:in_progress');
+    expect(screen.getAllByTestId('checklist-view').at(-1)?.textContent).toContain('checklist-future:in_progress');
   });
 });
