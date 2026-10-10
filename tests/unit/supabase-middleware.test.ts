@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { NextRequest } from 'next/server';
+import { unstable_doesMiddlewareMatch } from 'next/experimental/testing/server';
 import type { CookieOptions } from '@supabase/ssr';
 
 const getUserMock = vi.fn();
@@ -42,6 +43,16 @@ beforeEach(() => {
 });
 
 describe('updateSession', () => {
+  it('serves the public logo while keeping application routes protected', async () => {
+    const { config } = await import('../../middleware');
+    const matches = (url: string) => unstable_doesMiddlewareMatch({ config, nextConfig: {}, url });
+    expect(matches('/logo.png')).toBe(false);
+    expect(matches('/_next/image?url=%2Flogo.png&w=48&q=75')).toBe(false);
+    for (const path of ['/checklist', '/dashboard', '/suppliers', '/logo.png/private', '/private.png']) {
+      expect(matches(path)).toBe(true);
+    }
+  });
+
   it('uses verified user identity and strips caller supplied identity headers', async () => {
     getUserMock.mockResolvedValue({ value: { data: { user: { id: 'verified-id', email: 'real@example.test' } }, error: null } });
     const { updateSession } = await import('@/lib/supabase/middleware');
