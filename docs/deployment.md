@@ -13,6 +13,7 @@
 | `NEXT_PUBLIC_SUPABASE_URL` | Supabase project URL | Client + Server |
 | `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Supabase anon/public key | Client + Server |
 | `SUPABASE_SERVICE_ROLE_KEY` | Supabase service role key | Server only |
+| `CRON_SECRET` | Rastgele, en az 32 karakterlik Vercel Cron sirri | Server only, Production |
 
 ## Deploy Adimlari
 
@@ -46,7 +47,29 @@ npx vercel --prod
 # Veya GitHub entegrasyonu ile otomatik deploy
 ```
 
-**Environment Variables:** Vercel Dashboard > Settings > Environment Variables'a 3 env var ekle.
+**Environment Variables:** Vercel Dashboard > Settings > Environment Variables'a yukaridaki 4 env var ekle. Degisikliklerden sonra yeniden deploy et; mevcut deployment yeni env degerlerini otomatik almaz.
+
+### Supabase duraklamasi ve erisim kurtarma
+
+Vercel `/login` icin 200 dondururken Supabase proje adresi `NXDOMAIN`
+veriyorsa Supabase Dashboard'dan projenin durumunu kontrol et. Duraklatilmis
+proje icin **Resume project** kullan ve **ACTIVE_HEALTHY** durumunu bekle.
+Verileri kurtarmak icin production'da `seed.sql` veya reset calistirma.
+
+`vercel.json`, `/api/cron/keep-alive` adresini her gun 06:00 UTC'de cagirir.
+Vercel, Production `CRON_SECRET` degerini Authorization Bearer basligi olarak
+gonderir. Endpoint middleware kimlik dogrulamasindan muaftir; kendi sirrini
+dogrular ve veritabanina salt okunur sorgu gonderir. Bu, dusuk kullanimda
+aktivite saglar; ucretsiz planin duraklamayacagini garanti etmez.
+
+Deployment sonrasi Vercel Cron panelinden gorevi **Run** ile calistir ve 200
+`ok: true` yanitini dogrula. 401, eksik veya yanlis `CRON_SECRET`; 500,
+veritabani baglantisi veya sorgu sorunu demektir. Endpoint'i sir olmadan
+acmak 401 vermelidir. Zamanlanmis islerin durumunu Vercel Logs'tan kontrol et.
+
+Middleware oturumu Auth sunucusuyla dogrular. Dogrulama sekiz saniyeyi
+asarsa veya servis erisilemezse korunan sayfalar 503 ve tekrar deneme
+sayfasi dondurur; gecersiz oturum ise giris sayfasina yonlendirilir.
 
 ### 3. Auth Ayarlari ve Ilk Admin Olusturma
 
