@@ -229,7 +229,7 @@ export function ProductManager({
             <select
               value={storageFilter}
               onChange={(event) => setStorageFilter(event.target.value)}
-              className="h-10 rounded-2xl border border-input/80 bg-white/86 px-3 text-sm shadow-[inset_0_1px_0_rgba(255,255,255,0.55)] outline-none focus:border-primary/40 focus:ring-3 focus:ring-primary/15"
+              className="h-11 rounded-sm border border-input bg-card px-3 text-base outline-none focus:border-primary focus:ring-2 focus:ring-ring md:h-10 md:text-sm"
             >
               <option value="all">{de.products.allStorageLocations}</option>
               {storageLocations.map((location) => (
@@ -259,7 +259,7 @@ export function ProductManager({
         groupedProducts.map((group) => (
           <section key={group.code} className="space-y-3">
             <div className="flex items-center gap-3 px-1">
-              <span className="flex h-9 w-9 items-center justify-center rounded-full border bg-white text-sm font-semibold">
+              <span className="flex h-9 w-9 items-center justify-center rounded-sm border border-border bg-muted text-sm font-semibold">
                 {group.code}
               </span>
               <div>

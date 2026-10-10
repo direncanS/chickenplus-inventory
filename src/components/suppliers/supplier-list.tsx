@@ -3,14 +3,13 @@
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
 import { de } from '@/i18n/de';
 import { SupplierForm } from './supplier-form';
 import { ProductSupplierMapping } from './product-supplier-mapping';
 import { updateSupplier } from '@/app/(app)/suppliers/actions';
 import { toast } from 'sonner';
-import { Plus, Phone, Mail, MapPin, User, ChevronDown, ChevronUp, Package } from 'lucide-react';
+import { Plus, ChevronDown, ChevronUp, Package } from 'lucide-react';
 
 interface Supplier {
   id: string;
@@ -61,21 +60,21 @@ export function SupplierList({ suppliers, isAdmin }: { suppliers: Supplier[]; is
         />
       )}
 
-      <div className="grid gap-4">
+      <div className="divide-y divide-border border-y border-border">
         {suppliers.map((supplier) => {
           const isExpanded = expandedSupplier === supplier.id;
           return (
-            <Card key={supplier.id} className={!supplier.is_active ? 'opacity-60' : ''}>
-              <CardHeader className="pb-2">
-                <div className="flex items-center justify-between">
+            <article key={supplier.id} className={`py-5 ${!supplier.is_active ? 'opacity-60' : ''}`}>
+              <div className="flex flex-col gap-2">
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                   <div className="space-y-1">
-                    <CardTitle className="text-lg">{supplier.name}</CardTitle>
+                    <h2 className="break-words font-heading text-2xl font-normal">{supplier.name}</h2>
                     <p className="text-sm text-muted-foreground">
                       {supplier.contact_name ?? 'Kein Ansprechpartner'}
                     </p>
                   </div>
-                  <div className="flex items-center gap-2">
-                    <Badge variant={supplier.is_active ? 'default' : 'secondary'}>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <Badge variant="secondary">
                       {supplier.is_active ? de.suppliers.active : de.suppliers.inactive}
                     </Badge>
                     {isAdmin && (
@@ -83,6 +82,7 @@ export function SupplierList({ suppliers, isAdmin }: { suppliers: Supplier[]; is
                         <Button
                           variant="ghost"
                           size="sm"
+                          className="min-h-11 sm:min-h-8"
                           onClick={() => { setEditingSupplier(supplier); setShowForm(true); }}
                         >
                           {de.common.edit}
@@ -90,6 +90,7 @@ export function SupplierList({ suppliers, isAdmin }: { suppliers: Supplier[]; is
                         <Button
                           variant="ghost"
                           size="sm"
+                          className="min-h-11 sm:min-h-8"
                           onClick={() => handleToggleActive(supplier)}
                         >
                           {supplier.is_active ? de.suppliers.deactivate : de.suppliers.activate}
@@ -98,30 +99,25 @@ export function SupplierList({ suppliers, isAdmin }: { suppliers: Supplier[]; is
                     )}
                   </div>
                 </div>
-              </CardHeader>
-              <CardContent>
-                <div className="grid grid-cols-1 gap-2 text-sm text-muted-foreground sm:grid-cols-2">
+              </div>
+              <div className="mt-4 grid grid-cols-1 text-sm text-muted-foreground sm:grid-cols-2 sm:divide-x sm:divide-border">
                   {supplier.contact_name && (
-                    <div className="flex items-center gap-2 rounded-2xl bg-muted/40 px-3 py-2">
-                      <User className="h-3.5 w-3.5" />
+                    <div className="flex min-w-0 items-center gap-2 border-b border-border py-2 break-all sm:px-3 sm:first:pl-0">
                       {supplier.contact_name}
                     </div>
                   )}
                   {supplier.phone && (
-                    <div className="flex items-center gap-2 rounded-2xl bg-muted/40 px-3 py-2">
-                      <Phone className="h-3.5 w-3.5" />
+                    <div className="flex min-w-0 items-center gap-2 border-b border-border py-2 break-all sm:px-3">
                       {supplier.phone}
                     </div>
                   )}
                   {supplier.email && (
-                    <div className="flex items-center gap-2 rounded-2xl bg-muted/40 px-3 py-2">
-                      <Mail className="h-3.5 w-3.5" />
+                    <div className="flex min-w-0 items-center gap-2 border-b border-border py-2 break-all sm:px-3">
                       {supplier.email}
                     </div>
                   )}
                   {supplier.address && (
-                    <div className="flex items-center gap-2 rounded-2xl bg-muted/40 px-3 py-2">
-                      <MapPin className="h-3.5 w-3.5" />
+                    <div className="flex min-w-0 items-center gap-2 border-b border-border py-2 break-all sm:px-3">
                       {supplier.address}
                     </div>
                   )}
@@ -133,7 +129,7 @@ export function SupplierList({ suppliers, isAdmin }: { suppliers: Supplier[]; is
                     <Separator className="my-3" />
                     <button
                       type="button"
-                      className="flex w-full items-center gap-2 rounded-2xl bg-muted/35 px-3 py-3 text-left text-sm font-medium"
+                      className="flex min-h-11 w-full items-center gap-2 rounded-sm border border-border bg-card px-3 py-3 text-left text-sm font-medium"
                       onClick={() => toggleExpanded(supplier.id)}
                     >
                       <Package className="h-4 w-4" />
@@ -151,8 +147,7 @@ export function SupplierList({ suppliers, isAdmin }: { suppliers: Supplier[]; is
                     )}
                   </>
                 )}
-              </CardContent>
-            </Card>
+            </article>
           );
         })}
         {suppliers.length === 0 && (

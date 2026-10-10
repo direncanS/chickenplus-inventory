@@ -37,7 +37,7 @@ import {
   normalizeSuggestedOrderCount,
   prefillOrderedQuantity,
 } from '@/lib/utils/order-items';
-import { AlertTriangle, Clipboard, ClipboardList, Mail, MessageCircle, PackageCheck, Truck } from 'lucide-react';
+import { AlertTriangle, Clipboard, Mail, MessageCircle } from 'lucide-react';
 
 interface OrderItem {
   id: string;
@@ -472,8 +472,6 @@ function OrderWorkflowPanel({
       detail: suggestionsAllowed
         ? de.orders.workflowSuggestionGroups.replace('{count}', String(summary.suggestionGroups))
         : de.orders.workflowLocked,
-      icon: ClipboardList,
-      tone: 'border-amber-200 bg-amber-50 text-amber-900',
     },
     {
       label: de.orders.workflowOpenOrders,
@@ -481,25 +479,21 @@ function OrderWorkflowPanel({
       detail: de.orders.workflowOpenOrderDetail
         .replace('{draft}', String(summary.draftOrders))
         .replace('{ordered}', String(summary.orderedOrders + summary.partiallyDeliveredOrders)),
-      icon: Truck,
-      tone: 'border-blue-200 bg-blue-50 text-blue-950',
     },
     {
       label: de.orders.workflowDelivery,
       value: `${deliveryPercent}%`,
       detail: `${summary.deliveryItemsDone}/${summary.deliveryItemsTotal} ${de.orders.items}`,
-      icon: PackageCheck,
-      tone: 'border-emerald-200 bg-emerald-50 text-emerald-950',
     },
   ];
 
   return (
     <div className="grid gap-2 md:grid-cols-3">
       {cards.map((card) => (
-        <div key={card.label} className={`rounded-3xl border px-4 py-3 ${card.tone}`}>
+        <div key={card.label} className="border-b border-border px-1 py-3">
           <div className="flex items-start justify-between gap-3">
             <div>
-              <p className="text-[0.68rem] font-semibold uppercase tracking-[0.16em] opacity-75">
+              <p className="font-mono text-[0.68rem] uppercase tracking-[0.1em] text-muted-foreground">
                 {card.label}
               </p>
               <p className="mt-1 text-2xl font-semibold tracking-tight tabular-nums">
@@ -507,9 +501,6 @@ function OrderWorkflowPanel({
               </p>
               <p className="mt-1 text-xs opacity-75">{card.detail}</p>
             </div>
-            <span className="rounded-2xl bg-white/70 p-2 shadow-sm">
-              <card.icon className="h-4 w-4" />
-            </span>
           </div>
         </div>
       ))}

@@ -9,12 +9,12 @@ import {
 
 export default function DashboardPage() {
   return (
-    <div className="mx-auto max-w-5xl space-y-4">
+    <div className="mx-auto max-w-6xl space-y-8 md:space-y-12">
       <Suspense fallback={<HeroCardSkeleton />}>
         <HeroCard />
       </Suspense>
 
-      <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_22rem]">
+      <div className="grid gap-10 lg:grid-cols-[minmax(0,1fr)_18rem] lg:gap-12">
         <Suspense fallback={<WochenkontrolleCardSkeleton />}>
           <WochenkontrolleCard />
         </Suspense>
