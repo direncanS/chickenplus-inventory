@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import { de } from '@/i18n/de';
 import { ChecklistItemRow } from './checklist-item-row';
 import { OrderGenerationStatusBanner } from './order-generation-status-banner';
@@ -37,11 +38,11 @@ import {
   reconcileChecklistBatchSuccess,
 } from '@/lib/utils/checklist-batch';
 import {
-  countHiddenChecklistItems,
   matchesChecklistFilter,
   type ChecklistFilterMode,
 } from '@/lib/utils/checklist-filters';
 import { useOnlineStatus } from '@/lib/hooks/use-online-status';
+import { useStockKeyboard } from '@/lib/hooks/use-stock-keyboard';
 
 interface ChecklistItem {
   id: string;
@@ -133,6 +134,16 @@ export function ChecklistView({ checklist, items, isAdmin }: ChecklistViewProps)
   const [reopening, setReopening] = useState(false);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [filterMode, setFilterMode] = useState<ChecklistFilterMode>('all');
+  const [search, setSearch] = useState('');
+  const [locationCode, setLocationCode] = useState('all');
+  const [entryMode, setEntryMode] = useState<'list' | 'single'>('list');
+  const [focusedItemId, setFocusedItemId] = useState<string | null>(null);
+  const [bulkItemIds, setBulkItemIds] = useState<string[]>([]);
+  const containerRef = useRef<HTMLDivElement>(null);
+  const stockInputs = useRef(new Map<string, HTMLInputElement>());
+  const pendingFocusId = useRef<string | null>(null);
+  const keyboard = useStockKeyboard(containerRef);
+  const refreshKeyboard = keyboard.refresh;
   const [localChecklistStatus, setLocalChecklistStatus] = useState(checklist.status);
   const [localOrderGenerationStatus, setLocalOrderGenerationStatus] = useState(
     checklist.order_generation_status ?? 'idle'
@@ -206,6 +217,7 @@ export function ChecklistView({ checklist, items, isAdmin }: ChecklistViewProps)
   }, [checklist.id, itemsSyncKey, items]);
 
   useEffect(() => {
+    isMountedRef.current = true;
     return () => {
       isMountedRef.current = false;
 
@@ -334,10 +346,7 @@ export function ChecklistView({ checklist, items, isAdmin }: ChecklistViewProps)
   }
 
   function queueVisibleItemsChecked() {
-    const visibleItemIds = items
-      .filter((item) => shouldShowItem(item))
-      .filter((item) => !itemStatesRef.current[item.id]?.isChecked)
-      .map((item) => item.id);
+    const visibleItemIds = bulkItemIds;
 
     if (visibleItemIds.length === 0) {
       return;
@@ -351,6 +360,7 @@ export function ChecklistView({ checklist, items, isAdmin }: ChecklistViewProps)
       return next;
     });
     scheduleFlush();
+    setBulkItemIds([]);
   }
 
   async function handleComplete() {
@@ -429,7 +439,7 @@ export function ChecklistView({ checklist, items, isAdmin }: ChecklistViewProps)
         ? de.checklist.offline
         : isSavePending
           ? de.checklist.savingInProgress
-          : null;
+          : 'Gespeichert';
 
   const headerText = checklist.week_start_date && checklist.week_end_date
     ? `${formatWeekRangeGerman(checklist.week_start_date, checklist.week_end_date)} - KW ${checklist.iso_week}`
@@ -492,29 +502,75 @@ export function ChecklistView({ checklist, items, isAdmin }: ChecklistViewProps)
   };
 
   function shouldShowItem(item: ChecklistItem) {
-    return matchesChecklistFilter(
-      {
-        isMissing: itemStates[item.id]?.isMissing === true,
-        isChecked: itemStates[item.id]?.isChecked === true,
-      },
-      filterMode
-    );
+    return (locationCode === 'all' || item.products.storage_locations.code === locationCode) &&
+      item.product_name.toLocaleLowerCase('de').includes(search.trim().toLocaleLowerCase('de')) &&
+      matchesChecklistFilter(
+        {
+          isMissing: itemStates[item.id]?.isMissing === true,
+          isChecked: itemStates[item.id]?.isChecked === true,
+        },
+        filterMode
+      );
   }
 
-  const hiddenByFilter = countHiddenChecklistItems(
-    items.map((item) => ({
-      isMissing: itemStates[item.id]?.isMissing === true,
-      isChecked: itemStates[item.id]?.isChecked === true,
-    })),
-    filterMode
+  const visibleItems = grouped.flatMap((location) =>
+    location.categories.flatMap((category) => category.items.filter(shouldShowItem))
   );
+  const hiddenByFilter = totalCount - visibleItems.length;
+  const focusedItem = visibleItems.find((item) => item.id === focusedItemId) ?? visibleItems[0];
+  const navigationId = entryMode === 'single' ? focusedItem?.id : keyboard.activeId ?? focusedItem?.id;
+  const navigationIndex = visibleItems.findIndex((item) => item.id === navigationId);
+
+  function navigateStock(direction: number, focus = true, fromId = navigationId) {
+    if (focus) void flushPendingChanges();
+    const index = visibleItems.findIndex((item) => item.id === fromId);
+    const next = visibleItems[index + direction];
+    if (!next) {
+      if (direction > 0 && focus) stockInputs.current.get(fromId ?? '')?.blur();
+      return;
+    }
+    if (entryMode === 'single') {
+      pendingFocusId.current = focus ? next.id : null;
+      setFocusedItemId(next.id);
+    } else if (focus) {
+      stockInputs.current.get(next.id)?.focus({ preventScroll: keyboard.open });
+    }
+  }
+
+  useEffect(() => {
+    const id = pendingFocusId.current;
+    if (!id) return;
+    pendingFocusId.current = null;
+    stockInputs.current.get(id)?.focus({ preventScroll: true });
+    refreshKeyboard();
+  }, [focusedItemId, refreshKeyboard]);
 
   const visibleUncheckedCount = items
     .filter((item) => shouldShowItem(item))
     .filter((item) => !itemStates[item.id]?.isChecked).length;
 
+  function renderItemRow(item: ChecklistItem, key = item.id) {
+    return (
+      <ChecklistItemRow
+        key={key}
+        item={item}
+        state={itemStates[item.id]}
+        isReadOnly={isReadOnly}
+        inputRef={(node) => {
+          if (node) stockInputs.current.set(item.id, node);
+          else stockInputs.current.delete(item.id);
+        }}
+        onStockNext={() => navigateStock(1, true, item.id)}
+        onStockChange={(value) => queueLocalItemChange(item.id, { currentStock: value })}
+        onStockBlur={() => { void flushPendingChanges(); }}
+        onMissingToggle={() => queueLocalItemChange(item.id, { isMissing: !itemStatesRef.current[item.id]?.isMissing })}
+        onCheckToggle={(checked) => queueLocalItemChange(item.id, { isChecked: checked })}
+      />
+    );
+  }
+
   return (
-    <div className="space-y-3">
+    <div ref={containerRef} className="space-y-3" style={{ paddingBottom: keyboard.bottomInset || undefined }}>
       <OrderGenerationStatusBanner
         status={localOrderGenerationStatus}
         ordersCreated={localOrdersCreated}
@@ -531,8 +587,8 @@ export function ChecklistView({ checklist, items, isAdmin }: ChecklistViewProps)
         </div>
       )}
 
-      {/* Sticky toolbar */}
-      <div className="sticky top-[5.35rem] z-40 -mx-1 px-1 pb-2" data-no-print>
+      {/* Keep the controls in document flow so they cannot obscure mobile fields. */}
+      <div className="-mx-1 px-1 pb-2" data-no-print>
         <div className="surface-panel px-3 py-3 sm:px-4">
           <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
             <div className="flex items-center gap-2">
@@ -555,7 +611,7 @@ export function ChecklistView({ checklist, items, isAdmin }: ChecklistViewProps)
                   {saveStatusMessage}
                 </span>
               )}
-              <div className="flex rounded-2xl border border-border/70 bg-white/75 p-1">
+              <div className="grid w-full min-w-0 grid-cols-3 rounded-2xl border border-border/70 bg-white/75 p-1 sm:w-auto">
                 {(['all', 'missing', 'unchecked'] as const).map((mode) => (
                   <Button
                     key={mode}
@@ -563,7 +619,7 @@ export function ChecklistView({ checklist, items, isAdmin }: ChecklistViewProps)
                     size="sm"
                     onClick={() => setFilterMode(mode)}
                     aria-pressed={filterMode === mode}
-                    className="h-7 rounded-xl px-2 text-xs"
+                    className="h-11 min-w-0 whitespace-normal rounded-xl px-2 text-center text-xs"
                   >
                     {mode === 'all' && de.checklist.showAll}
                     {mode === 'missing' && `${de.checklist.showMissingOnly} (${missingCount})`}
@@ -571,29 +627,39 @@ export function ChecklistView({ checklist, items, isAdmin }: ChecklistViewProps)
                   </Button>
                 ))}
               </div>
+              <details className="relative">
+                <summary className="flex min-h-11 cursor-pointer items-center rounded-xl border border-border px-3 text-xs font-medium">Weitere Aktionen</summary>
+                <div className="absolute left-0 top-full z-40 mt-2 flex w-64 flex-col gap-2 rounded-2xl border bg-card p-3 shadow-xl sm:left-auto sm:right-0">
               {!isReadOnly && visibleUncheckedCount > 0 && (
-                <Button variant="outline" size="sm" onClick={queueVisibleItemsChecked}>
+                <Button variant="outline" size="sm" className="h-11" onClick={() => setBulkItemIds(
+                  visibleItems.filter((item) => !itemStatesRef.current[item.id]?.isChecked).map((item) => item.id)
+                )}>
                   {de.checklist.markVisibleChecked}
                 </Button>
               )}
               <Button
                 variant="outline"
                 size="sm"
+                className="h-11"
+                nativeButton={false}
                 render={<a href={`/api/export/${checklist.id}`} download />}
               >
                 {de.dashboard.exportExcel}
               </Button>
               {isCompleted && isAdmin && (
-                <Button variant="outline" size="sm" onClick={handleReopen} disabled={reopening}>
+                <Button variant="outline" size="sm" className="h-11" onClick={handleReopen} disabled={reopening}>
                   {reopening ? de.common.loading : de.checklist.reopen}
                 </Button>
               )}
+                </div>
+              </details>
               {!isCompleted && (
                 <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
                   <DialogTrigger
                     render={
                       <Button
                         size="sm"
+                        className="h-11"
                         disabled={completing || checkedCount < totalCount}
                       />
                     }
@@ -621,7 +687,29 @@ export function ChecklistView({ checklist, items, isAdmin }: ChecklistViewProps)
             </div>
           </div>
 
-          <div className="mt-3 flex items-center gap-2 text-xs text-muted-foreground">
+          <div className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-[minmax(0,1fr)_200px]">
+            <Input
+              type="search" value={search} onChange={(event) => setSearch(event.target.value)}
+              placeholder="Produkt suchen …" aria-label="Produkt suchen" className="h-12 text-base"
+            />
+            <select
+              aria-label="Lagerort" value={locationCode} onChange={(event) => setLocationCode(event.target.value)}
+              className="h-12 min-w-0 rounded-2xl border border-input bg-card px-3 text-base"
+            >
+              <option value="all">Alle Lagerorte</option>
+              {grouped.map((location) => <option key={location.locationCode} value={location.locationCode}>{location.locationName}</option>)}
+            </select>
+          </div>
+          <div className="mt-2 flex items-center justify-between gap-2">
+            <span className="text-xs text-muted-foreground">{visibleItems.length} Produkte</span>
+            <div className="flex gap-1" aria-label="Ansicht">
+              <Button variant={entryMode === 'list' ? 'default' : 'outline'} className="h-11" size="sm" aria-pressed={entryMode === 'list'} onClick={() => setEntryMode('list')}>Liste</Button>
+              <Button variant={entryMode === 'single' ? 'default' : 'outline'} className="h-11" size="sm" aria-pressed={entryMode === 'single'} onClick={() => setEntryMode('single')}>Einzeln</Button>
+            </div>
+          </div>
+          {hasSaveError && <Button variant="outline" className="mt-2 h-11" onClick={() => void flushPendingChanges()}>Erneut speichern</Button>}
+
+          <div className="mt-3 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
             <span className="font-medium">
               {de.checklist.progress
                 .replace('{checked}', String(checkedCount))
@@ -634,7 +722,7 @@ export function ChecklistView({ checklist, items, isAdmin }: ChecklistViewProps)
               />
             </div>
             <span className="tabular-nums font-semibold text-foreground">{progressPercent}%</span>
-            {filterMode !== 'all' && hiddenByFilter > 0 && (
+            {hiddenByFilter > 0 && (
               <Badge variant="outline" className="border-amber-300 bg-amber-50 text-amber-700">
                 {de.checklist.filterActiveLabel.replace('{count}', String(hiddenByFilter))}
               </Badge>
@@ -645,7 +733,7 @@ export function ChecklistView({ checklist, items, isAdmin }: ChecklistViewProps)
 
       <div className="rounded-2xl border border-border/70 bg-white/80 shadow-[0_10px_30px_-24px_rgba(38,32,29,0.25)]">
         <div
-          className="sticky top-[8.5rem] z-30 hidden grid-cols-[minmax(0,1fr)_minmax(132px,160px)_88px_44px] items-center gap-3 border-b border-border/60 bg-background/95 px-2 py-2 text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-foreground backdrop-blur sm:grid"
+          className="hidden grid-cols-[minmax(0,1fr)_minmax(132px,160px)_88px_44px] items-center gap-3 border-b border-border/60 bg-background/95 px-2 py-2 text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-foreground sm:grid"
           data-no-print
         >
           <span>{de.checklist.product}</span>
@@ -655,7 +743,13 @@ export function ChecklistView({ checklist, items, isAdmin }: ChecklistViewProps)
           <span className="text-center" title={de.checklist.missing}>{de.checklist.missing}</span>
           <span className="text-center" title={de.checklist.checked}>{de.checklist.checked}</span>
         </div>
-        {grouped.map((location) => {
+        {entryMode === 'single' && focusedItem && (
+          <section>
+            <div className="border-b bg-secondary/95 px-3 py-2 text-sm font-semibold">{focusedItem.products.storage_locations.name}</div>
+            {renderItemRow(focusedItem, 'single-item')}
+          </section>
+        )}
+        {entryMode === 'list' && grouped.map((location) => {
           const visibleCategories = location.categories
             .map((category) => ({
               ...category,
@@ -676,7 +770,7 @@ export function ChecklistView({ checklist, items, isAdmin }: ChecklistViewProps)
 
           return (
             <section key={location.locationCode} className="border-b border-border/40 last:border-b-0">
-              <header className="sticky top-[10.5rem] z-20 flex items-center gap-2 border-b border-border/60 bg-secondary/95 px-3 py-2 backdrop-blur">
+              <header className="flex items-center gap-2 border-b border-border/60 bg-secondary/95 px-3 py-2">
                 <Badge variant="secondary" className="font-mono text-[0.65rem]">
                   {location.locationCode}
                 </Badge>
@@ -691,28 +785,7 @@ export function ChecklistView({ checklist, items, isAdmin }: ChecklistViewProps)
               {visibleCategories.map((category) => (
                 <div key={category.categoryName}>
                   <div>
-                    {category.items.map((item) => (
-                      <ChecklistItemRow
-                        key={item.id}
-                        item={item}
-                        state={itemStates[item.id]}
-                        isReadOnly={isReadOnly}
-                        onStockChange={(value) => {
-                          queueLocalItemChange(item.id, { currentStock: value });
-                        }}
-                        onStockBlur={() => {
-                          void flushPendingChanges();
-                        }}
-                        onMissingToggle={() => {
-                          queueLocalItemChange(item.id, {
-                            isMissing: !itemStatesRef.current[item.id]?.isMissing,
-                          });
-                        }}
-                        onCheckToggle={(checked) => {
-                          queueLocalItemChange(item.id, { isChecked: checked });
-                        }}
-                      />
-                    ))}
+                    {category.items.map((item) => renderItemRow(item))}
                   </div>
                 </div>
               ))}
@@ -720,6 +793,43 @@ export function ChecklistView({ checklist, items, isAdmin }: ChecklistViewProps)
           );
         })}
       </div>
+      {visibleItems.length === 0 && (
+        <div className="surface-subtle p-5 text-center text-sm">
+          Keine Produkte gefunden.
+          <Button variant="outline" className="ml-2 h-11" onClick={() => { setSearch(''); setLocationCode('all'); setFilterMode('all'); }}>Filter zurücksetzen</Button>
+        </div>
+      )}
+      {entryMode === 'single' && visibleItems.length > 0 && (
+        <div className="flex items-center justify-between gap-2" data-no-print>
+          <Button variant="outline" className="h-12" disabled={navigationIndex <= 0} onClick={() => navigateStock(-1, false)}>Zurück</Button>
+          <span className="text-xs tabular-nums">{navigationIndex + 1} / {visibleItems.length}</span>
+          <Button variant="outline" className="h-12" disabled={navigationIndex >= visibleItems.length - 1} onClick={() => navigateStock(1, false)}>Weiter</Button>
+        </div>
+      )}
+      {keyboard.open && (
+        <div
+          className="fixed inset-x-0 z-[60] flex h-14 items-center justify-between gap-2 border-t bg-card px-3 shadow-lg md:hidden"
+          style={{ top: keyboard.top }} data-no-print role="toolbar" aria-label="Bestandseingabe"
+          onPointerDown={(event) => event.preventDefault()}
+        >
+          <Button variant="outline" className="h-11" disabled={navigationIndex <= 0} onClick={() => navigateStock(-1)}>Zurück</Button>
+          <span className="min-w-0 flex-1 text-center text-xs" role="status">{saveStatusMessage}</span>
+          <Button variant="outline" className="h-11" disabled={navigationIndex >= visibleItems.length - 1} onClick={() => navigateStock(1)}>Weiter</Button>
+          <Button className="h-11" onClick={() => { stockInputs.current.get(navigationId ?? '')?.blur(); void flushPendingChanges(); }}>Fertig</Button>
+        </div>
+      )}
+      <Dialog open={bulkItemIds.length > 0} onOpenChange={(open) => { if (!open) setBulkItemIds([]); }}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>{bulkItemIds.length} Produkte als geprüft markieren?</DialogTitle>
+            <DialogDescription>Dies gilt für die Produkte der aktuellen Suche und Lagerortauswahl, auch außerhalb des Bildschirms.</DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <DialogClose render={<Button variant="outline" />}>{de.common.cancel}</DialogClose>
+            <Button onClick={queueVisibleItemsChecked}>Als geprüft markieren</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

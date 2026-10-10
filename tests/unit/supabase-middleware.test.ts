@@ -85,7 +85,7 @@ describe('updateSession', () => {
     vi.useFakeTimers();
     let observedSignal: AbortSignal | undefined;
     vi.stubGlobal('fetch', vi.fn((_input: RequestInfo | URL, init?: RequestInit) => {
-      observedSignal = init?.signal;
+      observedSignal = init?.signal ?? undefined;
       return new Promise<Response>((_resolve, reject) => {
         init?.signal?.addEventListener('abort', () => reject(new DOMException('aborted', 'AbortError')));
       });

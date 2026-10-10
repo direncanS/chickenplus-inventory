@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
 
 import { act, cleanup, fireEvent, render, screen } from '@testing-library/react';
+import React from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { ChecklistView } from '@/components/checklist/checklist-view';
 
@@ -70,6 +71,89 @@ describe('ChecklistView', () => {
       value: true,
     });
     vi.useRealTimers();
+  });
+
+  function renderThreeProductFixture(strict = false) {
+    const locations = [
+      ['D', 'Dry', 1],
+      ['C', 'Cool', 2],
+    ] as const;
+    const items = ([
+      ['item-1', 'Bowl', 'D', 1],
+      ['item-2', 'Bowl Deckel', 'D', 2],
+      ['item-3', 'Napkin', 'C', 3],
+    ] as Array<[string, string, 'D' | 'C', number]>).map(([id, name, code, sort_order], index) => ({
+      id, checklist_id: 'checklist-1', product_id: `product-${index + 1}`, product_name: name,
+      min_stock_snapshot: 1, min_stock_max_snapshot: null, current_stock: null,
+      is_missing: false, is_checked: false,
+      products: {
+        sort_order, complement_of_id: null, unit: 'karton',
+        storage_locations: { name: locations.find(([locationCode]) => locationCode === code)![1], code, sort_order: code === 'D' ? 1 : 2 },
+        categories: { name: 'Packaging', sort_order: 1 },
+      },
+    }));
+    const view = <ChecklistView checklist={{ id: 'checklist-1', iso_year: 2026, iso_week: 14, status: 'draft', order_generation_status: 'idle', order_generation_orders_created: 0, order_generation_error: null }} items={items} isAdmin={false} />;
+    return render(strict ? <React.StrictMode>{view}</React.StrictMode> : view);
+  }
+
+  it('combines product search and location filters, and resets zero results', async () => {
+    renderThreeProductFixture();
+    fireEvent.change(screen.getByRole('searchbox', { name: 'Produkt suchen' }), { target: { value: 'Deckel' } });
+    fireEvent.change(screen.getByRole('combobox', { name: 'Lagerort' }), { target: { value: 'D' } });
+    expect(screen.getByText('Bowl Deckel')).toBeTruthy();
+    expect(screen.queryByText('Napkin')).toBeNull();
+    fireEvent.change(screen.getByRole('searchbox', { name: 'Produkt suchen' }), { target: { value: 'kein Treffer' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Filter zurücksetzen' }));
+    expect(screen.getAllByText('3 Produkte').length).toBeGreaterThan(0);
+    expect(screen.getByText('Napkin')).toBeTruthy();
+  });
+
+  it('keeps free text and independent flags while navigating single mode', async () => {
+    renderThreeProductFixture();
+    await act(async () => { fireEvent.click(screen.getByRole('button', { name: 'Einzeln' })); });
+    const first = screen.getByRole('textbox', { name: 'Bestand: Bowl' }) as HTMLInputElement;
+    await act(async () => { fireEvent.change(first, { target: { value: '2 Pkg. + Rest' } }); });
+    await act(async () => { fireEvent.keyDown(first, { key: 'Enter' }); });
+    const second = screen.getByRole('textbox', { name: 'Bestand: Bowl Deckel' });
+    expect(document.activeElement).toBe(second);
+    await act(async () => { fireEvent.click(screen.getByRole('button', { name: 'Zurück' })); });
+    expect((screen.getByRole('textbox', { name: 'Bestand: Bowl' }) as HTMLInputElement).value).toBe('2 Pkg. + Rest');
+    expect(screen.getByRole('button', { name: 'Fehlt: Bowl' }).getAttribute('aria-pressed')).toBe('false');
+    expect(screen.getByRole('checkbox', { name: 'Geprüft: Bowl' }).getAttribute('aria-checked')).toBe('false');
+  });
+
+  it('uses Enter to focus the next visible list product', async () => {
+    renderThreeProductFixture();
+    fireEvent.change(screen.getByRole('searchbox', { name: 'Produkt suchen' }), { target: { value: 'Bowl' } });
+    const first = screen.getByRole('textbox', { name: 'Bestand: Bowl' });
+    fireEvent.keyDown(first, { key: 'Enter' });
+    expect(document.activeElement).toBe(screen.getByRole('textbox', { name: 'Bestand: Bowl Deckel' }));
+  });
+
+  it('confirms bulk marking only for products matching the active search', async () => {
+    renderThreeProductFixture();
+    await act(async () => { fireEvent.change(screen.getByRole('searchbox', { name: 'Produkt suchen' }), { target: { value: 'Deckel' } }); });
+    await act(async () => { fireEvent.click(screen.getByRole('button', { name: 'Sichtbare prüfen' })); });
+    expect(screen.getByText('1 Produkte als geprüft markieren?')).toBeTruthy();
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: 'Als geprüft markieren' }));
+      await vi.advanceTimersByTimeAsync(600);
+    });
+    expect(updateChecklistItemsBatchMock).toHaveBeenCalledWith({ checklistId: 'checklist-1', items: [{ checklistItemId: 'item-2', currentStock: null, isMissing: false, isChecked: true }] });
+  });
+
+  it('keeps stock editing and autosave alive through StrictMode remounts', async () => {
+    const { unmount } = renderThreeProductFixture(true);
+    const input = screen.getByRole('textbox', { name: 'Bestand: Bowl' }) as HTMLInputElement;
+    await act(async () => {
+      fireEvent.change(input, { target: { value: '2 Pkg. + Rest' } });
+      await vi.advanceTimersByTimeAsync(600);
+    });
+    expect(input.value).toBe('2 Pkg. + Rest');
+    expect(updateChecklistItemsBatchMock).toHaveBeenCalledWith(expect.objectContaining({
+      items: expect.arrayContaining([expect.objectContaining({ checklistItemId: 'item-1', currentStock: '2 Pkg. + Rest' })]),
+    }));
+    unmount();
   });
 
   it('updates progress instantly and batches rapid checkbox edits into one save', async () => {
@@ -278,6 +362,10 @@ describe('ChecklistView', () => {
 
     await act(async () => {
       fireEvent.click(screen.getByRole('button', { name: 'Sichtbare prüfen' }));
+    });
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: 'Als geprüft markieren' }));
     });
 
     await act(async () => {

@@ -157,6 +157,17 @@
   padding-top: env(safe-area-inset-top, 0px);
 }
 
+@media (max-width: 767px) {
+  html[data-stock-keyboard] [data-app-bottom-nav] {
+    display: none;
+  }
+  html[data-stock-keyboard] [data-app-header] {
+    /* Preserve document geometry while removing the sticky obstruction. */
+    visibility: hidden;
+    pointer-events: none;
+  }
+}
+
 /* ============================================
  * Print layout — A4 friendly, target ≤3 pages
  * Triggered by browser print dialog (Ctrl+P) or "Drucken" button.
