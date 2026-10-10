@@ -70,6 +70,7 @@ export function Header({ counts }: HeaderProps) {
         scrolled ? 'px-2 pt-2 md:px-4 md:pt-3' : 'px-3 pt-3 md:px-6 md:pt-6'
       )}
       data-no-print
+      data-app-header
     >
       <div className="app-grid">
         <div
