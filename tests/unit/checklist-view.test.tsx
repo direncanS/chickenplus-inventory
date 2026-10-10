@@ -368,4 +368,86 @@ describe('ChecklistView', () => {
       ],
     });
   });
+
+  it('renders a complement product directly after its base, ignoring its own sort_order', () => {
+    const { container } = render(
+      <ChecklistView
+        checklist={{
+          id: 'checklist-1',
+          iso_year: 2026,
+          iso_week: 14,
+          status: 'draft',
+          order_generation_status: 'idle',
+          order_generation_orders_created: 0,
+          order_generation_error: null,
+        }}
+        items={[
+          {
+            id: 'item-1',
+            checklist_id: 'checklist-1',
+            product_id: 'product-1',
+            product_name: 'Bowl',
+            min_stock_snapshot: 1,
+            min_stock_max_snapshot: null,
+            current_stock: null,
+            is_missing: false,
+            is_checked: false,
+            products: {
+              sort_order: 1,
+              complement_of_id: null,
+              unit: 'karton',
+              storage_locations: { name: 'Dry', code: 'D', sort_order: 1 },
+              categories: { name: 'Packaging', sort_order: 1 },
+            },
+          },
+          {
+            id: 'item-2',
+            checklist_id: 'checklist-1',
+            product_id: 'product-2',
+            product_name: 'Napkin',
+            min_stock_snapshot: 1,
+            min_stock_max_snapshot: null,
+            current_stock: null,
+            is_missing: false,
+            is_checked: false,
+            products: {
+              sort_order: 2,
+              complement_of_id: null,
+              unit: 'karton',
+              storage_locations: { name: 'Dry', code: 'D', sort_order: 1 },
+              categories: { name: 'Packaging', sort_order: 1 },
+            },
+          },
+          {
+            id: 'item-3',
+            checklist_id: 'checklist-1',
+            product_id: 'product-3',
+            product_name: 'Deckel',
+            min_stock_snapshot: 1,
+            min_stock_max_snapshot: null,
+            current_stock: null,
+            is_missing: false,
+            is_checked: false,
+            products: {
+              sort_order: 10,
+              complement_of_id: 'product-1',
+              unit: 'karton',
+              storage_locations: { name: 'Dry', code: 'D', sort_order: 1 },
+              categories: { name: 'Packaging', sort_order: 1 },
+            },
+          },
+        ]}
+        isAdmin={false}
+      />
+    );
+
+    const text = container.textContent ?? '';
+    const bowlIndex = text.indexOf('Bowl');
+    const deckelIndex = text.indexOf('Deckel');
+    const napkinIndex = text.indexOf('Napkin');
+
+    // Deckel (sort_order 10) must sit right after its base Bowl, before Napkin (sort_order 2).
+    expect(bowlIndex).toBeLessThan(deckelIndex);
+    expect(deckelIndex).toBeLessThan(napkinIndex);
+  });
 });

@@ -17,6 +17,7 @@ export const createProductSchema = z
     minStockMax: nullablePositiveNumber,
     sortOrder: z.number().int().min(0).max(10000),
     preferredSupplierId: z.string().uuid().nullable().optional(),
+    complementOfId: z.string().uuid().nullable().optional(),
   })
   .refine(
     (value) =>

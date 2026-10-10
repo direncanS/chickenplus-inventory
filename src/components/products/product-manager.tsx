@@ -29,6 +29,7 @@ export interface ProductRow {
   min_stock: number | null;
   min_stock_max: number | null;
   sort_order: number;
+  complement_of_id: string | null;
   is_active: boolean;
   updated_at: string;
   storage_locations: {
@@ -338,6 +339,7 @@ export function ProductManager({
         open={formOpen}
         onOpenChange={setFormOpen}
         product={editingProduct}
+        products={products}
         storageLocations={storageLocations}
         categories={categories}
         suppliers={suppliers}

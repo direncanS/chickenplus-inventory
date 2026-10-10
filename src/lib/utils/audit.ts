@@ -4,6 +4,7 @@ import { logger } from '@/lib/utils/logger';
 type AuditAction =
   | 'checklist_created'
   | 'checklist_deleted'
+  | 'checklist_rolled_over'
   | 'checklist_completed'
   | 'checklist_exported'
   | 'orders_exported'
