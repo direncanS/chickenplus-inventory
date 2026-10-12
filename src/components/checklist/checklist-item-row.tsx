@@ -120,7 +120,8 @@ export function ChecklistItemRow({
         disabled={isReadOnly}
         className={cn(
           'h-12 w-full text-xs font-bold sm:h-10 sm:w-[88px]',
-          state.isMissing && 'border-rose-500 bg-rose-500 text-white hover:bg-rose-600'
+          state.isMissing &&
+            'border-red-600 bg-red-600 text-white hover:bg-red-700 dark:border-red-600 dark:bg-red-600 dark:hover:bg-red-700'
         )}
         title={`${de.checklist.missing}: ${item.product_name}`}
         aria-pressed={state.isMissing}
