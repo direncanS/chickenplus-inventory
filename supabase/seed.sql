@@ -1,20 +1,19 @@
 -- ============================================
 -- Chickenplus Bestandskontrolle - Seed Data
--- 7 storage locations, 16 categories, 126 products
+-- 6 storage locations, 15 categories, 128 products
 -- ============================================
 
--- Storage Locations (7)
+-- Storage Locations (6)
 INSERT INTO storage_locations (code, name, sort_order) VALUES
   ('D', 'Depo / Lager', 1),
   ('KH', 'Kühlhaus Chickenplus', 2),
   ('KH-DIYAR', 'Kühlhaus Diyar', 3),
   ('TK', 'Tiefküche', 4),
   ('B', 'Basics', 5),
-  ('M', 'Mutfak', 6),
-  ('K', 'Kaffee', 7)
+  ('K', 'Kaffee', 6)
 ON CONFLICT (code) DO NOTHING;
 
--- Categories (16: 11 named + 5 general for locations without sub-categories)
+-- Categories (15: 11 named + 4 general for locations without sub-categories)
 -- D: Depo / Lager (6 categories)
 INSERT INTO categories (storage_location_id, name, sort_order) VALUES
   ((SELECT id FROM storage_locations WHERE code = 'D'), 'Getränke', 1),
@@ -39,15 +38,14 @@ INSERT INTO categories (storage_location_id, name, sort_order) VALUES
   ((SELECT id FROM storage_locations WHERE code = 'KH-DIYAR'), 'Allgemein', 1),
   ((SELECT id FROM storage_locations WHERE code = 'TK'), 'Allgemein', 1),
   ((SELECT id FROM storage_locations WHERE code = 'B'), 'Allgemein', 1),
-  ((SELECT id FROM storage_locations WHERE code = 'M'), 'Allgemein', 1),
   ((SELECT id FROM storage_locations WHERE code = 'K'), 'Allgemein', 1)
 ON CONFLICT (storage_location_id, name) DO NOTHING;
 
 -- ============================================
--- Products (126 total)
+-- Products (128 total)
 -- ============================================
 
--- D / Getränke (20 products)
+-- D / Getränke (21 products)
 INSERT INTO products (name, storage_location_id, category_id, unit, min_stock, min_stock_max, sort_order) VALUES
   ('Cola', (SELECT id FROM storage_locations WHERE code = 'D'), (SELECT c.id FROM categories c JOIN storage_locations sl ON c.storage_location_id = sl.id WHERE sl.code = 'D' AND c.name = 'Getränke'), 'koli', 10, NULL, 1),
   ('Colazero', (SELECT id FROM storage_locations WHERE code = 'D'), (SELECT c.id FROM categories c JOIN storage_locations sl ON c.storage_location_id = sl.id WHERE sl.code = 'D' AND c.name = 'Getränke'), 'koli', 8, NULL, 2),
@@ -72,7 +70,7 @@ INSERT INTO products (name, storage_location_id, category_id, unit, min_stock, m
   ('Fritz honig melone', (SELECT id FROM storage_locations WHERE code = 'D'), (SELECT c.id FROM categories c JOIN storage_locations sl ON c.storage_location_id = sl.id WHERE sl.code = 'D' AND c.name = 'Getränke'), 'kiste', 1, NULL, 21)
 ON CONFLICT (storage_location_id, category_id, name) DO NOTHING;
 
--- D / Verpackung (19 products)
+-- D / Verpackung (24 products)
 INSERT INTO products (name, storage_location_id, category_id, unit, min_stock, min_stock_max, sort_order) VALUES
   ('Kaffeebecher', (SELECT id FROM storage_locations WHERE code = 'D'), (SELECT c.id FROM categories c JOIN storage_locations sl ON c.storage_location_id = sl.id WHERE sl.code = 'D' AND c.name = 'Verpackung'), 'karton', 1, NULL, 1),
   ('Espressobecher', (SELECT id FROM storage_locations WHERE code = 'D'), (SELECT c.id FROM categories c JOIN storage_locations sl ON c.storage_location_id = sl.id WHERE sl.code = 'D' AND c.name = 'Verpackung'), 'karton', 1, NULL, 2),
@@ -95,7 +93,9 @@ INSERT INTO products (name, storage_location_id, category_id, unit, min_stock, m
   ('Burgerpapier', (SELECT id FROM storage_locations WHERE code = 'D'), (SELECT c.id FROM categories c JOIN storage_locations sl ON c.storage_location_id = sl.id WHERE sl.code = 'D' AND c.name = 'Verpackung'), 'pack', 3, NULL, 20),
   ('Papier f Serviertablette', (SELECT id FROM storage_locations WHERE code = 'D'), (SELECT c.id FROM categories c JOIN storage_locations sl ON c.storage_location_id = sl.id WHERE sl.code = 'D' AND c.name = 'Verpackung'), 'pack', 3, NULL, 21),
   ('Deckel f Käsesauce', (SELECT id FROM storage_locations WHERE code = 'D'), (SELECT c.id FROM categories c JOIN storage_locations sl ON c.storage_location_id = sl.id WHERE sl.code = 'D' AND c.name = 'Verpackung'), 'pack', 3, NULL, 22),
-  ('Limonade Becher Deckel', (SELECT id FROM storage_locations WHERE code = 'D'), (SELECT c.id FROM categories c JOIN storage_locations sl ON c.storage_location_id = sl.id WHERE sl.code = 'D' AND c.name = 'Verpackung'), 'stueck', 1, NULL, 4)
+  ('Limonade Becher Deckel', (SELECT id FROM storage_locations WHERE code = 'D'), (SELECT c.id FROM categories c JOIN storage_locations sl ON c.storage_location_id = sl.id WHERE sl.code = 'D' AND c.name = 'Verpackung'), 'stueck', 1, NULL, 4),
+  ('Käsesaucebecher 230ml', (SELECT id FROM storage_locations WHERE code = 'D'), (SELECT c.id FROM categories c JOIN storage_locations sl ON c.storage_location_id = sl.id WHERE sl.code = 'D' AND c.name = 'Verpackung'), 'pack', 10, NULL, 24),
+  ('Drucker Etiketten', (SELECT id FROM storage_locations WHERE code = 'D'), (SELECT c.id FROM categories c JOIN storage_locations sl ON c.storage_location_id = sl.id WHERE sl.code = 'D' AND c.name = 'Verpackung'), 'stueck', 6, NULL, 25)
 ON CONFLICT (storage_location_id, category_id, name) DO NOTHING;
 
 -- D / Besteck & Zubehör (5 products)
@@ -107,7 +107,7 @@ INSERT INTO products (name, storage_location_id, category_id, unit, min_stock, m
   ('Zahnstocher', (SELECT id FROM storage_locations WHERE code = 'D'), (SELECT c.id FROM categories c JOIN storage_locations sl ON c.storage_location_id = sl.id WHERE sl.code = 'D' AND c.name = 'Besteck & Zubehör'), 'stueck', NULL, NULL, 5)
 ON CONFLICT (storage_location_id, category_id, name) DO NOTHING;
 
--- D / Soßen & Konserven (12 products)
+-- D / Soßen & Konserven (11 products)
 INSERT INTO products (name, storage_location_id, category_id, unit, min_stock, min_stock_max, sort_order) VALUES
   ('Essiggurke', (SELECT id FROM storage_locations WHERE code = 'D'), (SELECT c.id FROM categories c JOIN storage_locations sl ON c.storage_location_id = sl.id WHERE sl.code = 'D' AND c.name = 'Soßen & Konserven'), 'stueck', 6, NULL, 1),
   ('Jalapenos', (SELECT id FROM storage_locations WHERE code = 'D'), (SELECT c.id FROM categories c JOIN storage_locations sl ON c.storage_location_id = sl.id WHERE sl.code = 'D' AND c.name = 'Soßen & Konserven'), 'stueck', 4, NULL, 2),
@@ -129,7 +129,7 @@ INSERT INTO products (name, storage_location_id, category_id, unit, min_stock, m
   ('Sonnenblumenöl', (SELECT id FROM storage_locations WHERE code = 'D'), (SELECT c.id FROM categories c JOIN storage_locations sl ON c.storage_location_id = sl.id WHERE sl.code = 'D' AND c.name = 'Kochen'), 'karton', 12, NULL, 3)
 ON CONFLICT (storage_location_id, category_id, name) DO NOTHING;
 
--- D / Reinigung & Hygiene (9 products)
+-- D / Reinigung & Hygiene (10 products)
 INSERT INTO products (name, storage_location_id, category_id, unit, min_stock, min_stock_max, sort_order) VALUES
   ('Handschuhe', (SELECT id FROM storage_locations WHERE code = 'D'), (SELECT c.id FROM categories c JOIN storage_locations sl ON c.storage_location_id = sl.id WHERE sl.code = 'D' AND c.name = 'Reinigung & Hygiene'), 'karton', 1, NULL, 1),
   ('Handtuchrolle', (SELECT id FROM storage_locations WHERE code = 'D'), (SELECT c.id FROM categories c JOIN storage_locations sl ON c.storage_location_id = sl.id WHERE sl.code = 'D' AND c.name = 'Reinigung & Hygiene'), 'pack', 18, NULL, 2),
@@ -139,7 +139,8 @@ INSERT INTO products (name, storage_location_id, category_id, unit, min_stock, m
   ('Mistsackel160lt', (SELECT id FROM storage_locations WHERE code = 'D'), (SELECT c.id FROM categories c JOIN storage_locations sl ON c.storage_location_id = sl.id WHERE sl.code = 'D' AND c.name = 'Reinigung & Hygiene'), 'pack', 4, NULL, 6),
   ('Geschirrspülmittel Hand', (SELECT id FROM storage_locations WHERE code = 'D'), (SELECT c.id FROM categories c JOIN storage_locations sl ON c.storage_location_id = sl.id WHERE sl.code = 'D' AND c.name = 'Reinigung & Hygiene'), 'stueck', 2, NULL, 7),
   ('Grillreiniger', (SELECT id FROM storage_locations WHERE code = 'D'), (SELECT c.id FROM categories c JOIN storage_locations sl ON c.storage_location_id = sl.id WHERE sl.code = 'D' AND c.name = 'Reinigung & Hygiene'), 'stueck', 2, NULL, 8),
-  ('Glasreiniger', (SELECT id FROM storage_locations WHERE code = 'D'), (SELECT c.id FROM categories c JOIN storage_locations sl ON c.storage_location_id = sl.id WHERE sl.code = 'D' AND c.name = 'Reinigung & Hygiene'), 'stueck', 1, NULL, 9)
+  ('Glasreiniger', (SELECT id FROM storage_locations WHERE code = 'D'), (SELECT c.id FROM categories c JOIN storage_locations sl ON c.storage_location_id = sl.id WHERE sl.code = 'D' AND c.name = 'Reinigung & Hygiene'), 'stueck', 1, NULL, 9),
+  ('Haarnetz', (SELECT id FROM storage_locations WHERE code = 'D'), (SELECT c.id FROM categories c JOIN storage_locations sl ON c.storage_location_id = sl.id WHERE sl.code = 'D' AND c.name = 'Reinigung & Hygiene'), 'pack', 1, NULL, 10)
 ON CONFLICT (storage_location_id, category_id, name) DO NOTHING;
 
 -- KH / Fleisch (3 products)
@@ -167,7 +168,7 @@ INSERT INTO products (name, storage_location_id, category_id, unit, min_stock, m
   ('Tomaten', (SELECT id FROM storage_locations WHERE code = 'KH'), (SELECT c.id FROM categories c JOIN storage_locations sl ON c.storage_location_id = sl.id WHERE sl.code = 'KH' AND c.name = 'Gemüse & Salat'), 'kiste', 3, NULL, 3)
 ON CONFLICT (storage_location_id, category_id, name) DO NOTHING;
 
--- KH / Soßen (8 products)
+-- KH / Soßen (9 products)
 INSERT INTO products (name, storage_location_id, category_id, unit, min_stock, min_stock_max, sort_order) VALUES
   ('Sourcream', (SELECT id FROM storage_locations WHERE code = 'KH'), (SELECT c.id FROM categories c JOIN storage_locations sl ON c.storage_location_id = sl.id WHERE sl.code = 'KH' AND c.name = 'Soßen'), 'koli', 3, NULL, 1),
   ('BBQ Honigsauce', (SELECT id FROM storage_locations WHERE code = 'KH'), (SELECT c.id FROM categories c JOIN storage_locations sl ON c.storage_location_id = sl.id WHERE sl.code = 'KH' AND c.name = 'Soßen'), 'koli', 3, NULL, 2),
@@ -176,7 +177,8 @@ INSERT INTO products (name, storage_location_id, category_id, unit, min_stock, m
   ('Ketchup 10kg', (SELECT id FROM storage_locations WHERE code = 'KH'), (SELECT c.id FROM categories c JOIN storage_locations sl ON c.storage_location_id = sl.id WHERE sl.code = 'KH' AND c.name = 'Soßen'), 'kuebel', 2, NULL, 5),
   ('Mayo 10kg', (SELECT id FROM storage_locations WHERE code = 'KH'), (SELECT c.id FROM categories c JOIN storage_locations sl ON c.storage_location_id = sl.id WHERE sl.code = 'KH' AND c.name = 'Soßen'), 'kuebel', 5, NULL, 6),
   ('Ketchup Portion', (SELECT id FROM storage_locations WHERE code = 'KH'), (SELECT c.id FROM categories c JOIN storage_locations sl ON c.storage_location_id = sl.id WHERE sl.code = 'KH' AND c.name = 'Soßen'), 'karton', 2, NULL, 7),
-  ('Mayo Portion', (SELECT id FROM storage_locations WHERE code = 'KH'), (SELECT c.id FROM categories c JOIN storage_locations sl ON c.storage_location_id = sl.id WHERE sl.code = 'KH' AND c.name = 'Soßen'), 'karton', 2, NULL, 8)
+  ('Mayo Portion', (SELECT id FROM storage_locations WHERE code = 'KH'), (SELECT c.id FROM categories c JOIN storage_locations sl ON c.storage_location_id = sl.id WHERE sl.code = 'KH' AND c.name = 'Soßen'), 'karton', 2, NULL, 8),
+  ('Waffel-Schokoladensauce', (SELECT id FROM storage_locations WHERE code = 'KH'), (SELECT c.id FROM categories c JOIN storage_locations sl ON c.storage_location_id = sl.id WHERE sl.code = 'KH' AND c.name = 'Soßen'), NULL, NULL, NULL, 9)
 ON CONFLICT (storage_location_id, category_id, name) DO NOTHING;
 
 -- KH / Sonstiges (4 products)
@@ -223,22 +225,12 @@ INSERT INTO products (name, storage_location_id, category_id, unit, min_stock, m
   ('Saucebecher 50ml', (SELECT id FROM storage_locations WHERE code = 'B'), (SELECT c.id FROM categories c JOIN storage_locations sl ON c.storage_location_id = sl.id WHERE sl.code = 'B' AND c.name = 'Allgemein'), 'karton', 3, NULL, 8)
 ON CONFLICT (storage_location_id, category_id, name) DO NOTHING;
 
--- M / Allgemein (8 products)
-INSERT INTO products (name, storage_location_id, category_id, unit, min_stock, min_stock_max, sort_order) VALUES
-  ('Schnittlauch', (SELECT id FROM storage_locations WHERE code = 'M'), (SELECT c.id FROM categories c JOIN storage_locations sl ON c.storage_location_id = sl.id WHERE sl.code = 'M' AND c.name = 'Allgemein'), 'stueck', NULL, NULL, 1),
-  ('Teebutter', (SELECT id FROM storage_locations WHERE code = 'M'), (SELECT c.id FROM categories c JOIN storage_locations sl ON c.storage_location_id = sl.id WHERE sl.code = 'M' AND c.name = 'Allgemein'), 'stueck', 20, NULL, 2),
-  ('Honig', (SELECT id FROM storage_locations WHERE code = 'M'), (SELECT c.id FROM categories c JOIN storage_locations sl ON c.storage_location_id = sl.id WHERE sl.code = 'M' AND c.name = 'Allgemein'), 'stueck', NULL, NULL, 3),
-  ('Chilioil', (SELECT id FROM storage_locations WHERE code = 'M'), (SELECT c.id FROM categories c JOIN storage_locations sl ON c.storage_location_id = sl.id WHERE sl.code = 'M' AND c.name = 'Allgemein'), 'stueck', 1, NULL, 4),
-  ('Grillgewürz Billa', (SELECT id FROM storage_locations WHERE code = 'M'), (SELECT c.id FROM categories c JOIN storage_locations sl ON c.storage_location_id = sl.id WHERE sl.code = 'M' AND c.name = 'Allgemein'), 'stueck', 1, NULL, 5),
-  ('Käsesaucebecher 230ml', (SELECT id FROM storage_locations WHERE code = 'M'), (SELECT c.id FROM categories c JOIN storage_locations sl ON c.storage_location_id = sl.id WHERE sl.code = 'M' AND c.name = 'Allgemein'), 'pack', 10, NULL, 6),
-  ('Haarnetz', (SELECT id FROM storage_locations WHERE code = 'M'), (SELECT c.id FROM categories c JOIN storage_locations sl ON c.storage_location_id = sl.id WHERE sl.code = 'M' AND c.name = 'Allgemein'), 'pack', 1, NULL, 7),
-  ('Drucker Etiketten', (SELECT id FROM storage_locations WHERE code = 'M'), (SELECT c.id FROM categories c JOIN storage_locations sl ON c.storage_location_id = sl.id WHERE sl.code = 'M' AND c.name = 'Allgemein'), 'stueck', 6, NULL, 8)
-ON CONFLICT (storage_location_id, category_id, name) DO NOTHING;
-
--- K / Allgemein (2 products)
+-- K / Allgemein (4 products)
 INSERT INTO products (name, storage_location_id, category_id, unit, min_stock, min_stock_max, sort_order) VALUES
   ('Kaffee', (SELECT id FROM storage_locations WHERE code = 'K'), (SELECT c.id FROM categories c JOIN storage_locations sl ON c.storage_location_id = sl.id WHERE sl.code = 'K' AND c.name = 'Allgemein'), 'pack', 3, NULL, 1),
-  ('Kakaopulver', (SELECT id FROM storage_locations WHERE code = 'K'), (SELECT c.id FROM categories c JOIN storage_locations sl ON c.storage_location_id = sl.id WHERE sl.code = 'K' AND c.name = 'Allgemein'), 'pack', 1, NULL, 2)
+  ('Kakaopulver', (SELECT id FROM storage_locations WHERE code = 'K'), (SELECT c.id FROM categories c JOIN storage_locations sl ON c.storage_location_id = sl.id WHERE sl.code = 'K' AND c.name = 'Allgemein'), 'pack', 1, NULL, 2),
+  ('Milchschaumreiniger', (SELECT id FROM storage_locations WHERE code = 'K'), (SELECT c.id FROM categories c JOIN storage_locations sl ON c.storage_location_id = sl.id WHERE sl.code = 'K' AND c.name = 'Allgemein'), NULL, NULL, NULL, 3),
+  ('Kaffeemaschinen-Reinigungstabletten', (SELECT id FROM storage_locations WHERE code = 'K'), (SELECT c.id FROM categories c JOIN storage_locations sl ON c.storage_location_id = sl.id WHERE sl.code = 'K' AND c.name = 'Allgemein'), NULL, NULL, NULL, 4)
 ON CONFLICT (storage_location_id, category_id, name) DO NOTHING;
 
 -- ============================================
